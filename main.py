@@ -11,6 +11,7 @@ import pygame
 
 # Ensure root directory is on PYTHONPATH
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+os.environ["SDL_VIDEO_CENTERED"] = "1"
 
 from envs.robot_env import RobotEnv, draw_ghost_paths
 from model.world_model import load_model, WorldModel
@@ -23,13 +24,14 @@ from scripts.evaluate_robot import get_greedy_with_unstick_action
 # Logging Setup: console + logs/main.log
 # ---------------------------------------------------------------------------
 os.makedirs("logs", exist_ok=True)
+_handlers = [logging.FileHandler("logs/main.log", mode="a", encoding="utf-8")]
+if sys.stdout is not None:
+    _handlers.append(logging.StreamHandler(sys.stdout))
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/main.log", mode="a", encoding="utf-8")
-    ]
+    handlers=_handlers
 )
 logger = logging.getLogger("WorldModelApp")
 
@@ -74,7 +76,8 @@ class Application:
         fullscreen: bool = False,
         initial_seed: int = 1000,
         initial_scenario: int = 1,
-        force_split: bool = False
+        force_split: bool = True,
+        menu_mode: bool = False
     ):
         pygame.init()
         pygame.display.set_caption("World Model: Learn, Imagine, Act (NBA Accreditation Showcase)")
@@ -87,10 +90,23 @@ class Application:
         self.clock = pygame.time.Clock()
         self.running = True
 
+        # Determine screen bounds for responsive windowing
+        disp_info = pygame.display.Info()
+        screen_w = disp_info.current_w if disp_info.current_w > 0 else 1707
+        screen_h = disp_info.current_h if disp_info.current_h > 0 else 1067
+
+        if screen_w >= 1860 and screen_h >= 720:
+            self.split_width = 1800
+            self.split_height = 650
+        else:
+            self.split_width = min(1500, screen_w - 60)
+            self.split_height = min(560, screen_h - 120)
+
         # Setup Display Mode
-        w, h = (self.SPLIT_WIDTH, self.SPLIT_HEIGHT) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
+        w, h = (self.split_width, self.split_height) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
         flags = pygame.FULLSCREEN if self.fullscreen else 0
         self.screen = pygame.display.set_mode((w, h), flags)
+        self._bring_to_foreground()
 
         # Offscreen render surfaces
         self.surf_left = pygame.Surface((self.SINGLE_WIDTH, self.SINGLE_HEIGHT))
@@ -105,8 +121,8 @@ class Application:
         self.font_banner = pygame.font.SysFont("Arial", 15, bold=True)
         self.font_hud = pygame.font.SysFont("Consolas", 13)
 
-        # State management
-        self.state = self.STATE_ROBOTICS if self.demo_mode else self.STATE_MENU
+        # State management: start directly in ROBOTICS simulation
+        self.state = self.STATE_MENU if menu_mode else self.STATE_ROBOTICS
         self.show_imagination = True
         self.show_help = False
         self.banner_message = ""
@@ -150,19 +166,36 @@ class Application:
         self.last_pos_left = (0.0, 0.0)
         self.last_pos_right = (0.0, 0.0)
 
-        if self.demo_mode:
+        if self.state == self.STATE_ROBOTICS:
             self._enter_robotics()
 
-        logger.info(f"App initialized (demo={self.demo_mode}, split={self.split_mode}, scenario={self.robot_scenario})")
+        logger.info(f"App initialized (state={self.state}, split={self.split_mode}, scenario={self.robot_scenario})")
 
     # =========================================================================
     # DISPLAY RESIZING & HELPERS
     # =========================================================================
+    def _bring_to_foreground(self) -> None:
+        try:
+            import ctypes
+            wm = pygame.display.get_wm_info()
+            hwnd = wm.get("window")
+            if hwnd:
+                ctypes.windll.user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+                HWND_TOPMOST = -1
+                HWND_NOTOPMOST = -2
+                flags = 0x0002 | 0x0001 | 0x0040  # SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+                ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags)
+                ctypes.windll.user32.SetForegroundWindow(hwnd)
+                ctypes.windll.user32.SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags)
+        except Exception:
+            pass
+
     def _toggle_split_mode(self) -> None:
         self.split_mode = not self.split_mode
-        w, h = (self.SPLIT_WIDTH, self.SPLIT_HEIGHT) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
+        w, h = (self.split_width, self.split_height) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
         flags = pygame.FULLSCREEN if self.fullscreen else 0
         self.screen = pygame.display.set_mode((w, h), flags)
+        self._bring_to_foreground()
         self.set_banner(
             f"Split-Screen {'ENABLED (Greedy vs MPC)' if self.split_mode else 'DISABLED (Single View)'}",
             color=(0, 200, 255),
@@ -287,9 +320,10 @@ class Application:
             self.set_banner(f"Model error: {e}. Using baseline.", duration_frames=150)
 
     def _enter_robotics(self) -> None:
-        w, h = (self.SPLIT_WIDTH, self.SPLIT_HEIGHT) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
+        w, h = (self.split_width, self.split_height) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
         flags = pygame.FULLSCREEN if self.fullscreen else 0
         self.screen = pygame.display.set_mode((w, h), flags)
+        self._bring_to_foreground()
 
         self.env_left = RobotEnv(scenario=self.robot_scenario)
         self.env_right = RobotEnv(scenario=self.robot_scenario)
@@ -470,8 +504,11 @@ class Application:
 
         if self.split_mode:
             # -------------------------------------------------------------
-            # SPLIT-SCREEN MODE (1800 x 650)
+            # SPLIT-SCREEN MODE (Responsive width x height)
             # -------------------------------------------------------------
+            half_w = self.split_width // 2
+            viewport_h = self.split_height - 45
+
             # 1. Render Left Environment (Greedy)
             if self.env_left is not None:
                 self.env_left.render(self.surf_left)
@@ -483,7 +520,11 @@ class Application:
                     curr_env=self.env_left,
                     done=self.done_left
                 )
-                self.screen.blit(self.surf_left, (0, 45))
+                if (half_w, viewport_h) == (self.SINGLE_WIDTH, self.SINGLE_HEIGHT):
+                    self.screen.blit(self.surf_left, (0, 45))
+                else:
+                    scaled_l = pygame.transform.smoothscale(self.surf_left, (half_w, viewport_h))
+                    self.screen.blit(scaled_l, (0, 45))
 
             # 2. Render Right Environment (With World Model)
             if self.env_right is not None:
@@ -500,10 +541,14 @@ class Application:
                 )
                 if self.show_imagination:
                     self._draw_imagination_overlay(self.surf_right)
-                self.screen.blit(self.surf_right, (self.SINGLE_WIDTH, 45))
+                if (half_w, viewport_h) == (self.SINGLE_WIDTH, self.SINGLE_HEIGHT):
+                    self.screen.blit(self.surf_right, (half_w, 45))
+                else:
+                    scaled_r = pygame.transform.smoothscale(self.surf_right, (half_w, viewport_h))
+                    self.screen.blit(scaled_r, (half_w, 45))
 
             # 3. Center dividing line
-            pygame.draw.line(self.screen, (60, 80, 110), (self.SINGLE_WIDTH, 0), (self.SINGLE_WIDTH, self.SPLIT_HEIGHT), 2)
+            pygame.draw.line(self.screen, (60, 80, 110), (half_w, 0), (half_w, self.split_height), 2)
 
             # 4. Top Super-Header for Demonstration
             self._draw_split_super_header()
@@ -569,9 +614,9 @@ class Application:
             surf.blit(txt_s, (box.centerx - txt_s.get_width() // 2, box.centery - txt_s.get_height() // 2))
 
     def _draw_split_super_header(self) -> None:
-        bar_rect = pygame.Rect(0, 0, self.SPLIT_WIDTH, 44)
+        bar_rect = pygame.Rect(0, 0, self.split_width, 44)
         pygame.draw.rect(self.screen, (20, 26, 38), bar_rect)
-        pygame.draw.line(self.screen, (50, 65, 90), (0, 44), (self.SPLIT_WIDTH, 44), 2)
+        pygame.draw.line(self.screen, (50, 65, 90), (0, 44), (self.split_width, 44), 2)
 
         # Accreditation Title
         title_txt = "NBA EVALUATOR SHOWCASE: WORLD MODEL PREDICTIVE CONTROL VS REACTIVE GREEDY"
@@ -580,14 +625,14 @@ class Application:
 
         # Narrative badge in auto-demo
         if self.demo_mode:
-            act_txt = "ACT I: LEARN & IMAGINE (Static Chair)" if self.robot_scenario == 1 else "ACT II: DYNAMIC FORECAST (Moving Person)"
+            act_txt = "ACT I: LEARN & IMAGINE" if self.robot_scenario == 1 else "ACT II: DYNAMIC FORECAST"
             badge_surf = self.font_bold.render(f"AUTO-DEMO [{act_txt}]", True, (0, 255, 200))
-            self.screen.blit(badge_surf, (self.SPLIT_WIDTH // 2 - badge_surf.get_width() // 2, 12))
+            self.screen.blit(badge_surf, (self.split_width // 2 - badge_surf.get_width() // 2, 12))
 
         # Seed & Scenario badge
         scen_str = f"Scenario {self.robot_scenario} | Seed: {self.current_seed}"
         scen_surf = self.font_hud.render(scen_str, True, (160, 185, 215))
-        self.screen.blit(scen_surf, (self.SPLIT_WIDTH - scen_surf.get_width() - 20, 14))
+        self.screen.blit(scen_surf, (self.split_width - scen_surf.get_width() - 20, 14))
 
     def _draw_imagination_overlay(self, surf: pygame.Surface) -> None:
         """
@@ -850,7 +895,9 @@ def main():
     parser = argparse.ArgumentParser(description="World Model: Learn, Imagine, Act Demo")
     parser.add_argument("--demo", action="store_true", help="Launch in hands-free split-screen auto-demo mode.")
     parser.add_argument("--fullscreen", action="store_true", help="Launch in fullscreen mode.")
-    parser.add_argument("--split", action="store_true", help="Start directly in split-screen mode.")
+    parser.add_argument("--split", action="store_true", default=True, help="Start directly in split-screen mode (default).")
+    parser.add_argument("--single", action="store_true", help="Start in single-view mode instead of split-screen.")
+    parser.add_argument("--menu", action="store_true", help="Start at the selection menu instead of directly in simulation.")
     parser.add_argument("--seed", type=int, default=1000, help="Initial random seed.")
     parser.add_argument("--scenario", type=int, default=1, choices=[1, 2], help="Initial scenario.")
     parser.add_argument("--max-frames", type=int, default=None, help="Terminate after N frames (for tests).")
@@ -861,7 +908,8 @@ def main():
         fullscreen=args.fullscreen,
         initial_seed=args.seed,
         initial_scenario=args.scenario,
-        force_split=args.split
+        force_split=False if args.single else True,
+        menu_mode=args.menu
     )
     app.run(max_frames=args.max_frames)
 
