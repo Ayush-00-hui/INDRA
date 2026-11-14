@@ -471,6 +471,7 @@ class Application:
                     pred_next_pos = RobotEnv.denormalize_pos(norm_px, norm_py)
 
             # Step Right Environment
+            self.env_right.current_plan_info = self.plan_info_right
             prev_rx, prev_ry = self.env_right.robot_x, self.env_right.robot_y
             self.state_right, r_r, self.done_right, info_r = self.env_right.step(action_right)
             curr_rx, curr_ry = self.env_right.robot_x, self.env_right.robot_y
@@ -566,6 +567,23 @@ class Application:
 
             # Live Metrics HUD overlay in Single View
             self._draw_live_metrics_hud(self.screen)
+
+        # End of episode Star Rating Card
+        if (self.done_right and (not self.split_mode or self.done_left)) and self.env_right:
+            from visuals.ui import StarRatingCard
+            card_w, card_h = 360, 140
+            cx = self.screen.get_width() // 2 - card_w // 2
+            cy = self.screen.get_height() // 2 - card_h // 2
+            card_rect = pygame.Rect(cx, cy, card_w, card_h)
+            last_inf = getattr(self.env_right, "last_step_info", {}) or {}
+            reached_g = bool(last_inf.get("reached_goal", False))
+            StarRatingCard(card_rect).draw(
+                surface=self.screen,
+                reached_goal=reached_g,
+                collisions=self.env_right.collision_count,
+                steps=self.env_right.step_count,
+                method_name="World Model MPC" if self.with_world_model else "Greedy Baseline"
+            )
 
         # Bottom Interactive Controls Pill
         self._draw_controls_pill()
@@ -805,6 +823,36 @@ class Application:
                 return
             elif event.key == pygame.K_s:
                 self._toggle_split_mode()
+            elif event.key == pygame.K_m:
+                # Toggle Mind View on modern renderers
+                new_mv = False
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None):
+                        env._modern_renderer.show_mind_view = not env._modern_renderer.show_mind_view
+                        new_mv = env._modern_renderer.show_mind_view
+                self.set_banner(f"Holographic Mind View {'ENABLED' if new_mv else 'DISABLED'} (M Key)", color=(0, 220, 255), duration_frames=60)
+            elif event.key == pygame.K_F3:
+                new_hb = False
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None):
+                        env._modern_renderer.show_hitboxes = not env._modern_renderer.show_hitboxes
+                        new_hb = env._modern_renderer.show_hitboxes
+                self.set_banner(f"Hitbox Debug Overlay {'ENABLED' if new_hb else 'DISABLED'} (F3 Key)", color=(255, 200, 50), duration_frames=60)
+            elif event.key == pygame.K_q:
+                from visuals.theme import QualityLevel
+                new_q = QualityLevel.LOW
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None):
+                        curr_q = env._modern_renderer.quality
+                        new_q = QualityLevel.MED if curr_q == QualityLevel.LOW else (QualityLevel.HIGH if curr_q == QualityLevel.MED else QualityLevel.LOW)
+                        env._modern_renderer.quality = new_q
+                self.set_banner(f"Graphics Quality set to {new_q.name} (Q Key)", color=(0, 240, 180), duration_frames=60)
+            elif event.key in (pygame.K_p, pygame.K_u):
+                muted = False
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None):
+                        muted = env._modern_renderer.sounds.toggle_mute()
+                self.set_banner(f"Audio {'MUTED' if muted else 'UNMUTED'} (P Key)", color=(255, 180, 50), duration_frames=60)
             elif event.key == pygame.K_i:
                 self.show_imagination = not self.show_imagination
                 self.set_banner(f"Imagination Panel {'SHOWN' if self.show_imagination else 'HIDDEN'}", color=(0, 200, 255), duration_frames=45)
