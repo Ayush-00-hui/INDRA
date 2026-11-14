@@ -82,10 +82,11 @@ plan(
     model: WorldModel,
     state: np.ndarray,
     action_size: int,
-    horizon: int = 10,
-    n_samples: int = 200,
+    horizon: int = 14,
+    n_samples: int = 300,
     gamma: float = 0.95,
-    return_trajectories: bool = False
+    return_trajectories: bool = False,
+    use_primitives: bool = True
 ) -> Union[int, Tuple[int, Dict[str, Any]]]
 ```
 
@@ -93,10 +94,11 @@ plan(
   - `model`: Trained `WorldModel` instance.
   - `state`: Current 1D NumPy state vector `(state_size,)`, float32.
   - `action_size`: Number of discrete actions available.
-  - `horizon`: Number of imagined rollout steps into the future (default: 10).
-  - `n_samples`: Number of candidate action sequences sampled (default: 200).
+  - `horizon`: Number of imagined rollout steps into the future (default: 14).
+  - `n_samples`: Number of candidate action sequences sampled (default: 300).
   - `gamma`: Reward discount factor (default: 0.95).
   - `return_trajectories`: If `True`, returns `(best_action, info)`.
+  - `use_primitives`: Optional bool (default: True). If True, blends 50% cached motion primitives with 50% temporally persistent random sequences. If False, runs purely stochastic random shooting.
 - **Returns:**
   - If `return_trajectories=False`: `best_action` (int).
   - If `return_trajectories=True`: `(best_action, info_dict)` where `info_dict` contains:
