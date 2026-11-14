@@ -230,6 +230,8 @@ class ParticleSystem:
                 else:
                     pygame.draw.circle(surface, p.color, (int(p.x), int(p.y)), radius)
 
+    render = draw
+
 
 # Backward-compatible alias
 ParticleManager = ParticleSystem
