@@ -65,9 +65,17 @@ class RobotRenderer:
 
         # Sub-step position interpolation & animation state
         self.last_robot_pos = (100.0, 300.0)
+        self.display_robot_x = 100.0
+        self.display_robot_y = 300.0
         self.anim_frame = 0
         self.walk_frame_person = 0
         self.person_step_timer = 0
+
+        # Collision & Goal Juice State
+        self.bonk_timer = 0
+        self.bonk_pos = (0.0, 0.0)
+        self.victory_timer = 0
+        self.victory_spin_angle = 0
 
         # Cached Static Background Surface
         self._bg_surface: Optional[pygame.Surface] = None
@@ -119,23 +127,35 @@ class RobotRenderer:
                     pygame.draw.line(self._bg_surface, (50, 62, 80), (sx + i, sy), (sx + i + 10, sy + stripe_size), 3)
 
     def trigger_collision_effects(self, pos: Tuple[float, float]) -> None:
-        """Triggers audio bonk, spark burst, and screen shake on physical collision."""
+        """Triggers audio bonk, spark burst, screen shake, and floating text on physical collision."""
         self.sounds.play("bonk")
         self.camera.shake(intensity=6.0, duration=0.25)
         self.camera.flash(color=(255, 60, 60), duration=0.15, max_alpha=120)
         self.particles.emit_sparks(pos[0], pos[1], count=22 if self.quality != QualityLevel.LOW else 10)
+        self.bonk_timer = 24
+        self.bonk_pos = pos
 
     def trigger_goal_effects(self, pos: Tuple[float, float]) -> None:
         """Triggers celebratory arpeggio, screen flash, and confetti burst on reaching goal."""
         self.sounds.play("goal")
         self.camera.flash(color=(60, 255, 180), duration=0.3, max_alpha=150)
         self.particles.emit_confetti(pos[0], pos[1], count=40 if self.quality != QualityLevel.LOW else 15)
+        self.victory_timer = 45
 
     def update(self, dt: float = 1.0 / 30.0, current_fps: float = 30.0) -> None:
         """Updates internal animation counters, camera, and particle timers."""
         self.anim_frame += 1
         self.camera.update(dt)
         self.particles.update(dt)
+
+        # Decay juice timers
+        if self.bonk_timer > 0:
+            self.bonk_timer -= 1
+        if self.victory_timer > 0:
+            self.victory_timer -= 1
+            self.victory_spin_angle = (self.victory_spin_angle + 16) % 360
+        else:
+            self.victory_spin_angle = 0
 
         # Person walk cycle timer (changes frame every 6 ticks)
         self.person_step_timer += 1
@@ -289,11 +309,23 @@ class RobotRenderer:
         surface.blit(goal_sprite, (gx, gy))
 
         # -------------------------------------------------------------
-        # LAYER 5: ROBOT SPRITE
+        # LAYER 5: ROBOT SPRITE (With smooth sub-frame interpolation)
         # -------------------------------------------------------------
+        # Smooth sub-step interpolation for display coordinates
+        dt = 1.0 / max(10.0, fps)
+        if math.hypot(env.robot_x - self.display_robot_x, env.robot_y - self.display_robot_y) > 60.0:
+            self.display_robot_x = env.robot_x
+            self.display_robot_y = env.robot_y
+        else:
+            lerp_rate = min(1.0, dt * 18.0)
+            self.display_robot_x += (env.robot_x - self.display_robot_x) * lerp_rate
+            self.display_robot_y += (env.robot_y - self.display_robot_y) * lerp_rate
+
         # Calculate heading angle based on velocity or vector to goal
         heading_angle = 0
-        if plan_info and "best_trajectory" in plan_info and len(plan_info["best_trajectory"]) > 1:
+        if self.victory_timer > 0:
+            heading_angle = self.victory_spin_angle
+        elif plan_info and "best_trajectory" in plan_info and len(plan_info["best_trajectory"]) > 1:
             bt = plan_info["best_trajectory"]
             p0 = env.denormalize_pos(bt[0, 0], bt[0, 1])
             p1 = env.denormalize_pos(bt[1, 0], bt[1, 1])
@@ -308,9 +340,20 @@ class RobotRenderer:
             robot_status = "thinking"
 
         robot_sprite = self.sprites.get_robot_sprite(angle_deg=heading_angle, status=robot_status)
-        rx = int(env.robot_x - robot_sprite.get_width() // 2)
-        ry = int(env.robot_y - robot_sprite.get_height() // 2)
+        rx = int(self.display_robot_x - robot_sprite.get_width() // 2)
+        ry = int(self.display_robot_y - robot_sprite.get_height() // 2)
         surface.blit(robot_sprite, (rx, ry))
+
+        # Floating "BONK!" popup badge on collision
+        if self.bonk_timer > 0:
+            b_offset_y = int((24 - self.bonk_timer) * 0.9)
+            bx = int(self.bonk_pos[0] - 32)
+            by = int(self.bonk_pos[1] - 32 - b_offset_y)
+            draw_badge(surface, "💥 BONK!", (bx, by), bg_color=(235, 45, 45))
+
+        # Victory celebration banner on reaching goal
+        if self.victory_timer > 0:
+            draw_badge(surface, "★ GOAL REACHED! ★", (self.width // 2 - 75, 95), bg_color=(0, 220, 130))
 
         # -------------------------------------------------------------
         # LAYER 6: THE IMAGINATION LAYER (Mind View & Holographic Trajectories)
