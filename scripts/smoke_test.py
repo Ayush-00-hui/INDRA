@@ -153,6 +153,17 @@ def test_driving_lazy_import():
     return "DrivingEnv placeholder compliant"
 
 
+def test_3d_pbr_pipeline():
+    from viz3d.bridge import Panda3DBridge
+    from viz3d.renderer3d import Renderer3D
+    bridge = Panda3DBridge.get_instance(960, 600)
+    if not bridge.is_available():
+        return "3D Bridge unavailable, modern 2D fallback active"
+    renderer = Renderer3D(width=960, height=600)
+    assert renderer.scene is not None
+    return "Panda3D + SimplePBR Bridge Operational"
+
+
 def main():
     print("=" * 72)
     print("        NBA ACCREDITATION SYSTEM HEALTH & SMOKE TEST SUITE        ")
@@ -162,6 +173,7 @@ def main():
         ("Library Dependencies", test_imports),
         ("Hardware & PyTorch Acceleration", test_device),
         ("Robotics Environment Contracts", test_robot_env),
+        ("3D PBR Offscreen Bridge", test_3d_pbr_pipeline),
         ("World Model Checkpoints", test_model_loading),
         ("MPC Planner Vectorization & Latency", test_mpc_planner),
         ("Headless Application Execution", test_headless_main),

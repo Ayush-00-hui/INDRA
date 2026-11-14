@@ -11,6 +11,7 @@ from visuals.assets import SoundManager
 from visuals.theme import QualityLevel, Theme
 from viz3d.bridge import Panda3DBridge
 from viz3d.mapping import WorldMapping, SmoothPose
+from viz3d.hud3d import UnderstandingHUD
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ class Renderer3D:
         # Audio effects
         self.sounds = SoundManager()
 
+        # Pedagogical HUD Understanding Layer (Phase 8)
+        self.hud = UnderstandingHUD(self.width, self.height)
+
         # Modern 2D fallback renderer in case 3D is disabled or encounters a driver error
         self._fallback_renderer = None
         self._3d_enabled: bool = True
@@ -44,12 +48,12 @@ class Renderer3D:
         self.robot_pose = SmoothPose()
         self.person_pose = SmoothPose()
 
+        # Scene graph reference
+        self.scene = None
+
         # Bridge reference
         self.bridge: Optional[Panda3DBridge] = None
         self._init_bridge()
-
-        # Scene graph reference (populated in Phase 3)
-        self.scene = None
 
     def _init_bridge(self) -> None:
         try:
@@ -57,6 +61,9 @@ class Renderer3D:
             if not self.bridge.is_available():
                 logger.warning("Panda3DBridge is not available. Defaulting to 2D fallback.")
                 self._3d_enabled = False
+            else:
+                from viz3d.scene import Scene3D
+                self.scene = Scene3D(self.bridge.base.render, self.bridge.base.cam)
         except Exception as e:
             logger.warning("Failed to initialize 3D bridge: %s. Using 2D fallback.", e)
             self._3d_enabled = False
@@ -83,6 +90,26 @@ class Renderer3D:
         if self._fallback_renderer:
             self._fallback_renderer.trigger_goal_effects(x, y)
 
+    def cycle_camera(self) -> str:
+        """Cycle camera mode (Key C)."""
+        if self.scene is not None:
+            mode = self.scene.camera.cycle_mode()
+            self.camera_mode = mode
+            return mode
+        return self.camera_mode
+
+    def toggle_legend(self) -> bool:
+        """Toggle visual legend card (Key L)."""
+        return self.hud.toggle_legend()
+
+    def toggle_tour(self) -> bool:
+        """Toggle pedagogical guided tour (Key G)."""
+        return self.hud.toggle_tour()
+
+    def advance_tour(self) -> None:
+        """Advance to next tour step (SPACE)."""
+        self.hud.advance_tour()
+
     def update(self, dt: float) -> None:
         """Update animations, smoothing, and particle systems."""
         self.robot_pose.update(dt)
@@ -106,22 +133,24 @@ class Renderer3D:
         Main render entry point called by RobotEnv.render(screen).
         Renders 3D scene offscreen and overlays 2D Pygame HUD.
         """
-        if not self._3d_enabled or self.bridge is None or not self.bridge.is_available():
-            fallback = self._get_fallback_renderer()
-            fallback.quality = self.quality
-            fallback.show_mind_view = self.show_mind_view
-            fallback.show_hitboxes = self.show_hitboxes
-            fallback.render(env, target_surface, plan_info, last_info, method_title)
-            return
-
         try:
+            if not self._3d_enabled or self.bridge is None or not self.bridge.is_available():
+                fallback = self._get_fallback_renderer()
+                fallback.quality = self.quality
+                fallback.show_mind_view = self.show_mind_view
+                fallback.show_hitboxes = self.show_hitboxes
+                fallback.render(env, target_surface, plan_info, last_info, method_title)
+                return
+
             # Sync quality with bridge
             q_str = "low" if self.quality == QualityLevel.LOW else ("high" if self.quality == QualityLevel.HIGH else "med")
             self.bridge.set_quality(q_str)
 
             # Update 3D scene from environment if scene is attached
             if self.scene is not None:
+                self.scene.world.toggle_hitboxes(self.show_hitboxes)
                 self.scene.sync_from_env(env, plan_info, last_info, self.show_mind_view)
+                self.scene.update(0.016)
 
             # Step Panda3D task loop
             self.bridge.step_simulation_frame()
@@ -149,11 +178,14 @@ class Renderer3D:
         method_title: str,
     ) -> None:
         """Draw Pygame 2D HUD cards, telemetry badge, and debug overlays on top of 3D frame."""
-        # Delegate HUD drawing to fallback renderer's HUD logic for pixel-perfect consistency
+        # Top-left status badge and metrics bar
         fallback = self._get_fallback_renderer()
         fallback.show_mind_view = self.show_mind_view
         fallback.show_hitboxes = self.show_hitboxes
-        fallback._render_hud(target_surface, env, plan_info, last_info, method_title)
+        fallback._render_hud(env=env, surface=target_surface, method_title=method_title, fps=60.0)
+
+        # Understanding layer HUD (Pipeline strip, Why-this-move, Legend, Guided tour)
+        self.hud.render(target_surface, env, plan_info, last_info)
 
         if self.show_hitboxes:
             fallback._render_debug_hitboxes(target_surface, env)

@@ -23,14 +23,30 @@
   ```powershell
   python scripts/smoke_test.py
   ```
-  *(Verify that all 7 checks display `PASSED`)*
+  *(Verify that all 8 component checks display `PASSED` including 3D PBR Offscreen Bridge)*
 
 ---
 
 ## 2. Emergency Fallback Protocols & Failsafe Commands
 
-### Fallback Plan A: Forced CPU Mode (GPU Driver / CUDA Crash)
-If the external display causes an NVIDIA driver glitch or PyTorch CUDA kernel timeout:
+### Fallback Plan A: Forced 2D Modern Renderer
+If the venue projector or display driver encounters OpenGL quirks:
+```powershell
+python main.py --renderer 2d
+```
+
+### Fallback Plan B: Forced Classic 2D Lightweight Renderer
+If hardware is constrained or strictly CPU-bound:
+```powershell
+python main.py --renderer classic
+```
+
+### Fallback Plan C: Forced CPU PyTorch Acceleration (GPU CUDA Driver Crash)
+If the external display causes an NVIDIA driver glitch or CUDA device timeout:
+```powershell
+$env:CUDA_VISIBLE_DEVICES="-1"
+python main.py
+```PyTorch CUDA kernel timeout:
 ```powershell
 # Windows PowerShell:
 $env:CUDA_VISIBLE_DEVICES=""; python main.py --split

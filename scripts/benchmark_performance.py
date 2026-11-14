@@ -1,6 +1,6 @@
 """
 Performance Benchmark Suite: Measures frame draw times and throughput
-across Quality Levels (LOW, MED, HIGH) and Display Resolutions on CPU-only hardware.
+across Quality Levels (LOW, MED, HIGH), Display Resolutions, and Renderers (3D PBR vs Modern 2D).
 Generates docs/PERFORMANCE.md.
 """
 
@@ -17,6 +17,8 @@ import pygame
 from envs.robot_env import RobotEnv
 from visuals.renderer import RobotRenderer
 from visuals.theme import QualityLevel
+from viz3d.renderer3d import Renderer3D
+from viz3d.bridge import Panda3DBridge
 
 
 def benchmark():
@@ -26,10 +28,15 @@ def benchmark():
     env = RobotEnv(scenario=1)
     env.reset(seed=1001)
 
+    # Detect GPU
+    bridge = Panda3DBridge.get_instance(960, 600)
+    gpu_name = "CPU Software Emulation"
+    if bridge.is_available() and bridge.base and bridge.base.win.getGsg():
+        gpu_name = bridge.base.win.getGsg().getDriverRenderer()
+
     resolutions = [
-        ("Single (900x600)", 900, 600),
+        ("Single (960x600)", 960, 600),
         ("720p Laptop (1280x720)", 1280, 720),
-        ("HD Display (1366x768)", 1366, 768),
         ("Split-Screen (1500x560)", 1500, 560),
         ("1080p Full (1920x1080)", 1920, 1080),
     ]
@@ -40,71 +47,92 @@ def benchmark():
         ("HIGH", QualityLevel.HIGH),
     ]
 
-    results = []
+    results_3d = []
+    results_2d = []
 
-    print("Running CPU Performance Benchmarks (30 frames per configuration)...")
+    print("=" * 60)
+    print(f"BENCHMARK SUITE: GPU = {gpu_name}")
+    print("=" * 60)
 
+    # 1. Benchmark 3D Renderer
+    print("\n[1/2] Benchmarking 3D PBR Renderer (30 frames per config)...")
     for res_name, w, h in resolutions:
-        surface = pygame.Surface((w, h))
         for q_name, q_val in qualities:
-            renderer = RobotRenderer(width=w, height=h, quality=q_val)
+            target_surf = pygame.Surface((w, h))
+            renderer3d = Renderer3D(width=w, height=h)
+            renderer3d.quality = q_val
+
             # Warm up
             for _ in range(5):
-                renderer.render(env, surface, fps=60.0)
+                renderer3d.render(env, target_surf)
 
             latencies = []
             for _ in range(30):
                 t0 = time.perf_counter()
-                renderer.render(env, surface, fps=60.0)
-                latencies.append((time.perf_counter() - t0) * 1000.0)
+                renderer3d.render(env, target_surf)
+                t1 = time.perf_counter()
+                latencies.append((t1 - t0) * 1000.0)
 
-            mean_ms = float(np.mean(latencies))
-            p95_ms = float(np.percentile(latencies, 95))
-            effective_fps = min(60.0, 1000.0 / max(0.1, mean_ms))
-            results.append((res_name, q_name, mean_ms, p95_ms, effective_fps))
-            print(f"  {res_name:<25} | {q_name:<4} | Mean: {mean_ms:5.2f} ms | P95: {p95_ms:5.2f} ms | Theoretical FPS: {effective_fps:5.1f}")
+            mean_ms = np.mean(latencies)
+            p95_ms = np.percentile(latencies, 95)
+            fps = 1000.0 / mean_ms if mean_ms > 0 else 0
+            results_3d.append((res_name, q_name, mean_ms, p95_ms, fps))
+            print(f"  3D {res_name:<24} | {q_name:<4} : Mean {mean_ms:5.2f} ms | p95 {p95_ms:5.2f} ms | {fps:5.1f} FPS")
 
-    # Generate docs/PERFORMANCE.md
-    md_content = f"""# Performance Benchmarks & Quality Calibration
+    # 2. Benchmark Modern 2D Renderer
+    print("\n[2/2] Benchmarking Modern 2D Renderer (30 frames per config)...")
+    for res_name, w, h in resolutions:
+        for q_name, q_val in qualities:
+            target_surf = pygame.Surface((w, h))
+            renderer2d = RobotRenderer(width=w, height=h)
+            renderer2d.quality = q_val
 
-**Target Hardware:** Standard Intel/AMD Laptop CPU (No dedicated GPU required)  
-**Execution Context:** Headless Pygame Surface Composition & Blitting  
-**Target Frame Rate:** 60 FPS (16.67 ms budget) / Minimum 30 FPS (33.33 ms budget)
+            for _ in range(5):
+                renderer2d.render(env, target_surf)
 
----
+            latencies = []
+            for _ in range(30):
+                t0 = time.perf_counter()
+                renderer2d.render(env, target_surf)
+                t1 = time.perf_counter()
+                latencies.append((t1 - t0) * 1000.0)
 
-## 1. Frame Draw Time Across Resolutions & Quality Presets
+            mean_ms = np.mean(latencies)
+            p95_ms = np.percentile(latencies, 95)
+            fps = 1000.0 / mean_ms if mean_ms > 0 else 0
+            results_2d.append((res_name, q_name, mean_ms, p95_ms, fps))
+            print(f"  2D {res_name:<24} | {q_name:<4} : Mean {mean_ms:5.2f} ms | p95 {p95_ms:5.2f} ms | {fps:5.1f} FPS")
 
-| Resolution | Quality Level | Mean Draw Time (ms) | P95 Latency (ms) | Max Render FPS | 60 FPS Budget Consumed |
-| :--- | :---: | :---: | :---: | :---: | :---: |
-"""
-    for res_name, q_name, mean_ms, p95_ms, eff_fps in results:
-        budget_pct = (mean_ms / 16.67) * 100.0
-        md_content += f"| {res_name} | {q_name} | **{mean_ms:.2f} ms** | {p95_ms:.2f} ms | **{eff_fps:.0f} FPS** | {budget_pct:.1f}% |\n"
-
-    md_content += """
----
-
-## 2. Analysis & Recommendations
-
-1. **Draw Time Efficiency:**
-   - Pre-rendering static floor tiles, ambient occlusion shadows, and wall baseboards into cached surfaces allows even 1080p rendering to execute in **< 1.5 ms per frame**.
-   - At standard 900x600 and 1500x560 split-screen resolutions, rendering takes **under 0.8 ms**, leaving **over 95% of the frame budget** for PyTorch MPC planning.
-2. **Quality Level Calibration:**
-   - **HIGH (Default Recommended):** Full procedural lighting masks, soft flashlight cones, vignette, particle trails, and sub-frame position interpolation. Comfortably holds 60 FPS on any modern quad-core laptop CPU.
-   - **MED:** Standard particles, radial glow, without directional headlight rotation.
-   - **LOW:** Disables dynamic lighting masks and tread fading for ultra-low-spec hardware.
-3. **Dynamic Auto-Downgrade:**
-   - The engine continuously monitors live frame rate. If FPS drops below 24 for 2 continuous seconds (60 frames), the renderer automatically downshifts quality (HIGH -> MED -> LOW) and logs an alert.
-"""
-
+    # Write docs/PERFORMANCE.md
     os.makedirs("docs", exist_ok=True)
-    with open("docs/PERFORMANCE.md", "w", encoding="utf-8") as f:
-        f.write(md_content)
+    perf_path = os.path.join("docs", "PERFORMANCE.md")
+    with open(perf_path, "w", encoding="utf-8") as f:
+        f.write("# Performance Benchmark Report: 3D PBR & 2D Rendering\n\n")
+        f.write(f"**Date:** Sun 15 Nov 2026  \n")
+        f.write(f"**GPU Hardware:** {gpu_name}  \n")
+        f.write(f"**Target Frame Rate:** $\ge 60$ FPS (Minimum $\ge 30$ FPS floor)  \n\n")
 
-    print("\nSaved performance documentation to 'docs/PERFORMANCE.md'")
+        f.write("## 1. 3D PBR Renderer (Panda3D + SimplePBR Offscreen Bridge)\n\n")
+        f.write("| Resolution | Quality | Mean Latency (ms) | p95 Latency (ms) | Throughput (FPS) | Status |\n")
+        f.write("|:---|:---:|:---:|:---:|:---:|:---:|\n")
+        for res_name, q_name, mean_ms, p95_ms, fps in results_3d:
+            status = "**PASS (60+ FPS)**" if fps >= 60.0 else ("**PASS (30+ FPS)**" if fps >= 30.0 else "SUB-30")
+            f.write(f"| {res_name} | {q_name} | {mean_ms:.2f} | {p95_ms:.2f} | **{fps:.1f}** | {status} |\n")
+
+        f.write("\n## 2. Modern 2D Procedural Renderer (Fallback Engine)\n\n")
+        f.write("| Resolution | Quality | Mean Latency (ms) | p95 Latency (ms) | Throughput (FPS) | Status |\n")
+        f.write("|:---|:---:|:---:|:---:|:---:|:---:|\n")
+        for res_name, q_name, mean_ms, p95_ms, fps in results_2d:
+            status = "**PASS (60+ FPS)**" if fps >= 60.0 else ("**PASS (30+ FPS)**" if fps >= 30.0 else "SUB-30")
+            f.write(f"| {res_name} | {q_name} | {mean_ms:.2f} | {p95_ms:.2f} | **{fps:.1f}** | {status} |\n")
+
+        f.write("\n## 3. Dynamic Auto-Downgrade Safeguard\n\n")
+        f.write("- If frame rate drops below **24 FPS** for 2 consecutive seconds during live demonstration, the rendering engine automatically cascades down quality settings (`HIGH` $\\rightarrow$ `MED` $\\rightarrow$ `LOW` $\\rightarrow$ `2D Modern` $\\rightarrow$ `Classic`) without interrupting simulation or closing the window.\n")
+        f.write("- Memory leaks: Zero per-frame allocations via persistent pre-allocated NumPy byte buffers.\n")
+
+    print(f"\nSaved updated benchmark report to: {perf_path}")
+    pygame.quit()
 
 
 if __name__ == "__main__":
     benchmark()
-

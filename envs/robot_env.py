@@ -108,6 +108,7 @@ class RobotEnv(BaseEnv):
         self.renderer_mode: str = "auto"
         self.use_modern_renderer: bool = True
         self._modern_renderer = None
+        self.is_custom_layout: bool = False
 
     def get_state_size(self) -> int:
         return self.state_size
@@ -440,6 +441,43 @@ class RobotEnv(BaseEnv):
             True, (160, 175, 195)
         )
         screen.blit(scen_txt, (25, 64))
+
+    def place_obstacle(self, x: float, y: float, kind: str = "chair") -> bool:
+        """
+        Interactive Edit Mode (Phase 9): Add custom obstacle to environment.
+        Layout is marked as custom and excluded from formal benchmarks.
+        """
+        w, h = (80.0, 80.0) if kind == "chair" else (60.0, 60.0)
+        if x < 30.0 or x + w > self.WIDTH - 30.0 or y < 30.0 or y + h > self.HEIGHT - 30.0:
+            return False
+
+        cx, cy = x + w * 0.5, y + h * 0.5
+        if math.hypot(cx - self.robot_x, cy - self.robot_y) < (self.ROBOT_RADIUS + 40.0):
+            return False
+        if math.hypot(cx - self.goal_x, cy - self.goal_y) < (self.GOAL_RADIUS + 40.0):
+            return False
+
+        if len(self.obstacles) >= 4:
+            return False
+
+        obs = Obstacle(x=x, y=y, width=w, height=h, kind=kind)
+        self.obstacles.append(obs)
+        self.is_custom_layout = True
+        return True
+
+    def set_goal(self, x: float, y: float) -> bool:
+        """
+        Interactive Edit Mode (Phase 9): Set custom goal location.
+        """
+        if x < 40.0 or x > self.WIDTH - 40.0 or y < 40.0 or y > self.HEIGHT - 40.0:
+            return False
+        if math.hypot(x - self.robot_x, y - self.robot_y) < (self.ROBOT_RADIUS + 40.0):
+            return False
+
+        self.goal_x = float(x)
+        self.goal_y = float(y)
+        self.is_custom_layout = True
+        return True
 
 
 def draw_ghost_paths(screen: pygame.Surface, plan_info: Optional[Dict[str, Any]]) -> None:

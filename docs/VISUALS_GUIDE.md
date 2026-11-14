@@ -100,3 +100,60 @@ def render(self, screen: pygame.Surface) -> None:
 
 This guarantees that visual errors will never crash the demo during the NBA presentation.
 
+
+
+---
+
+## 4. 3D PBR Visual Engine Integration (`viz3d/`)
+
+Gurudutt can also leverage the **Panda3D + SimplePBR Offscreen Bridge** for full 3D vehicle simulation:
+
+### 3D Architecture Overview:
+- `viz3d/bridge.py`: Singleton `Panda3DBridge` manages offscreen buffer rendering and fast RAM readback.
+- `viz3d/mapping.py`: Metric coordinates ($1\text{ px} = 1\text{ cm} = 0.01\text{ m}$) and `SmoothPose` interpolation.
+- `viz3d/cameras.py`: Multi-perspective camera controller (`chase`, `cockpit POV`, `overview`, `topdown`).
+- `viz3d/assets3d.py`: Procedural 3D primitive constructors (`create_box`, `create_cylinder`).
+
+### Copy-Paste 3D Car Model Generator:
+```python
+from panda3d.core import NodePath
+from viz3d.assets3d import create_box, create_cylinder
+
+def build_3d_car_model() -> NodePath:
+    """Procedural 3D car chassis with spinning wheels and headlights."""
+    root = NodePath("car_root")
+    
+    # Main body chassis (length 4.0m, width 1.8m, height 1.2m)
+    body = create_box(1.8, 4.0, 0.9, color=(0.85, 0.20, 0.15, 1.0), name="chassis")
+    body.setPos(0, 0, 0.65)
+    body.reparentTo(root)
+    
+    # Cabin / Windshield
+    cabin = create_box(1.5, 2.2, 0.7, color=(0.15, 0.20, 0.28, 1.0), name="cabin")
+    cabin.setPos(0, -0.2, 1.35)
+    cabin.reparentTo(root)
+    
+    # 4 Wheels
+    for side, wx in [("fl", -0.95), ("fr", 0.95), ("rl", -0.95), ("rr", 0.95)]:
+        wy = 1.2 if "f" in side else -1.2
+        w = create_cylinder(radius=0.35, height=0.25, segments=16, color=(0.12, 0.12, 0.14, 1.0))
+        w.setHpr(0, 90, 0)
+        w.setPos(wx - 0.125, wy, 0.35)
+        w.reparentTo(root)
+        
+    return root
+```
+
+### Rendering 3D Car into Pygame:
+```python
+from viz3d.bridge import Panda3DBridge
+import pygame
+
+bridge = Panda3DBridge.get_instance(1280, 720)
+if bridge.is_available():
+    # Step simulation and update camera
+    bridge.step_simulation_frame()
+    
+    # Read back offscreen buffer into Pygame Surface
+    bridge.copy_to_surface(screen, view_id=0)
+```

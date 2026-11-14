@@ -66,20 +66,38 @@ python scripts/smoke_test.py
 
 ### Launching the Evaluator Showcase (`main.py` / `run_demo.bat`)
 ```bash
-# 1. Quick Launch (Safe defaults with split-screen enabled):
+# 1. Quick Launch (3D PBR with auto-fallback and split-screen enabled):
 run_demo.bat
 
 # 2. Interactive Split-Screen Mode:
 python main.py --split
 
-# 3. Hands-Free Unattended Auto-Demo Loop (for NBA Booth):
+# 3. Guided Pedagogical Tour (6-step NBA walkthrough):
+python main.py --tour
+
+# 4. Hands-Free Unattended Auto-Demo Loop (for NBA Booth):
 python main.py --demo
 
-# 4. Low-Spec Hardware Preset (Turns off heavy lighting passes):
-python main.py --quality low
+# 5. Explicit Renderer Selection:
+python main.py --renderer 3d       # Stylized PBR 3D (Panda3D + SimplePBR)
+python main.py --renderer 2d       # Procedural Modern 2D Visual Engine
+python main.py --renderer classic  # Original lightweight 2D graphics
 
-# 5. Classic Fallback Mode (Original lightweight graphics):
-python main.py --classic
+# 6. Quality Presets & Low-Spec Mode:
+python main.py --quality low       # Shadows off, MSAA off, optimal for older laptops
+```
+
+### Installation & Optional 3D Packages
+```bash
+# Base 2D installation (Zero external 3D dependencies required):
+pip install -r requirements.txt
+
+# Enhanced 3D PBR track (Panda3D, simplepbr, gltf):
+pip install -r requirements-3d.txt
+
+# Troubleshooting RTX 50-series (Blackwell):
+# For RTX 5070 / CUDA 12.8+, install PyTorch cu128:
+pip install torch --index-url https://download.pytorch.org/whl/cu128
 ```
 
 ---
@@ -89,9 +107,13 @@ python main.py --classic
 | Key | Context | Action / Function |
 | :---: | :---: | :--- |
 | **`[S]`** | Simulation | **Toggle Split-Screen Mode** (Side-by-side Greedy vs. World Model) |
+| **`[C]`** | Simulation | **Cycle 3D Camera Perspective** (3/4 Dollhouse / Follow / Top-Down / Robot POV / Orbit) |
 | **`[M]`** | Simulation | **Toggle Holographic Mind View** (Cyber-grid, candidate ribbons, thought bubbles) |
+| **`[L]`** | Simulation | **Toggle Visual Legend** (Ribbons, ghosts, breadcrumb trail, status LED codes) |
+| **`[G]`** | Simulation | **Toggle Guided Tour** (6-step NBA pedagogical walkthrough) |
+| **`[E]`** | Simulation | **Toggle Interactive Edit Mode** (Click floor to place custom obstacles live) |
 | **`[F3]`** | Simulation | **Toggle Hitbox Debug Overlay** (Verifies mathematical collision boundaries) |
-| **`[Q]`** | Simulation | **Cycle Quality Preset** (`LOW` -> `MED` -> `HIGH`) |
+| **`[Q]`** | Simulation | **Cycle Quality Preset** (`LOW` -> `MED` -> `HIGH` with auto-downgrade) |
 | **`[P]`** | Simulation | **Toggle Audio Mute** (Procedural sound synthesizer) |
 | **`[I]`** | Simulation | **Toggle Imagination HUD** (10-step history, ghost paths, latency, MAE) |
 | **`[TAB]` / `[T]`** | Simulation | Toggle World Model ON / OFF in single view |

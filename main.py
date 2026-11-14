@@ -80,7 +80,9 @@ class Application:
         menu_mode: bool = False,
         classic: bool = False,
         quality: str = "high",
-        mute: bool = False
+        mute: bool = False,
+        renderer: str = "auto",
+        tour: bool = False,
     ):
         pygame.init()
         pygame.display.set_caption("World Model: Learn, Imagine, Act (NBA Accreditation Showcase)")
@@ -91,6 +93,9 @@ class Application:
         self.current_seed = initial_seed
         self.robot_scenario = initial_scenario
         self.classic_mode = classic
+        self.renderer_choice = "classic" if classic else renderer
+        self.tour_flag = tour
+        self.edit_mode = False
         self.quality_str = quality
         self.mute_audio = mute
         self.clock = pygame.time.Clock()
@@ -340,6 +345,9 @@ class Application:
         self.env_left = RobotEnv(scenario=self.robot_scenario)
         self.env_right = RobotEnv(scenario=self.robot_scenario)
 
+        for env in [self.env_left, self.env_right]:
+            env.renderer_mode = self.renderer_choice
+
         if self.classic_mode:
             self.env_left.use_modern_renderer = False
             self.env_right.use_modern_renderer = False
@@ -354,6 +362,11 @@ class Application:
 
         self._load_robot_model(self.robot_scenario)
         self._reset_episode(same_seed=True)
+
+        if self.tour_flag and self.env_right and getattr(self.env_right, "_modern_renderer", None):
+            if hasattr(self.env_right._modern_renderer, "toggle_tour"):
+                self.env_right._modern_renderer.toggle_tour()
+
         self.state = self.STATE_ROBOTICS
 
     def _reset_episode(self, same_seed: bool = False) -> None:
@@ -788,7 +801,7 @@ class Application:
     def _draw_help_modal(self) -> None:
         w = self.screen.get_width()
         h = self.screen.get_height()
-        modal_w, modal_h = 620, 390
+        modal_w, modal_h = 660, 440
         modal_rect = pygame.Rect(w // 2 - modal_w // 2, h // 2 - modal_h // 2, modal_w, modal_h)
 
         overlay = pygame.Surface((w, h), pygame.SRCALPHA)
@@ -799,30 +812,32 @@ class Application:
         pygame.draw.rect(self.screen, (0, 200, 255), modal_rect, 2, border_radius=10)
 
         t_surf = self.font_title.render("SYSTEM CONTROLS & ARCHITECTURE", True, (255, 255, 255))
-        self.screen.blit(t_surf, (modal_rect.centerx - t_surf.get_width() // 2, modal_rect.y + 18))
+        self.screen.blit(t_surf, (modal_rect.centerx - t_surf.get_width() // 2, modal_rect.y + 16))
 
         guide = [
             ("[S] Key", "Toggle Split-Screen side-by-side evaluator view"),
+            ("[C] Key", "Cycle 3D Camera: 3/4 Dollhouse / Follow / Top-Down / POV / Orbit"),
+            ("[M] Key", "Toggle Holographic Mind View (What the robot imagines)"),
+            ("[L] Key", "Toggle Visual Legend (Ribbons, ghosts, trail, LED codes)"),
+            ("[G] Key", "Toggle Guided Tour (6-step NBA pedagogical walkthrough)"),
+            ("[E] Key", "Toggle Interactive Edit Mode (Click floor to place obstacles)"),
+            ("[Q] Key", "Cycle Graphics Quality Preset (Low / Med / High)"),
             ("[I] Key", "Toggle Imagination panel (10-step history, latency & MAE)"),
             ("[TAB] / [T]", "Toggle World Model ON/OFF in single view"),
-            ("[1] / [2]", "Switch between Scenario 1 (Static Chair) and Scenario 2 (Moving Person)"),
-            ("[R] Key", "Force reset current episode with same layout"),
-            ("[N] Key", "Advance to next seeded layout"),
+            ("[1] / [2]", "Switch Scenario 1 (Static Chair) and Scenario 2 (Moving Person)"),
+            ("[R] / [N]", "Reset current episode layout / Advance to next seed"),
             ("[H] Key", "Toggle this help modal"),
-            ("[ESC] Key", "Return to main menu or quit"),
-            ("--demo Flag", "Unattended hands-free NBA booth loop with narrative cards"),
-            ("Dynamic Throttle", "Keeps planning latency <25 ms by dynamically tuning sample count")
         ]
 
         for i, (k, desc) in enumerate(guide):
-            y = modal_rect.y + 65 + i * 28
+            y = modal_rect.y + 54 + i * 27
             k_surf = self.font_bold.render(k, True, (0, 220, 255))
             d_surf = self.font_info.render(desc, True, (210, 225, 240))
             self.screen.blit(k_surf, (modal_rect.x + 30, y))
-            self.screen.blit(d_surf, (modal_rect.x + 180, y))
+            self.screen.blit(d_surf, (modal_rect.x + 160, y))
 
         close_surf = self.font_info.render("Press [H] or click anywhere to close", True, (140, 160, 190))
-        self.screen.blit(close_surf, (modal_rect.centerx - close_surf.get_width() // 2, modal_rect.bottom - 28))
+        self.screen.blit(close_surf, (modal_rect.centerx - close_surf.get_width() // 2, modal_rect.bottom - 24))
 
     def _draw_banner(self) -> None:
         if self.banner_timer > 0 and self.banner_message:
@@ -848,6 +863,27 @@ class Application:
                 return
             elif event.key == pygame.K_s:
                 self._toggle_split_mode()
+            elif event.key == pygame.K_c:
+                mode_name = "Overview"
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "cycle_camera"):
+                        mode_name = env._modern_renderer.cycle_camera()
+                self.set_banner(f"Camera Mode: {mode_name.upper()} (Key C)", color=(0, 220, 255), duration_frames=60)
+            elif event.key == pygame.K_l:
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "toggle_legend"):
+                        env._modern_renderer.toggle_legend()
+            elif event.key == pygame.K_g:
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "toggle_tour"):
+                        env._modern_renderer.toggle_tour()
+            elif event.key == pygame.K_SPACE:
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "advance_tour"):
+                        env._modern_renderer.advance_tour()
+            elif event.key == pygame.K_e:
+                self.edit_mode = not getattr(self, "edit_mode", False)
+                self.set_banner(f"Interactive Edit Mode {'ENABLED' if self.edit_mode else 'DISABLED'} (Click floor to place obstacles)", color=(255, 180, 50), duration_frames=90)
             elif event.key == pygame.K_m:
                 # Toggle Mind View on modern renderers
                 new_mv = False
@@ -916,6 +952,23 @@ class Application:
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.show_help:
                 self.show_help = False
+                return
+            if getattr(self, "edit_mode", False) and self.env_right is not None:
+                mx, my = event.pos
+                if self.split_mode:
+                    view_w = self.split_width // 2
+                    if mx >= view_w:
+                        local_x = float(mx - view_w) * (self.SINGLE_WIDTH / float(view_w))
+                        local_y = float(my) * (self.SINGLE_HEIGHT / float(self.split_height))
+                        success = self.env_right.place_obstacle(local_x, local_y, kind="chair")
+                        if success:
+                            self.set_banner("Custom obstacle placed! World Model re-planning live.", color=(50, 240, 130), duration_frames=60)
+                else:
+                    local_x = float(mx) * (self.SINGLE_WIDTH / float(self.screen.get_width()))
+                    local_y = float(my) * (self.SINGLE_HEIGHT / float(self.screen.get_height()))
+                    success = self.env_right.place_obstacle(local_x, local_y, kind="chair")
+                    if success:
+                        self.set_banner("Custom obstacle placed! World Model re-planning live.", color=(50, 240, 130), duration_frames=60)
 
     def _enter_driving(self) -> None:
         logger.info("Attempting to load Driving scenario via importlib...")
@@ -975,6 +1028,8 @@ def main():
     parser.add_argument("--scenario", type=int, default=1, choices=[1, 2], help="Initial scenario.")
     parser.add_argument("--max-frames", type=int, default=None, help="Terminate after N frames (for tests).")
     parser.add_argument("--classic", action="store_true", help="Run with original lightweight classic renderer.")
+    parser.add_argument("--renderer", type=str, default="auto", choices=["3d", "2d", "classic", "auto"], help="Renderer selection (3d, 2d, classic, auto).")
+    parser.add_argument("--tour", action="store_true", help="Start directly in pedagogical guided tour.")
     parser.add_argument("--quality", type=str, default="high", choices=["low", "med", "high"], help="Graphics quality preset.")
     parser.add_argument("--mute", action="store_true", help="Launch with procedural audio muted.")
     args = parser.parse_args()
@@ -988,7 +1043,9 @@ def main():
         menu_mode=args.menu,
         classic=args.classic,
         quality=args.quality,
-        mute=args.mute
+        mute=args.mute,
+        renderer=args.renderer,
+        tour=args.tour,
     )
     app.run(max_frames=args.max_frames)
 
