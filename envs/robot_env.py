@@ -306,10 +306,37 @@ class RobotEnv(BaseEnv):
             "goal_pos": (self.goal_x, self.goal_y),
         }
 
+        self.last_step_info = info
         return self._get_state(), float(reward), done, info
 
     def render(self, screen: pygame.Surface) -> None:
         """Render the room, obstacles, robot, goal, and HUD onto Pygame screen."""
+        if getattr(self, "use_modern_renderer", True):
+            if getattr(self, "_modern_renderer", None) is None:
+                try:
+                    from visuals.renderer import RobotRenderer
+                    self._modern_renderer = RobotRenderer(width=self.WIDTH, height=self.HEIGHT)
+                except Exception:
+                    self._modern_renderer = None
+                    self.use_modern_renderer = False
+
+            if self._modern_renderer is not None:
+                try:
+                    self._modern_renderer.render(
+                        env=self,
+                        target_surface=screen,
+                        plan_info=getattr(self, "current_plan_info", None),
+                        last_info=getattr(self, "last_step_info", None),
+                        method_title=f"MODE: {self.mode_str}"
+                    )
+                    return
+                except Exception:
+                    self.use_modern_renderer = False
+
+        self._render_classic(screen)
+
+    def _render_classic(self, screen: pygame.Surface) -> None:
+        """Original lightweight classic renderer fallback."""
         if self._font is None:
             pygame.font.init()
             self._font = pygame.font.SysFont("Arial", 18, bold=True)
