@@ -226,3 +226,4 @@ class StarRatingCard:
         color = (255, 215, 0) if filled else (65, 80, 105)
         pygame.draw.polygon(surface, color, points)
         pygame.draw.polygon(surface, (255, 240, 140) if filled else (90, 110, 140), points, 1)
+

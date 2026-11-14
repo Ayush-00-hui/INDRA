@@ -125,3 +125,4 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
 
 if __name__ == "__main__":
     make_screenshots()
+

@@ -80,3 +80,4 @@ def test_soak_memory_growth():
 
     # Assert strictly bounded memory consumption
     assert mem_delta < 25.0, f"Memory leak detected: growth of {mem_delta:.2f} MB exceeds 25 MB tolerance"
+

@@ -80,3 +80,4 @@ def test_1500_frame_interactive_navigation():
 
     assert frame == max_frames, f"Expected 1500 frames, reached {frame}"
     print(f"\n1500-frame interactive navigation completed successfully with 0 exceptions.")
+

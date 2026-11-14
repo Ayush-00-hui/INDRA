@@ -53,3 +53,4 @@ def test_renderer_exception_graceful_fallback(monkeypatch):
         pytest.fail(f"Classic fallback threw exception: {e}")
 
     print("\nRenderer Failure Injection Test PASSED: Fallback safely handled critical crash.")
+

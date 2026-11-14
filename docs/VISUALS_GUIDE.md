@@ -99,3 +99,4 @@ def render(self, screen: pygame.Surface) -> None:
 ```
 
 This guarantees that visual errors will never crash the demo during the NBA presentation.
+
