@@ -216,6 +216,21 @@ class RobotRenderer:
             surface.blit(self._bg_surface, (0, 0))
 
         # -------------------------------------------------------------
+        # LAYER 0.5: AMBIENT DECORATIONS (Zero hitbox impact)
+        # -------------------------------------------------------------
+        # Subtle tech carpet in center
+        rug_rect = pygame.Rect(self.width // 2 - 90, self.height // 2 - 60, 180, 120)
+        pygame.draw.rect(surface, (32, 42, 58), rug_rect, border_radius=6)
+        pygame.draw.rect(surface, (45, 60, 84), rug_rect, 2, border_radius=6)
+
+        # Decorative potted plants in boundary corners
+        plant_sprite = self.sprites.get_plant_sprite(size=26)
+        surface.blit(plant_sprite, (14, 14))
+        surface.blit(plant_sprite, (self.width - 40, 14))
+        surface.blit(plant_sprite, (14, self.height - 40))
+        surface.blit(plant_sprite, (self.width - 40, self.height - 40))
+
+        # -------------------------------------------------------------
         # LAYER 1: FLOOR TREAD TRAILS
         # -------------------------------------------------------------
         if self.quality != QualityLevel.LOW:

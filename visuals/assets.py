@@ -294,6 +294,30 @@ class SpriteManager:
         self._cache[key] = surf
         return surf
 
+    def get_plant_sprite(self, size: int = 26) -> pygame.Surface:
+        """Generates/returns a top-down decorative potted office plant."""
+        key = f"plant_{size}"
+        if key in self._cache:
+            return self._cache[key]
+
+        surf = pygame.Surface((size, size), pygame.SRCALPHA)
+        cx, cy = size // 2, size // 2
+        # Terracotta pot rim
+        pygame.draw.circle(surf, Colors.PLANT_POT, (cx, cy), size // 2 - 2)
+        pygame.draw.circle(surf, (140, 70, 45), (cx, cy), size // 2 - 2, 2)
+        # Soil
+        pygame.draw.circle(surf, (45, 35, 30), (cx, cy), size // 2 - 5)
+        # Leaves radiating from center
+        for i in range(5):
+            angle = i * (2 * math.pi / 5)
+            lx = cx + math.cos(angle) * (size // 2 - 4)
+            ly = cy + math.sin(angle) * (size // 2 - 4)
+            pygame.draw.ellipse(surf, Colors.PLANT_LEAF, (min(cx, lx) - 2, min(cy, ly) - 2, 8, 8))
+            pygame.draw.circle(surf, Colors.PLANT_LEAF_DARK, (int(lx), int(ly)), 3)
+
+        self._cache[key] = surf
+        return surf
+
     def get_desk_sprite(self, width: int, height: int, seed: int = 42) -> pygame.Surface:
         """
         Generates/returns a laboratory desk / box stack matching physical width x height.
