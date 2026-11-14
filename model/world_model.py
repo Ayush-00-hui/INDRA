@@ -260,13 +260,31 @@ def save_model(model: WorldModel, path: str) -> None:
 
 
 def load_model(path: str, state_size: Optional[int] = None, action_size: Optional[int] = None) -> WorldModel:
-    """Load model from disk, configure device, and switch to evaluation mode."""
+    """
+    Load model from disk, configure device, and switch to evaluation mode.
+    Validates state and action dimensions and raises a clear descriptive ValueError if mismatched.
+    """
     device = get_device()
     checkpoint = torch.load(path, map_location=device)
 
     if isinstance(checkpoint, dict) and "state_dict" in checkpoint:
-        s_size = checkpoint.get("state_size", state_size)
-        a_size = checkpoint.get("action_size", action_size)
+        ckpt_state_size = checkpoint.get("state_size")
+        ckpt_action_size = checkpoint.get("action_size")
+
+        if state_size is not None and ckpt_state_size is not None and state_size != ckpt_state_size:
+            raise ValueError(
+                f"Model state size mismatch: checkpoint '{path}' has state_size={ckpt_state_size}, "
+                f"but caller requested state_size={state_size}. "
+                f"Verify whether RobotEnv(include_obstacle_size=...) matches the trained checkpoint."
+            )
+        if action_size is not None and ckpt_action_size is not None and action_size != ckpt_action_size:
+            raise ValueError(
+                f"Model action size mismatch: checkpoint '{path}' has action_size={ckpt_action_size}, "
+                f"but caller requested action_size={action_size}."
+            )
+
+        s_size = ckpt_state_size if ckpt_state_size is not None else state_size
+        a_size = ckpt_action_size if ckpt_action_size is not None else action_size
         hidden = checkpoint.get("hidden", 128)
         model = WorldModel(state_size=s_size, action_size=a_size, hidden=hidden)
         model.load_state_dict(checkpoint["state_dict"])

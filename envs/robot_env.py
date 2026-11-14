@@ -81,10 +81,11 @@ class RobotEnv(BaseEnv):
         4: (0.0, 0.0),
     }
 
-    def __init__(self, scenario: int = 1):
+    def __init__(self, scenario: int = 1, include_obstacle_size: bool = False):
         super().__init__()
         self.scenario = scenario
-        self.state_size = 16
+        self.include_obstacle_size = include_obstacle_size
+        self.state_size = 22 if include_obstacle_size else 16
         self.action_size = 5
 
         # Episode state variables
@@ -126,10 +127,15 @@ class RobotEnv(BaseEnv):
 
     def _get_state(self) -> np.ndarray:
         """
-        Construct 16-dimensional float32 state vector:
-        [0:2]   Robot position (norm_x, norm_y)
-        [2:4]   Relative goal position (rel_gx, rel_gy)
-        [4:16]  3 nearest obstacles: relative (rel_ox, rel_oy) and velocity (norm_vx, norm_vy)
+        Construct state vector:
+        - 16-d (default):
+            [0:2]   Robot position (norm_x, norm_y)
+            [2:4]   Relative goal position (rel_gx, rel_gy)
+            [4:16]  3 nearest obstacles: relative (rel_ox, rel_oy) and velocity (norm_vx, norm_vy)
+        - 22-d (if include_obstacle_size=True):
+            [0:2]   Robot position (norm_x, norm_y)
+            [2:4]   Relative goal position (rel_gx, rel_gy)
+            [4:22]  3 nearest obstacles: relative (rel_ox, rel_oy), velocity (norm_vx, norm_vy), and size (norm_w, norm_h)
         """
         state = np.zeros(self.state_size, dtype=np.float32)
 
@@ -150,6 +156,8 @@ class RobotEnv(BaseEnv):
         obs_distances.sort(key=lambda item: item[0])
 
         idx = 4
+        stride = 6 if self.include_obstacle_size else 4
+
         for i in range(3):
             if i < len(obs_distances):
                 _, obs = obs_distances[i]
@@ -158,13 +166,19 @@ class RobotEnv(BaseEnv):
                 state[idx + 1] = (cy - self.robot_y) / (self.HEIGHT / 2.0)
                 state[idx + 2] = obs.vx / 10.0
                 state[idx + 3] = obs.vy / 10.0
+                if self.include_obstacle_size:
+                    state[idx + 4] = obs.width / (self.WIDTH / 2.0)
+                    state[idx + 5] = obs.height / (self.HEIGHT / 2.0)
             else:
                 # Far away dummy obstacle
                 state[idx] = 2.0
                 state[idx + 1] = 2.0
                 state[idx + 2] = 0.0
                 state[idx + 3] = 0.0
-            idx += 4
+                if self.include_obstacle_size:
+                    state[idx + 4] = 0.0
+                    state[idx + 5] = 0.0
+            idx += stride
 
         return state
 
