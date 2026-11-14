@@ -20,3 +20,4 @@ All audio and visual assets used in this demonstration are **100% procedurally s
 ## 3. Compliance for NBA Accreditation
 - **Offline Self-Sufficiency:** The system does not connect to external CDNs or remote URLs. Every sprite, light map, and audio sample compiles deterministically on the target machine without internet access.
 - **License Integrity:** Evaluators may inspect all code in `visuals/` to verify mathematical synthesis of all audio and visual assets.
+

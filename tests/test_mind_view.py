@@ -80,3 +80,4 @@ def test_mind_view_rendering_and_comparison():
     raw_normal = pygame.image.tobytes(surf_normal, "RGB")
     raw_mind = pygame.image.tobytes(surf_mind, "RGB")
     assert raw_normal != raw_mind, "Mind view must visually differ from normal view"
+

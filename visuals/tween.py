@@ -130,3 +130,4 @@ class Timer:
     def reset(self) -> None:
         self.elapsed = 0.0
         self.finished = False
+

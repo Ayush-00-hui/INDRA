@@ -55,3 +55,4 @@ def test_seeded_world_layouts_and_hitbox_alignment():
         pygame.image.save(surface, shot_path)
         assert os.path.exists(shot_path)
         assert os.path.getsize(shot_path) > 1000  # Valid non-empty PNG
+

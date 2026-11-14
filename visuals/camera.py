@@ -94,3 +94,4 @@ class CameraEffects:
                 r, g, b = self.flash_color
                 self._flash_surf.fill((r, g, b, alpha))
                 target_surface.blit(self._flash_surf, (0, 0))
+
