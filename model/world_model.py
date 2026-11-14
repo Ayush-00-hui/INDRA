@@ -201,6 +201,8 @@ def train_world_model(
 
     print(f"Training World Model on {device}: {n_train} train samples, {val_size} val samples, {epochs} epochs.")
 
+    history = {"train_loss": [], "val_loss": [], "epochs": []}
+
     for epoch in range(1, epochs + 1):
         model.train()
         perm = torch.randperm(n_train, device=device)
@@ -225,17 +227,23 @@ def train_world_model(
 
         avg_train_loss = total_loss / max(batches, 1)
 
-        # Validation loss
+        # Validation loss evaluation
+        model.eval()
+        with torch.no_grad():
+            val_pred_d, val_pred_r = model(val_s_norm, val_a_oh)
+            val_loss_d = F.mse_loss(val_pred_d, val_d_norm).item()
+            val_loss_r = F.mse_loss(val_pred_r, val_r_norm).item()
+            val_loss = val_loss_d + val_loss_r
+
+        history["train_loss"].append(avg_train_loss)
+        history["val_loss"].append(val_loss)
+        history["epochs"].append(epoch)
+
         if epoch % 5 == 0 or epoch == 1 or epoch == epochs:
-            model.eval()
-            with torch.no_grad():
-                val_pred_d, val_pred_r = model(val_s_norm, val_a_oh)
-                val_loss_d = F.mse_loss(val_pred_d, val_d_norm).item()
-                val_loss_r = F.mse_loss(val_pred_r, val_r_norm).item()
-                val_loss = val_loss_d + val_loss_r
             print(f"Epoch [{epoch:3d}/{epochs:3d}] | Train Loss: {avg_train_loss:.5f} | Val Loss: {val_loss:.5f} (delta: {val_loss_d:.5f}, reward: {val_loss_r:.5f})")
 
     model.eval()
+    model.history = history
     return model
 
 
