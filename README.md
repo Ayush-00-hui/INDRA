@@ -169,11 +169,16 @@ Over 50 rigorously seeded benchmark episodes on Scenario 1 (Static Obstacle):
 
 The application has been engineered to ensure high reliability during live evaluator demonstrations:
 1. **GPU/CPU Automatic Fallback:** Dynamically queries `torch.cuda.is_available()`. If CUDA runtime or kernel errors occur (e.g. on RTX 5070 / GTX 1650), tensors and model operations automatically fall back to CPU without crashing.
-2. **Missing Checkpoint Safety:** If `models/robot_model.pt` has not yet been trained, `main.py` presents an on-screen alert banner (`"Model not trained. Run scripts/train_robot.py"`) and continues operating with the baseline rather than terminating.
-3. **Lazy Scenario Loading:** Scenarios (including `envs/driving_env.py`) are loaded dynamically via `importlib`. If an external branch is missing or contains syntax errors, the demo safely reports `"Driving scenario not available yet"` and remains interactive.
-4. **Planning Exception Containment:** All MPC calculations and simulation steps are isolated in `try/except` blocks. If an unhandled exception occurs in planning, it is logged to `logs/main.log` and automatically falls back to greedy movement for that step.
-5. **Frame-Rate Capping:** The simulation runs capped at 30 FPS (`clock.tick(30)`), and batched MPC rollouts execute in ~3.3 ms, guaranteeing fluid animation and responsive controls.
-6. **Headless Execution Support:** Automated test scripts run headlessly using `SDL_VIDEODRIVER=dummy` and save visual frames directly with `pygame.image.save()`.
+2. **Troubleshooting RTX 50-Series GPUs:** For newer NVIDIA Blackwell/Ada cards (such as the RTX 5070), standard PyTorch builds may report CUDA architecture mismatch or missing kernels. To enable native hardware acceleration on RTX 50-series cards, install PyTorch compiled with CUDA 12.8+:
+   ```bash
+   pip install torch --index-url https://download.pytorch.org/whl/cu128
+   ```
+   If a CUDA kernel error is detected at runtime, the shared engine automatically catches `RuntimeError` and moves operations to CPU seamlessly.
+3. **Missing Checkpoint Safety:** If `models/robot_model.pt` has not yet been trained, `main.py` presents an on-screen alert banner (`"Model not trained. Run scripts/train_robot.py"`) and continues operating with the baseline rather than terminating.
+4. **Lazy Scenario Loading:** Scenarios (including `envs/driving_env.py`) are loaded dynamically via `importlib`. If an external branch is missing or contains syntax errors, the demo safely reports `"Driving scenario not available yet"` and remains interactive.
+5. **Planning Exception Containment:** All MPC calculations and simulation steps are isolated in `try/except` blocks. If an unhandled exception occurs in planning, it is logged to `logs/main.log` and automatically falls back to greedy movement for that step.
+6. **Frame-Rate Capping:** The simulation runs capped at 30 FPS (`clock.tick(30)`), and batched MPC rollouts execute in ~3.3 ms, guaranteeing fluid animation and responsive controls.
+7. **Headless Execution Support:** Automated test scripts run headlessly using `SDL_VIDEODRIVER=dummy` and save visual frames directly with `pygame.image.save()`.
 
 ---
 

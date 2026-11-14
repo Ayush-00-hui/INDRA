@@ -7,35 +7,43 @@ import torch.nn.functional as F
 from model.world_model import WorldModel
 
 
-def generate_candidate_action_sequences(action_size: int, horizon: int, n_samples: int, device: torch.device) -> torch.Tensor:
+# Cache for precomputed structured motion primitives: (action_size, horizon, device) -> torch.Tensor
+_PRIMITIVE_CACHE: Dict[Tuple[int, int, str], torch.Tensor] = {}
+
+
+def _build_and_cache_primitives(action_size: int, horizon: int, device: torch.device) -> torch.Tensor:
     """
-    Generate structured candidate action sequences for Random-Shooting MPC.
+    Construct and cache structured motion primitives once per configuration.
     
     Includes:
-    1. Straight lines in each action direction.
-    2. Single-turn L-shaped evasion maneuvers around obstacles.
-    3. Multi-turn detour trajectories (evade obstacle, drive to goal, re-align).
-    4. Temporally persistent random exploratory sequences.
-    
-    Returns:
-        torch.Tensor: Long tensor of shape (n_samples, horizon).
+    - Straight lines in all action directions.
+    - Single-turn L-shaped evasion maneuvers.
+    - Two-turn detour maneuvers.
     """
-    seqs: List[torch.Tensor] = []
+    key = (action_size, horizon, str(device))
+    if key in _PRIMITIVE_CACHE:
+        return _PRIMITIVE_CACHE[key]
 
-    # 1. Straight lines in every available action direction
-    for a in range(action_size):
-        seqs.append(torch.full((horizon,), a, device=device, dtype=torch.long))
+    prims = []
 
-    # 2. Single-turn L-shaped evasion maneuvers (a1 for k steps, then a2)
+    # 1. Straight lines in each action direction
+    straight = torch.arange(action_size, device=device, dtype=torch.long).unsqueeze(1).repeat(1, horizon)
+    prims.append(straight)
+
+    # 2. Single-turn L-shaped maneuvers (a1 for k steps, then a2)
+    l_turns = []
     for a1 in range(action_size):
         for a2 in range(action_size):
             if a1 != a2:
                 for k in range(1, horizon):
                     seq = torch.full((horizon,), a2, device=device, dtype=torch.long)
                     seq[:k] = a1
-                    seqs.append(seq)
+                    l_turns.append(seq)
+    if l_turns:
+        prims.append(torch.stack(l_turns))
 
-    # 3. Two-turn detour maneuvers (detour, advance toward goal, re-align)
+    # 3. Two-turn detour maneuvers (a1 for k1, a2 for k2, then a3)
+    two_turns = []
     for a1 in range(action_size):
         for a2 in range(action_size):
             if a1 != a2:
@@ -44,19 +52,56 @@ def generate_candidate_action_sequences(action_size: int, horizon: int, n_sample
                         if k1 + k2 < horizon:
                             seq = torch.full((horizon,), a1, device=device, dtype=torch.long)
                             seq[k1:k1 + k2] = a2
-                            seqs.append(seq)
+                            two_turns.append(seq)
+    if two_turns:
+        prims.append(torch.stack(two_turns))
 
-    # 4. Fill remaining samples with persistent random walks
-    while len(seqs) < n_samples:
-        seq = torch.randint(0, action_size, (horizon,), device=device, dtype=torch.long)
-        chunk = np.random.randint(2, max(3, horizon // 2))
-        for t in range(0, horizon, chunk):
-            seq[t:min(t + chunk, horizon)] = seq[t]
-        seqs.append(seq)
+    cached_tensor = torch.cat(prims, dim=0)
+    _PRIMITIVE_CACHE[key] = cached_tensor
+    return cached_tensor
 
-    # Ensure equal partition for candidate first actions if needed
-    actions = torch.stack(seqs[:n_samples])
-    return actions
+
+def _generate_candidate_sequences(
+    action_size: int,
+    horizon: int,
+    n_samples: int,
+    device: torch.device,
+    use_primitives: bool = True
+) -> torch.Tensor:
+    """
+    Generate candidate action sequences combining temporally persistent random walks
+    and structured motion primitives (50/50 mix), shuffled so truncation never removes randomness.
+    """
+    if use_primitives:
+        cached_prims = _build_and_cache_primitives(action_size, horizon, device)
+        n_prim = min(n_samples // 2, len(cached_prims))
+        n_rand = n_samples - n_prim
+
+        # Sample n_prim primitives without replacement
+        prim_indices = torch.randperm(len(cached_prims), device=device)[:n_prim]
+        selected_prims = cached_prims[prim_indices]
+    else:
+        n_rand = n_samples
+        selected_prims = None
+
+    # Vectorized temporally persistent random sequences
+    chunk_size = max(2, horizon // 3)
+    n_chunks = (horizon + chunk_size - 1) // chunk_size
+    chunk_acts = torch.randint(0, action_size, (n_rand, n_chunks), device=device, dtype=torch.long)
+    rand_sequences = chunk_acts.repeat_interleave(chunk_size, dim=1)[:, :horizon]
+
+    # Mix in pure uniform random exploratory sequences for 30% of random quota
+    n_pure = max(1, n_rand // 3)
+    rand_sequences[:n_pure] = torch.randint(0, action_size, (n_pure, horizon), device=device, dtype=torch.long)
+
+    if selected_prims is not None and len(selected_prims) > 0:
+        candidates = torch.cat([rand_sequences, selected_prims], dim=0)
+    else:
+        candidates = rand_sequences
+
+    # Shuffle uniformly so random and primitive sequences are intermingled
+    shuffled_indices = torch.randperm(len(candidates), device=device)[:n_samples]
+    return candidates[shuffled_indices]
 
 
 def plan(
@@ -66,12 +111,14 @@ def plan(
     horizon: int = 14,
     n_samples: int = 300,
     gamma: float = 0.95,
-    return_trajectories: bool = False
+    return_trajectories: bool = False,
+    use_primitives: bool = True
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """
     Random-Shooting Model Predictive Control (MPC) planner.
     
-    Generates n_samples candidate action sequences over a planning horizon,
+    Generates n_samples candidate action sequences over a planning horizon
+    (combining temporally persistent random sequences and structured motion primitives),
     evaluates them via fully batched rollouts in the learned WorldModel,
     and returns the first action of the trajectory with the highest expected discounted return.
     
@@ -80,9 +127,10 @@ def plan(
         state (np.ndarray): Current environment state vector of shape (state_size,).
         action_size (int): Number of discrete actions available.
         horizon (int): Planning horizon (number of future imagined steps).
-        n_samples (int): Number of random action sequences to evaluate in parallel.
+        n_samples (int): Number of action sequences to evaluate in parallel.
         gamma (float): Discount factor for future predicted rewards.
         return_trajectories (bool): If True, returns (best_action, info) with trajectory paths.
+        use_primitives (bool): If True, blends 50% cached primitives with 50% random sequences.
         
     Returns:
         int: Optimal first action if return_trajectories is False.
@@ -102,8 +150,8 @@ def plan(
         else:
             s_batch = s_tensor.repeat(n_samples, 1)
 
-        # Generate structured candidate action sequences
-        actions = generate_candidate_action_sequences(action_size, horizon, n_samples, device)
+        # Generate action sequences
+        actions = _generate_candidate_sequences(action_size, horizon, n_samples, device, use_primitives=use_primitives)
 
         # State trajectory storage if trajectories requested
         traj_states = None

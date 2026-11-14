@@ -1,3 +1,6 @@
-Method,Success Rate (%),Avg Collisions,Avg Steps (Successful),Total Successes,Total Episodes
-Greedy Baseline (No Model),20.0,146.4,51.0,10,50
-World Model + MPC Planner,74.0,20.18,51.054054054054056,37,50
+Method,Success Rate (%),Mean Collisions / Ep,Collisions / 100 Steps,Mean Steps to Goal,Successes,Total Episodes
+Random,0.0,4.0,2.0,,0,20
+Greedy,20.0,145.7,85.65549676660787,50.5,4,20
+Greedy-with-unstick,45.0,76.3,55.836077570435414,59.22222222222222,9,20
+World Model MPC,85.0,20.8,27.278688524590166,54.411764705882355,17,20
+Oracle-MPC (Upper Bound),100.0,0.0,0.0,64.55,20,20
