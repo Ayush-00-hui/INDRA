@@ -112,7 +112,8 @@ def plan(
     n_samples: int = 300,
     gamma: float = 0.95,
     return_trajectories: bool = False,
-    use_primitives: bool = True
+    use_primitives: bool = True,
+    last_action: Optional[int] = None
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """
     Random-Shooting Model Predictive Control (MPC) planner.
@@ -131,6 +132,7 @@ def plan(
         gamma (float): Discount factor for future predicted rewards.
         return_trajectories (bool): If True, returns (best_action, info) with trajectory paths.
         use_primitives (bool): If True, blends 50% cached primitives with 50% random sequences.
+        last_action (Optional[int]): Optional previous action for anti-oscillation tie-breaking.
         
     Returns:
         int: Optimal first action if return_trajectories is False.
@@ -174,6 +176,19 @@ def plan(
 
             if return_trajectories:
                 traj_states[t + 1] = curr_states
+
+        # Terminal goal progress heuristic (breaks limit-cycle ties and accelerates goal arrival)
+        if curr_states.shape[-1] >= 4:
+            init_dist = torch.hypot(s_batch[:, 2] * 450.0, s_batch[:, 3] * 300.0)
+            term_dist = torch.hypot(curr_states[:, 2] * 450.0, curr_states[:, 3] * 300.0)
+            progress = (init_dist - term_dist) / 15.0
+            returns += 0.20 * progress
+
+        # Anti-immediate-reversal tie-breaker (prevents 2-state back-and-forth oscillations)
+        if last_action is not None and 0 <= last_action < 4:
+            opposite = {0: 1, 1: 0, 2: 3, 3: 2}.get(last_action, -1)
+            if opposite != -1:
+                returns[actions[:, 0] == opposite] -= 0.30
 
         best_idx = torch.argmax(returns).item()
         best_action = int(actions[best_idx, 0].item())

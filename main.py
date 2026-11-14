@@ -344,6 +344,8 @@ class Application:
 
         self.env_left = RobotEnv(scenario=self.robot_scenario)
         self.env_right = RobotEnv(scenario=self.robot_scenario)
+        self.env_left.mode_str = "REACTIVE GREEDY (Baseline)"
+        self.env_right.mode_str = "WITH WORLD MODEL (MPC)"
 
         for env in [self.env_left, self.env_right]:
             env.renderer_mode = self.renderer_choice
@@ -406,6 +408,10 @@ class Application:
                         self.robot_scenario = 2 if self.robot_scenario == 1 else 1
                         self.env_left.scenario = self.robot_scenario
                         self.env_right.scenario = self.robot_scenario
+                        self.env_left.mode_str = "REACTIVE GREEDY (Baseline)"
+                        self.env_right.mode_str = "WITH WORLD MODEL (MPC)"
+                        self.stats_left = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
+                        self.stats_right = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
                         self._load_robot_model(self.robot_scenario)
                         scen_name = "Scenario 1 (Static Chair)" if self.robot_scenario == 1 else "Scenario 2 (Moving Person)"
                         self.set_banner(f"Auto-Demo Switching to {scen_name}", color=(0, 240, 180), duration_frames=90)
@@ -473,7 +479,8 @@ class Application:
                         horizon=14,
                         n_samples=self.n_samples,
                         gamma=0.95,
-                        return_trajectories=True
+                        return_trajectories=True,
+                        last_action=self.last_executed_action
                     )
                 except Exception as e:
                     logger.error(f"Planning exception: {e}")
@@ -922,6 +929,8 @@ class Application:
                     self.set_banner("Cannot enable World Model: checkpoint not found!", duration_frames=120)
                 else:
                     self.with_world_model = not self.with_world_model
+                    if self.env_right:
+                        self.env_right.mode_str = "WITH WORLD MODEL (MPC)" if self.with_world_model else "REACTIVE GREEDY (Baseline)"
                     self.set_banner(f"Mode: {'WITH WORLD MODEL' if self.with_world_model else 'WITHOUT (Greedy)'}", color=(0, 220, 120), duration_frames=45)
             elif event.key == pygame.K_r:
                 self._reset_episode(same_seed=True)
@@ -931,16 +940,28 @@ class Application:
                 self.set_banner(f"Advanced to seed {self.current_seed}", color=(100, 180, 255), duration_frames=45)
             elif event.key == pygame.K_1:
                 self.robot_scenario = 1
-                if self.env_left: self.env_left.scenario = 1
-                if self.env_right: self.env_right.scenario = 1
+                if self.env_left:
+                    self.env_left.scenario = 1
+                    self.env_left.mode_str = "REACTIVE GREEDY (Baseline)"
+                if self.env_right:
+                    self.env_right.scenario = 1
+                    self.env_right.mode_str = "WITH WORLD MODEL (MPC)"
                 self._load_robot_model(1)
+                self.stats_left = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
+                self.stats_right = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
                 self._reset_episode(same_seed=True)
                 self.set_banner("Switched to Scenario 1 (Static Chair)", color=(0, 220, 200), duration_frames=60)
             elif event.key == pygame.K_2:
                 self.robot_scenario = 2
-                if self.env_left: self.env_left.scenario = 2
-                if self.env_right: self.env_right.scenario = 2
+                if self.env_left:
+                    self.env_left.scenario = 2
+                    self.env_left.mode_str = "REACTIVE GREEDY (Baseline)"
+                if self.env_right:
+                    self.env_right.scenario = 2
+                    self.env_right.mode_str = "WITH WORLD MODEL (MPC)"
                 self._load_robot_model(2)
+                self.stats_left = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
+                self.stats_right = {"episodes": 0, "successes": 0, "collisions": 0, "steps": 0}
                 self._reset_episode(same_seed=True)
                 self.set_banner("Switched to Scenario 2 (Moving Person)", color=(0, 220, 200), duration_frames=60)
             elif event.key == pygame.K_ESCAPE:

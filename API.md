@@ -86,7 +86,8 @@ plan(
     n_samples: int = 300,
     gamma: float = 0.95,
     return_trajectories: bool = False,
-    use_primitives: bool = True
+    use_primitives: bool = True,
+    last_action: Optional[int] = None
 ) -> Union[int, Tuple[int, Dict[str, Any]]]
 ```
 
@@ -99,6 +100,7 @@ plan(
   - `gamma`: Reward discount factor (default: 0.95).
   - `return_trajectories`: If `True`, returns `(best_action, info)`.
   - `use_primitives`: Optional bool (default: True). If True, blends 50% cached motion primitives with 50% temporally persistent random sequences. If False, runs purely stochastic random shooting.
+  - `last_action`: Optional int (default: None). If provided, applies an anti-oscillation tie-breaker penalizing immediate 180-degree action reversals.
 - **Returns:**
   - If `return_trajectories=False`: `best_action` (int).
   - If `return_trajectories=True`: `(best_action, info_dict)` where `info_dict` contains:

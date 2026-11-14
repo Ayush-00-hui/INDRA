@@ -534,8 +534,8 @@ class RobotRenderer:
         hud_rect = pygame.Rect(16, 14, hud_w, hud_h)
         draw_glass_panel(surface, hud_rect, bg_color=(16, 22, 32), alpha=215, border_color=(45, 65, 90), radius=8)
 
-        # Method Title Badge
-        is_wm = "WORLD MODEL" in method_title
+        # Method Title Badge (Green for World Model, Red/Coral for Greedy Baseline)
+        is_wm = "WORLD MODEL" in method_title and "WITHOUT" not in method_title and "REACTIVE" not in method_title and "BASELINE" not in method_title
         badge_col = Colors.SUCCESS if is_wm else Colors.DANGER
         badge_rect = draw_badge(surface, method_title, (hud_rect.x + 12, hud_rect.y + 10), bg_color=badge_col)
 

@@ -27,14 +27,17 @@ def test_forced_exception_fallback():
     env.reset(seed=101)
 
     renderer = Renderer3D(width=960, height=600)
-    # Sabotage the bridge to force an exception
+    # Sabotage the bridge to force an exception, and safely restore it afterwards
     if renderer.bridge:
-        renderer.bridge.is_available = lambda: (_ for _ in ()).throw(RuntimeError("Forced GPU driver failure"))
-
-    # Render frame - must catch exception and fall back to 2D smoothly
-    renderer.render(env, surf)
-    assert renderer._3d_enabled is False
-    assert renderer._fallback_renderer is not None
+        orig_fn = renderer.bridge.is_available
+        try:
+            renderer.bridge.is_available = lambda: (_ for _ in ()).throw(RuntimeError("Forced GPU driver failure"))
+            # Render frame - must catch exception and fall back to 2D smoothly
+            renderer.render(env, surf)
+            assert renderer._3d_enabled is False
+            assert renderer._fallback_renderer is not None
+        finally:
+            renderer.bridge.is_available = orig_fn
     pygame.quit()
 
 
