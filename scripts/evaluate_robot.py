@@ -253,10 +253,12 @@ def run_evaluation(
         # -------------------------------------------------------------
         s_wm = env.reset(seed=seed)
         wm_hits, wm_steps, wm_goal = 0, 0, False
+        last_wm_act = None
         for _ in range(env.MAX_STEPS):
-            act = plan(model, s_wm, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95)
+            act = plan(model, s_wm, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95, last_action=last_wm_act)
             s_wm, _, done, info = env.step(act)
             wm_steps += 1
+            last_wm_act = act
             if info["collision"]: wm_hits += 1
             if done:
                 wm_goal = info["reached_goal"]

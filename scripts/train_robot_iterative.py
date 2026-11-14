@@ -37,6 +37,7 @@ def evaluate_on_tune_seeds(
         reached = False
         stuck_steps = 0
         last_pos = None
+        last_act = None
 
         for _ in range(env.MAX_STEPS):
             curr_pos = (round(env.robot_x, 1), round(env.robot_y, 1))
@@ -56,10 +57,11 @@ def evaluate_on_tune_seeds(
                 act = np.random.choice(valid_acts) if valid_acts else np.random.randint(0, env.get_action_size())
                 stuck_steps = 0
             else:
-                act = plan(model, state, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95)
+                act = plan(model, state, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95, last_action=last_act)
 
             next_state, _, done, info = env.step(act)
             ep_steps += 1
+            last_act = act
             if info["collision"]:
                 ep_hits += 1
             if done:
@@ -103,6 +105,7 @@ def collect_iterative_rollouts(
         state = env.reset(seed=seed)
         stuck_steps = 0
         last_pos = None
+        last_act = None
 
         for _ in range(env.MAX_STEPS):
             curr_pos = (round(env.robot_x, 1), round(env.robot_y, 1))
@@ -124,9 +127,10 @@ def collect_iterative_rollouts(
                 action = np.random.choice(valid_acts) if valid_acts else np.random.randint(0, env.get_action_size())
                 stuck_steps = 0
             else:
-                action = plan(model, state, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95)
+                action = plan(model, state, action_size=env.get_action_size(), horizon=14, n_samples=300, gamma=0.95, last_action=last_act)
 
             next_state, reward, done, info = env.step(action)
+            last_act = action
 
             states.append(state)
             actions.append(action)
