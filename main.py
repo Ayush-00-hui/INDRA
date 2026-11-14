@@ -165,19 +165,12 @@ class Application:
     # =========================================================================
     # ROBOTICS SCENARIO
     # =========================================================================
-    def _enter_robotics(self) -> None:
-        logger.info("Entering Robotics Scenario...")
-        try:
-            self.robot_env = RobotEnv(scenario=self.robot_scenario)
-            self.robot_curr_state = self.robot_env.reset()
-        except Exception as e:
-            logger.error(f"Failed to initialize RobotEnv: {e}")
-            self.set_banner(f"Error initializing RobotEnv: {e}")
-            self.state = self.STATE_MENU
-            return
+    def _load_robot_model(self, scenario: int) -> None:
+        """Load scenario-specific model checkpoint if available, falling back to default."""
+        scen2_path = "models/robot_model_scenario2.pt"
+        default_path = "models/robot_model.pt"
+        model_path = scen2_path if (scenario == 2 and os.path.exists(scen2_path)) else default_path
 
-        # Load World Model defensively
-        model_path = "models/robot_model.pt"
         if not os.path.exists(model_path):
             self.robot_model = None
             self.with_world_model = False
@@ -197,6 +190,18 @@ class Application:
                 self.with_world_model = False
                 self.set_banner(f"Error loading model: {e}. Using baseline.", duration_frames=180)
 
+    def _enter_robotics(self) -> None:
+        logger.info("Entering Robotics Scenario...")
+        try:
+            self.robot_env = RobotEnv(scenario=self.robot_scenario)
+            self.robot_curr_state = self.robot_env.reset()
+        except Exception as e:
+            logger.error(f"Failed to initialize RobotEnv: {e}")
+            self.set_banner(f"Error initializing RobotEnv: {e}")
+            self.state = self.STATE_MENU
+            return
+
+        self._load_robot_model(self.robot_scenario)
         self.robot_plan_info = None
         self.auto_reset_timer = 0
         self.last_outcome_msg = ""
@@ -320,12 +325,16 @@ class Application:
                 if self.robot_env is not None:
                     self.robot_env.scenario = 1
                     self.robot_curr_state = self.robot_env.reset()
+                self._load_robot_model(1)
+                self.robot_plan_info = None
                 logger.info("Selected Scenario 1 (Static Chair).")
             elif event.key == pygame.K_2:
                 self.robot_scenario = 2
                 if self.robot_env is not None:
                     self.robot_env.scenario = 2
                     self.robot_curr_state = self.robot_env.reset()
+                self._load_robot_model(2)
+                self.robot_plan_info = None
                 logger.info("Selected Scenario 2 (Moving Person).")
             elif event.key == pygame.K_ESCAPE:
                 self.state = self.STATE_MENU
