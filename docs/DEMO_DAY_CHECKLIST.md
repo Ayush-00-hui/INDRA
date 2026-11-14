@@ -40,22 +40,34 @@ CUDA_VISIBLE_DEVICES="" python main.py --split
 ```
 *Note: Planning latency on CPU is only ~8.7 ms. The demo runs at a solid 30 FPS without GPU.*
 
-### Fallback Plan B: Headless Pre-Recorded Demonstration
+### Fallback Plan B: Lightweight / Classic Graphics Fallback
+If running on an ultra-low-spec battery laptop:
+```powershell
+# Option 1: Low-spec lighting preset (sustains 60 FPS on weak CPUs)
+python main.py --quality low
+
+# Option 2: Pure classic fallback (disables modern visual shader layers)
+python main.py --classic
+
+# Option 3: Mute audio
+python main.py --mute
+```
+
+### Fallback Plan C: Headless Pre-Recorded Showcase & Video Trailer
 If the display projector fails completely or Pygame window cannot open:
-1. Open the pre-rendered animated demo:
+1. Open the 30-second automated showcase trailer:
    ```powershell
-   # Open pre-recorded high-fidelity GIF preview:
-   Start-Process results/demo_preview.gif
+   Start-Process results/trailer.gif
    ```
-2. Present the static benchmark comparison charts:
+2. Open high-resolution hero presentation captures:
    ```powershell
-   Start-Process results/robot_comparison_s1.png
-   Start-Process results/robot_comparison_s2.png
-   Start-Process results/ablations.png
-   Start-Process results/horizon_error.png
+   Start-Process results/screenshots/hero_split_screen.png
+   Start-Process results/screenshots/hero_mind_view_s1.png
+   Start-Process results/screenshots/hero_mind_view_s2.png
+   Start-Process results/screenshots/hero_goal_celebration.png
    ```
 
-### Fallback Plan C: Standalone Offline USB Package
+### Fallback Plan D: Standalone Offline USB Package
 - Keep a formatted USB Drive (FAT32/NTFS) plugged in or in your pocket containing:
   - `release/world-model-demo.zip`
   - `python-3.11-amd64.exe` installer

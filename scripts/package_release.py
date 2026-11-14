@@ -18,7 +18,8 @@ EXCLUDED_DIRS = {
     ".venv",
     "__pycache__",
     "data",
-    "demo_frames"
+    "demo_frames",
+    "trailer_frames"
 }
 
 EXCLUDED_EXTS = {

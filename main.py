@@ -77,7 +77,10 @@ class Application:
         initial_seed: int = 1000,
         initial_scenario: int = 1,
         force_split: bool = True,
-        menu_mode: bool = False
+        menu_mode: bool = False,
+        classic: bool = False,
+        quality: str = "high",
+        mute: bool = False
     ):
         pygame.init()
         pygame.display.set_caption("World Model: Learn, Imagine, Act (NBA Accreditation Showcase)")
@@ -87,20 +90,29 @@ class Application:
         self.split_mode = force_split or demo_mode
         self.current_seed = initial_seed
         self.robot_scenario = initial_scenario
+        self.classic_mode = classic
+        self.quality_str = quality
+        self.mute_audio = mute
         self.clock = pygame.time.Clock()
         self.running = True
 
-        # Determine screen bounds for responsive windowing
+        # Determine screen bounds for responsive windowing (headless safe)
         disp_info = pygame.display.Info()
-        screen_w = disp_info.current_w if disp_info.current_w > 0 else 1707
-        screen_h = disp_info.current_h if disp_info.current_h > 0 else 1067
+        raw_w = disp_info.current_w
+        raw_h = disp_info.current_h
+        if raw_w < 600 or raw_h < 400:
+            screen_w = 1707
+            screen_h = 1067
+        else:
+            screen_w = raw_w
+            screen_h = raw_h
 
         if screen_w >= 1860 and screen_h >= 720:
             self.split_width = 1800
             self.split_height = 650
         else:
-            self.split_width = min(1500, screen_w - 60)
-            self.split_height = min(560, screen_h - 120)
+            self.split_width = max(self.SINGLE_WIDTH, min(1500, screen_w - 60))
+            self.split_height = max(self.SINGLE_HEIGHT, min(560, screen_h - 120))
 
         # Setup Display Mode
         w, h = (self.split_width, self.split_height) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
@@ -327,6 +339,19 @@ class Application:
 
         self.env_left = RobotEnv(scenario=self.robot_scenario)
         self.env_right = RobotEnv(scenario=self.robot_scenario)
+
+        if self.classic_mode:
+            self.env_left.use_modern_renderer = False
+            self.env_right.use_modern_renderer = False
+        else:
+            from visuals.theme import QualityLevel
+            q_val = QualityLevel.from_string(self.quality_str)
+            for env in [self.env_left, self.env_right]:
+                if hasattr(env, "_modern_renderer") and env._modern_renderer:
+                    env._modern_renderer.quality = q_val
+                    if self.mute_audio:
+                        env._modern_renderer.sounds.muted = True
+
         self._load_robot_model(self.robot_scenario)
         self._reset_episode(same_seed=True)
         self.state = self.STATE_ROBOTICS
@@ -949,6 +974,9 @@ def main():
     parser.add_argument("--seed", type=int, default=1000, help="Initial random seed.")
     parser.add_argument("--scenario", type=int, default=1, choices=[1, 2], help="Initial scenario.")
     parser.add_argument("--max-frames", type=int, default=None, help="Terminate after N frames (for tests).")
+    parser.add_argument("--classic", action="store_true", help="Run with original lightweight classic renderer.")
+    parser.add_argument("--quality", type=str, default="high", choices=["low", "med", "high"], help="Graphics quality preset.")
+    parser.add_argument("--mute", action="store_true", help="Launch with procedural audio muted.")
     args = parser.parse_args()
 
     app = Application(
@@ -957,7 +985,10 @@ def main():
         initial_seed=args.seed,
         initial_scenario=args.scenario,
         force_split=False if args.single else True,
-        menu_mode=args.menu
+        menu_mode=args.menu,
+        classic=args.classic,
+        quality=args.quality,
+        mute=args.mute
     )
     app.run(max_frames=args.max_frames)
 
