@@ -7,12 +7,64 @@ import torch.nn.functional as F
 from model.world_model import WorldModel
 
 
+def generate_candidate_action_sequences(action_size: int, horizon: int, n_samples: int, device: torch.device) -> torch.Tensor:
+    """
+    Generate structured candidate action sequences for Random-Shooting MPC.
+    
+    Includes:
+    1. Straight lines in each action direction.
+    2. Single-turn L-shaped evasion maneuvers around obstacles.
+    3. Multi-turn detour trajectories (evade obstacle, drive to goal, re-align).
+    4. Temporally persistent random exploratory sequences.
+    
+    Returns:
+        torch.Tensor: Long tensor of shape (n_samples, horizon).
+    """
+    seqs: List[torch.Tensor] = []
+
+    # 1. Straight lines in every available action direction
+    for a in range(action_size):
+        seqs.append(torch.full((horizon,), a, device=device, dtype=torch.long))
+
+    # 2. Single-turn L-shaped evasion maneuvers (a1 for k steps, then a2)
+    for a1 in range(action_size):
+        for a2 in range(action_size):
+            if a1 != a2:
+                for k in range(1, horizon):
+                    seq = torch.full((horizon,), a2, device=device, dtype=torch.long)
+                    seq[:k] = a1
+                    seqs.append(seq)
+
+    # 3. Two-turn detour maneuvers (detour, advance toward goal, re-align)
+    for a1 in range(action_size):
+        for a2 in range(action_size):
+            if a1 != a2:
+                for k1 in [2, 3, 5]:
+                    for k2 in [3, 5, 7]:
+                        if k1 + k2 < horizon:
+                            seq = torch.full((horizon,), a1, device=device, dtype=torch.long)
+                            seq[k1:k1 + k2] = a2
+                            seqs.append(seq)
+
+    # 4. Fill remaining samples with persistent random walks
+    while len(seqs) < n_samples:
+        seq = torch.randint(0, action_size, (horizon,), device=device, dtype=torch.long)
+        chunk = np.random.randint(2, max(3, horizon // 2))
+        for t in range(0, horizon, chunk):
+            seq[t:min(t + chunk, horizon)] = seq[t]
+        seqs.append(seq)
+
+    # Ensure equal partition for candidate first actions if needed
+    actions = torch.stack(seqs[:n_samples])
+    return actions
+
+
 def plan(
     model: WorldModel,
     state: np.ndarray,
     action_size: int,
-    horizon: int = 10,
-    n_samples: int = 200,
+    horizon: int = 14,
+    n_samples: int = 300,
     gamma: float = 0.95,
     return_trajectories: bool = False
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
@@ -50,12 +102,8 @@ def plan(
         else:
             s_batch = s_tensor.repeat(n_samples, 1)
 
-        # Generate action sequences
-        # Ensure balanced representation across all candidate first actions
-        actions = torch.randint(0, action_size, (n_samples, horizon), device=device, dtype=torch.long)
-        per_action = n_samples // action_size
-        for a in range(action_size):
-            actions[a * per_action:(a + 1) * per_action, 0] = a
+        # Generate structured candidate action sequences
+        actions = generate_candidate_action_sequences(action_size, horizon, n_samples, device)
 
         # State trajectory storage if trajectories requested
         traj_states = None

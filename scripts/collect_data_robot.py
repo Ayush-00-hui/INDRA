@@ -48,13 +48,13 @@ def collect_data(
     print(f"Collecting {n_samples} transitions for Robot Scenario {scenario}...")
 
     while len(states) < n_samples:
-        # Action selection policy
-        if np.random.rand() < 0.70:
-            # 70% uniform random action
+        # Action selection policy: balanced exploration & goal-directed navigation
+        if np.random.rand() < 0.50:
+            # 50% uniform random exploration (exploring room and obstacle perimeters)
             action = np.random.randint(0, env.get_action_size())
         else:
-            # 30% noisy greedy action
-            if np.random.rand() < 0.30:
+            # 50% noisy greedy action (driving toward goal & chair, with 20% noise)
+            if np.random.rand() < 0.20:
                 action = np.random.randint(0, env.get_action_size())
             else:
                 action = get_greedy_action(env.robot_x, env.robot_y, env.goal_x, env.goal_y)
