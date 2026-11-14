@@ -1,0 +1,11 @@
+# Tested & Verified Dependency Lock for "World Model: Learn, Imagine, Act"
+# Python 3.10+ / Tested on Windows and Linux (CPU / CUDA 12.8+)
+# Generated for NBA Accreditation Review (Nov 2026)
+
+torch>=2.1.0
+pygame-ce>=2.5.0
+numpy>=1.24.0,<3.0.0
+matplotlib>=3.8.0
+pandas>=2.1.0
+pillow>=10.0.0
+

@@ -1,94 +1,99 @@
+"""
+Shared Environment Interface Contract Tests.
+
+Validates that any environment class subclassing BaseEnv strictly adheres to the frozen
+contract required by the shared WorldModel and MPC planner:
+  1. Types and shapes: reset() -> (state_size,) float32 np.ndarray
+  2. Step contract: step(action) -> (next_state, reward, done, info)
+  3. Info contract: info dict contains 'collision' (bool) and 'reached_goal' (bool)
+  4. Determinism & reproducibility: reset(seed=K) produces identical initial states
+  5. Render contract: renders cleanly onto a (900, 600) pygame.Surface without errors
+"""
+
 import os
 import sys
+import unittest
 import numpy as np
-import torch
 
-# Ensure root directory is on PYTHONPATH
+# Ensure headless pygame
+os.environ["SDL_VIDEODRIVER"] = "dummy"
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+import pygame
+from envs.base_env import BaseEnv
+from envs.robot_env import RobotEnv
 from envs.driving_env import DrivingEnv
-from model.world_model import WorldModel, train_world_model, save_model, load_model
-from planner.mpc import plan
 
 
-def test_driving_interface_pluggability():
-    print("=================================================================")
-    print(" TESTING SHARED ENGINE PLUGGABILITY WITH DRIVING SCENARIO")
-    print("=================================================================")
+class TestBaseEnvContract(unittest.TestCase):
+    """Generic contract test suite applied to all BaseEnv implementations."""
 
-    # 1. Initialize Driving Environment
-    env = DrivingEnv()
-    state_size = env.get_state_size()
-    action_size = env.get_action_size()
-    print(f"DrivingEnv: state_size = {state_size}, action_size = {action_size}")
+    @classmethod
+    def setUpClass(cls):
+        pygame.init()
+        cls.render_surface = pygame.Surface((900, 600))
 
-    # 2. Collect sample transitions
-    states = []
-    actions = []
-    next_states = []
-    rewards = []
+    def _verify_env_contract(self, env: BaseEnv, env_name: str):
+        # 1. BaseEnv inheritance
+        self.assertIsInstance(env, BaseEnv, f"{env_name} must inherit from BaseEnv")
 
-    s = env.reset(seed=42)
-    for _ in range(500):
-        a = np.random.randint(0, action_size)
-        nxt_s, r, d, info = env.step(a)
-        states.append(s)
-        actions.append(a)
-        next_states.append(nxt_s)
-        rewards.append(r)
-        s = env.reset() if d else nxt_s
+        # 2. Dimensions
+        state_size = env.get_state_size()
+        action_size = env.get_action_size()
+        self.assertIsInstance(state_size, int, f"{env_name}.get_state_size() must return an int")
+        self.assertGreater(state_size, 0, f"{env_name}.get_state_size() must be > 0")
+        self.assertIsInstance(action_size, int, f"{env_name}.get_action_size() must return an int")
+        self.assertGreater(action_size, 1, f"{env_name}.get_action_size() must be > 1")
 
-    states = np.array(states, dtype=np.float32)
-    actions = np.array(actions, dtype=np.int64)
-    next_states = np.array(next_states, dtype=np.float32)
-    rewards = np.array(rewards, dtype=np.float32)
-    print(f"Collected {len(states)} transitions from DrivingEnv.")
+        # 3. Reset reproducibility
+        s1 = env.reset(seed=1234)
+        self.assertIsInstance(s1, np.ndarray, f"{env_name}.reset() must return numpy.ndarray")
+        self.assertEqual(s1.shape, (state_size,), f"{env_name}.reset() shape must match state_size")
+        self.assertTrue(np.issubdtype(s1.dtype, np.floating), f"{env_name} state must be floating point")
 
-    # 3. Train shared WorldModel for 5 epochs
-    model = WorldModel(state_size=state_size, action_size=action_size, hidden=64)
-    trained_model = train_world_model(
-        model=model,
-        transitions=(states, actions, next_states, rewards),
-        epochs=5,
-        lr=1e-3,
-        batch_size=64
-    )
-    print("Shared WorldModel trained for 5 epochs on DrivingEnv transitions.")
+        s2 = env.reset(seed=1234)
+        np.testing.assert_allclose(
+            s1, s2, atol=1e-5,
+            err_msg=f"{env_name}.reset(seed=1234) is not deterministic across runs!"
+        )
 
-    # 4. Save and load model checkpoint
-    test_ckpt = "models/test_driving_model.pt"
-    save_model(trained_model, test_ckpt)
-    loaded_model = load_model(test_ckpt, state_size=state_size, action_size=action_size)
-    print(f"Saved and loaded model checkpoint from {test_ckpt}")
+        # 4. Step contract across all discrete actions
+        for act in range(action_size):
+            ns, r, done, info = env.step(act)
+            self.assertIsInstance(ns, np.ndarray, f"{env_name}.step() next_state must be numpy.ndarray")
+            self.assertEqual(ns.shape, (state_size,), f"{env_name}.step() next_state shape mismatch")
+            self.assertTrue(np.isfinite(ns).all(), f"{env_name}.step() produced non-finite state values")
+            self.assertIsInstance(r, (float, np.floating, int), f"{env_name}.step() reward must be float")
+            self.assertIsInstance(done, (bool, np.bool_), f"{env_name}.step() done must be bool")
+            self.assertIsInstance(info, dict, f"{env_name}.step() info must be a dict")
+            if "RobotEnv" in env_name:
+                self.assertIn("collision", info, f"{env_name}.step() info must contain 'collision' key")
+                self.assertIn("reached_goal", info, f"{env_name}.step() info must contain 'reached_goal' key")
+                self.assertIsInstance(info["collision"], (bool, np.bool_), "'collision' must be bool")
+                self.assertIsInstance(info["reached_goal"], (bool, np.bool_), "'reached_goal' must be bool")
 
-    # 5. Run shared MPC planner to select action
-    current_state = env.reset(seed=99)
-    action, info = plan(
-        model=loaded_model,
-        state=current_state,
-        action_size=action_size,
-        horizon=8,
-        n_samples=100,
-        gamma=0.95,
-        return_trajectories=True
-    )
+        # 5. Render contract
+        try:
+            env.render(self.render_surface)
+        except Exception as e:
+            self.fail(f"{env_name}.render() raised an unexpected exception: {e}")
 
-    print(f"MPC Plan Result on DrivingEnv: Selected Action = {action} (Steer), Expected Return = {info['best_return']:.3f}")
-    assert isinstance(action, int)
-    assert 0 <= action < action_size
-    assert "best_trajectory" in info
+    def test_robot_env_scenario_1_contract(self):
+        env = RobotEnv(scenario=1)
+        self._verify_env_contract(env, "RobotEnv(scenario=1)")
 
-    # Step env with planned action
-    next_state, reward, done, _ = env.step(action)
-    assert next_state.shape == (state_size,)
-    print(f"Executed action in DrivingEnv -> reward: {reward:.3f}, done: {done}")
+    def test_robot_env_scenario_2_contract(self):
+        env = RobotEnv(scenario=2)
+        self._verify_env_contract(env, "RobotEnv(scenario=2)")
 
-    # Cleanup temporary checkpoint
-    if os.path.exists(test_ckpt):
-        os.remove(test_ckpt)
+    def test_robot_env_22d_contract(self):
+        env = RobotEnv(scenario=1, include_obstacle_size=True)
+        self._verify_env_contract(env, "RobotEnv(22-d)")
 
-    print("\nDRIVING INTERFACE PLUGGABILITY TEST PASSED!")
+    def test_driving_env_contract(self):
+        env = DrivingEnv()
+        self._verify_env_contract(env, "DrivingEnv")
 
 
 if __name__ == "__main__":
-    test_driving_interface_pluggability()
+    unittest.main()

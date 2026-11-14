@@ -6,3 +6,4 @@ data/
 venv/
 .venv/
 logs/*.log
+results/demo_frames/

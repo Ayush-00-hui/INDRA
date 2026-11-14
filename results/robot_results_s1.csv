@@ -1,0 +1,6 @@
+Method,Success Rate (%),Mean Collisions / Ep,Collisions / 100 Steps,Mean Steps to Goal,Successes,Total Episodes
+Random,0.0,3.42,1.71,,0,50
+Greedy,20.0,146.4,86.01645123384255,51.0,10,50
+Greedy-with-unstick,50.0,70.82,54.97593541375563,57.64,25,50
+World Model MPC,90.0,1.42,1.9994367783722895,56.68888888888889,45,50
+Oracle-MPC (Upper Bound),96.0,0.0,0.0,58.5,48,50
