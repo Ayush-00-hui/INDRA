@@ -104,6 +104,11 @@ class RobotEnv(BaseEnv):
         self._font = None
         self._small_font = None
 
+        # Rendering configuration & fallback chain: 3D -> 2D -> Classic
+        self.renderer_mode: str = "auto"
+        self.use_modern_renderer: bool = True
+        self._modern_renderer = None
+
     def get_state_size(self) -> int:
         return self.state_size
 
@@ -311,8 +316,24 @@ class RobotEnv(BaseEnv):
 
     def render(self, screen: pygame.Surface) -> None:
         """Render the room, obstacles, robot, goal, and HUD onto Pygame screen."""
-        if getattr(self, "use_modern_renderer", True):
-            if getattr(self, "_modern_renderer", None) is None:
+        if not getattr(self, "use_modern_renderer", True) or getattr(self, "renderer_mode", "auto") == "classic":
+            self._render_classic(screen)
+            return
+
+        mode = getattr(self, "renderer_mode", "auto")
+
+        # Initialize renderer if needed
+        if getattr(self, "_modern_renderer", None) is None:
+            if mode in ("3d", "auto"):
+                try:
+                    from viz3d.renderer3d import Renderer3D
+                    self._modern_renderer = Renderer3D(width=self.WIDTH, height=self.HEIGHT)
+                    if not getattr(self._modern_renderer, "_3d_enabled", True):
+                        self._modern_renderer = None
+                except Exception:
+                    self._modern_renderer = None
+
+            if self._modern_renderer is None and mode in ("3d", "2d", "auto"):
                 try:
                     from visuals.renderer import RobotRenderer
                     self._modern_renderer = RobotRenderer(width=self.WIDTH, height=self.HEIGHT)
@@ -320,18 +341,18 @@ class RobotEnv(BaseEnv):
                     self._modern_renderer = None
                     self.use_modern_renderer = False
 
-            if self._modern_renderer is not None:
-                try:
-                    self._modern_renderer.render(
-                        env=self,
-                        target_surface=screen,
-                        plan_info=getattr(self, "current_plan_info", None),
-                        last_info=getattr(self, "last_step_info", None),
-                        method_title=f"MODE: {self.mode_str}"
-                    )
-                    return
-                except Exception:
-                    self.use_modern_renderer = False
+        if self._modern_renderer is not None:
+            try:
+                self._modern_renderer.render(
+                    env=self,
+                    target_surface=screen,
+                    plan_info=getattr(self, "current_plan_info", None),
+                    last_info=getattr(self, "last_step_info", None),
+                    method_title=f"MODE: {self.mode_str}"
+                )
+                return
+            except Exception:
+                self.use_modern_renderer = False
 
         self._render_classic(screen)
 
