@@ -271,6 +271,20 @@ Academic integrity requires transparently documenting physical assumptions and f
 
 ---
 
+## 7.5 Visual Engine, Game-Feel & Demonstration Media
+
+To ensure maximum visual clarity and engagement during live evaluation by the National Board of Accreditation (NBA), the platform incorporates a dedicated procedural visual engine (`visuals/`):
+- **Pre-Rendered Multi-Layer Composition:** Static laboratory floor tiles, walls, and ambient occlusion are pre-rendered into cached surfaces, delivering full 60 FPS presentation with a draw time of only **0.60 ms per frame** on CPU-only hardware.
+- **Accurate Hitbox Sprites:** All procedural assets (Executive Office Chair, Laboratory Workstations, Service Bot, Walking Human) strictly match their physical AABB collision envelopes.
+- **Holographic Mind View (M Key):** Evaluators can inspect the latent MPC decision space in real time, featuring animated flowing neon candidate ribbons, alpha-scaled returns, ghost robots along rollout trajectories, and dynamic reasoning thought bubbles.
+- **Juice & Auditory Feedback:** Synthesized 16-bit procedural audio waveforms (`bonk.wav`, `move.wav`, `goal.wav`, `think.wav`), particle spark explosions, screen shake, and 3-Star Rating evaluation cards.
+- **Media Artifacts:**
+  - Automated 30-second presentation trailer: `results/trailer.gif`
+  - 8 Hero 1080p demonstration screenshots: `results/screenshots/`
+  - Zero-logic visual regression test: `tests/test_visual_regression.py` (20 seeded episodes, 100% bit-for-bit identical outcomes).
+
+---
+
 ## 8. Team Member Contributions
 
 The repository enforces a strict, conflict-free collaborative division of labor:

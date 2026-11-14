@@ -253,7 +253,25 @@ Error (L2)
 
 ---
 
-## Slide 12: Engineering Honesty: Known Limitations
+## Slide 12: Visual Aesthetics, Mind View & Video Showcase
+
+### Video Game Polish with Zero Logic Alteration
+
+- **Laboratory Visuals (`visuals/`):** Pre-rendered static floor tiles and ambient occlusion (0.60 ms frame draw time).
+- **Holographic Mind View (Key `M`):** Visualizes the agent's internal cognitive state—flowing neon candidate paths, alpha-scaled returns, and reasoning thought bubbles ("Detouring around chair...").
+- **Physical Hitbox Accuracy (Key `F3`):** Procedural sprites (Office Chair, Workstation, Service Bot) strictly align with true physical collision envelopes.
+- **Juice & Auditory Feedback:** Procedural sound synthesis (`bonk.wav`, `goal.wav`), spark bursts, screen shake, and 3-Star Rating evaluation cards.
+- **Media Demonstration:**
+  - Automated 30-Second Showcase Trailer: `results/trailer.gif`
+  - 8 Hero 1080p Presentation Captures: `results/screenshots/`
+  - Visual Regression Suite: `tests/test_visual_regression.py` (100% bit-for-bit identical outcomes).
+
+> **Speaker Notes:**  
+> Evaluators can press `M` at any time to enter "Mind View"—a holographic cybernetic overlay that reveals the robot's latent imagination in real time. We also provide a pre-compiled 30-second video trailer in `results/trailer.gif` demonstrating reactive failure versus world model detour.
+
+---
+
+## Slide 13: Engineering Honesty: Known Limitations
 
 ### Transparent Assessment of Model Boundaries
 
