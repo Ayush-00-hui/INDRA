@@ -398,36 +398,65 @@ class RobotRenderer:
 
     def _render_holographic_paths(self, env: Any, surface: pygame.Surface, plan_info: Dict[str, Any]) -> None:
         """
-        Renders flowing neon candidate paths with moving dashed pulses.
+        Renders flowing neon candidate paths with moving dashed pulses and collision detection markers.
         """
         overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
 
-        # 1. Alternative candidate trajectories (subtle cyan/gray)
+        # 1. Alternative candidate trajectories (subtle cyan/gray, alpha scaled by return)
         candidates = plan_info.get("candidate_trajectories", [])
-        for traj in candidates:
+        returns = plan_info.get("candidate_returns", [0.0] * len(candidates))
+        max_ret = max(returns) if returns else 1.0
+        min_ret = min(returns) if returns else 0.0
+        ret_range = max(1e-4, max_ret - min_ret)
+
+        for idx, traj in enumerate(candidates):
             if len(traj) < 2:
                 continue
+            ret = returns[idx] if idx < len(returns) else min_ret
+            norm_ret = (ret - min_ret) / ret_range  # 0.0 to 1.0
+            alpha = int(50 + norm_ret * 80)
+            thick = 1 if norm_ret < 0.6 else 2
+
             pts = [env.denormalize_pos(p[0], p[1]) for p in traj]
             for i in range(len(pts) - 1):
                 p1 = (int(pts[i][0]), int(pts[i][1]))
                 p2 = (int(pts[i + 1][0]), int(pts[i + 1][1]))
-                pygame.draw.line(overlay, (120, 180, 230, 85), p1, p2, 2)
+                pygame.draw.line(overlay, (100, 180, 240, alpha), p1, p2, thick)
 
-        # 2. Chosen best trajectory (neon green glowing ribbon with moving pulses)
+        # 2. Chosen best trajectory (bright neon green glowing ribbon with moving pulses)
         best_traj = plan_info.get("best_trajectory", None)
         if best_traj is not None and len(best_traj) >= 2:
             pts = [env.denormalize_pos(p[0], p[1]) for p in best_traj]
-            # Outer neon glow
+            # Outer neon glow ribbon
             for i in range(len(pts) - 1):
                 p1 = (int(pts[i][0]), int(pts[i][1]))
                 p2 = (int(pts[i + 1][0]), int(pts[i + 1][1]))
                 pygame.draw.line(overlay, (0, 255, 140, 100), p1, p2, 6)
-                pygame.draw.line(overlay, (200, 255, 230, 240), p1, p2, 2)
+                pygame.draw.line(overlay, (210, 255, 235, 245), p1, p2, 2)
+
+            # Animated moving chevrons along path
+            pulse_offset = (self.anim_frame % 10) / 10.0
+            for i in range(len(pts) - 1):
+                p1 = pts[i]
+                p2 = pts[i + 1]
+                mid_x = int(p1[0] + (p2[0] - p1[0]) * pulse_offset)
+                mid_y = int(p1[1] + (p2[1] - p1[1]) * pulse_offset)
+                pygame.draw.circle(overlay, (255, 255, 255, 220), (mid_x, mid_y), 3)
 
             # Draw translucent future ghost robot at horizon end
             ghost_pt = (int(pts[-1][0]), int(pts[-1][1]))
-            pygame.draw.circle(overlay, (0, 255, 160, 90), ghost_pt, int(env.ROBOT_RADIUS), 2)
-            pygame.draw.circle(overlay, (0, 255, 160, 40), ghost_pt, int(env.ROBOT_RADIUS) - 2)
+            pygame.draw.circle(overlay, (0, 255, 160, 120), ghost_pt, int(env.ROBOT_RADIUS), 2)
+            pygame.draw.circle(overlay, (0, 255, 160, 45), ghost_pt, int(env.ROBOT_RADIUS) - 2)
+
+            # Check if any candidate rollout hit an obstacle, and mark with red 'X'
+            for traj in candidates:
+                for p in traj[1:]:
+                    px, py = env.denormalize_pos(p[0], p[1])
+                    if env._check_collision(px, py):
+                        ix, iy = int(px), int(py)
+                        pygame.draw.line(overlay, (255, 50, 50, 160), (ix - 4, iy - 4), (ix + 4, iy + 4), 2)
+                        pygame.draw.line(overlay, (255, 50, 50, 160), (ix - 4, iy + 4), (ix + 4, iy - 4), 2)
+                        break
 
         surface.blit(overlay, (0, 0))
 
@@ -458,14 +487,17 @@ class RobotRenderer:
             self._render_holographic_paths(env, overlay, plan_info)
 
             # Contextual Thought Bubble above robot
-            thought_text = "Imagining Detour around Obstacle..."
+            ret_val = plan_info.get("best_return", 0.0)
             if env.scenario == 2:
-                thought_text = "Predicting Moving Person Trajectory..."
+                thought_text = f"Predicting Human Motion (Return: {ret_val:+.1f})"
+            else:
+                thought_text = f"Detouring Obstacle (Return: {ret_val:+.1f})"
+
             bubble_surf = self.font_bubble.render(thought_text, True, (0, 255, 230))
             bw, bh = bubble_surf.get_width() + 16, bubble_surf.get_height() + 8
             bx = max(10, min(self.width - bw - 10, int(env.robot_x - bw // 2)))
             by = max(10, int(env.robot_y - 42))
-            draw_glass_panel(overlay, pygame.Rect(bx, by, bw, bh), bg_color=(12, 22, 38), alpha=230, border_color=(0, 220, 255))
+            draw_glass_panel(overlay, pygame.Rect(bx, by, bw, bh), bg_color=(12, 22, 38), alpha=235, border_color=(0, 220, 255))
             overlay.blit(bubble_surf, (bx + 8, by + 4))
 
         surface.blit(overlay, (0, 0))
