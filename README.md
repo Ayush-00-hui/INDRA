@@ -64,16 +64,22 @@ python scripts/smoke_test.py
 ```
 *(Confirms library dependencies, hardware acceleration, environment contracts, model checkpoints, planner latency <25 ms, headless execution, and module guards).*
 
-### Launching the Evaluator Showcase (`main.py`)
+### Launching the Evaluator Showcase (`main.py` / `run_demo.bat`)
 ```bash
-# 1. Interactive Split-Screen Mode (Recommended for Evaluators):
+# 1. Quick Launch (Safe defaults with split-screen enabled):
+run_demo.bat
+
+# 2. Interactive Split-Screen Mode:
 python main.py --split
 
-# 2. Hands-Free Unattended Auto-Demo Loop (for NBA Booth):
+# 3. Hands-Free Unattended Auto-Demo Loop (for NBA Booth):
 python main.py --demo
 
-# 3. Fullscreen Booth Mode:
-python main.py --demo --fullscreen
+# 4. Low-Spec Hardware Preset (Turns off heavy lighting passes):
+python main.py --quality low
+
+# 5. Classic Fallback Mode (Original lightweight graphics):
+python main.py --classic
 ```
 
 ---
@@ -83,6 +89,10 @@ python main.py --demo --fullscreen
 | Key | Context | Action / Function |
 | :---: | :---: | :--- |
 | **`[S]`** | Simulation | **Toggle Split-Screen Mode** (Side-by-side Greedy vs. World Model) |
+| **`[M]`** | Simulation | **Toggle Holographic Mind View** (Cyber-grid, candidate ribbons, thought bubbles) |
+| **`[F3]`** | Simulation | **Toggle Hitbox Debug Overlay** (Verifies mathematical collision boundaries) |
+| **`[Q]`** | Simulation | **Cycle Quality Preset** (`LOW` -> `MED` -> `HIGH`) |
+| **`[P]`** | Simulation | **Toggle Audio Mute** (Procedural sound synthesizer) |
 | **`[I]`** | Simulation | **Toggle Imagination HUD** (10-step history, ghost paths, latency, MAE) |
 | **`[TAB]` / `[T]`** | Simulation | Toggle World Model ON / OFF in single view |
 | **`[1]`** | Simulation | Switch to Scenario 1 (Static Chair Navigation) |

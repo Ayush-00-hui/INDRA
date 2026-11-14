@@ -7,3 +7,4 @@ venv/
 .venv/
 logs/*.log
 results/demo_frames/
+results/trailer_frames/
