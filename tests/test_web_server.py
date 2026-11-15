@@ -21,6 +21,12 @@ def test_health_endpoint(client):
     assert "active_sessions" in data
 
 
+def test_frontend_dist_serving(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "World Model" in res.text
+
+
 def test_scenarios_endpoint(client):
     res = client.get("/api/scenarios")
     assert res.status_code == 200
@@ -70,6 +76,8 @@ def test_websocket_robotics_stream(client):
 
 def test_concurrent_sessions_limit(client):
     """Verify max concurrent sessions is enforced at 3."""
+    import web.server as server_mod
+    server_mod.active_connections = 0
     with client.websocket_connect("/ws/robotics") as ws1:
         with client.websocket_connect("/ws/robotics") as ws2:
             with client.websocket_connect("/ws/robotics") as ws3:
@@ -79,3 +87,4 @@ def test_concurrent_sessions_limit(client):
                         pytest.fail("Expected 4th connection to fail")
                 except Exception:
                     pass  # Connection rejected as expected
+    server_mod.active_connections = 0
