@@ -55,7 +55,8 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
     print("[3/8] Capturing hero_mind_view_s1.png...")
     env_s1 = RobotEnv(scenario=1)
     s = env_s1.reset(seed=1001)
-    m1 = load_model("models/robot_model.pt", state_size=16, action_size=5)
+    m1_path = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else "models/robot_model.pt"
+    m1 = load_model(m1_path, state_size=16, action_size=5)
     for _ in range(12):
         a, p_info = plan(m1, s, 5, horizon=14, n_samples=300, return_trajectories=True)
         s, _, _, _ = env_s1.step(a)
@@ -69,7 +70,7 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
 
     # 4. HERO MIND VIEW SCENARIO 2 (Moving Person)
     print("[4/8] Capturing hero_mind_view_s2.png...")
-    s2_path = "models/robot_model_s2.pt" if os.path.exists("models/robot_model_s2.pt") else "models/robot_model.pt"
+    s2_path = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else ("models/robot_model_s2.pt" if os.path.exists("models/robot_model_s2.pt") else "models/robot_model.pt")
     m2 = load_model(s2_path, state_size=16, action_size=5)
     env_s2 = RobotEnv(scenario=2)
     s2 = env_s2.reset(seed=1005)

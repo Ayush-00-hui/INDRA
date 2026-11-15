@@ -142,10 +142,13 @@ class Application:
         # State management: start directly in ROBOTICS simulation
         self.state = self.STATE_MENU if menu_mode else self.STATE_ROBOTICS
         self.show_imagination = True
+        self.show_dream = False
+        self.dream_model = None
         self.show_help = False
         self.banner_message = ""
         self.banner_color = (255, 100, 100)
         self.banner_timer = 0
+        self._load_dream_model()
 
         # Dynamic Throttle
         self.n_samples = 300
@@ -340,6 +343,21 @@ class Application:
             self.robot_model = None
             self.with_world_model = False
             self.set_banner(f"Model error: {e}. Using baseline.", duration_frames=150)
+
+    def _load_dream_model(self) -> None:
+        dream_path = "models/dream_model.pt"
+        if os.path.exists(dream_path):
+            try:
+                import torch
+                from scripts.train_dream_model import DreamConvNet
+                m = DreamConvNet(action_size=5)
+                m.load_state_dict(torch.load(dream_path, map_location="cpu"))
+                m.eval()
+                self.dream_model = m
+                logger.info(f"Loaded pixel world model from {dream_path}")
+            except Exception as e:
+                logger.warning(f"Failed to load dream model: {e}")
+                self.dream_model = None
 
     def _enter_robotics(self) -> None:
         w, h = (self.split_width, self.split_height) if self.split_mode else (self.SINGLE_WIDTH, self.SINGLE_HEIGHT)
@@ -638,6 +656,10 @@ class Application:
         # Bottom Interactive Controls Pill
         self._draw_controls_pill()
 
+        # Experimental Pixel Dream Panel (Key D)
+        if getattr(self, "show_dream", False):
+            self._draw_dream_panel(self.screen)
+
         # Alert banner
         self._draw_banner()
 
@@ -777,6 +799,70 @@ class Application:
         th_col = (255, 150, 50) if self.throttle_active else (180, 200, 220)
         surf.blit(self.font_hud.render(th_txt, True, th_col), (panel_x + 12, panel_y + 132))
 
+    def _draw_dream_panel(self, surf: pygame.Surface) -> None:
+        """
+        Renders experimental pixel-level world model next-frame dream panel (Key D).
+        """
+        panel_w, panel_h = 320, 185
+        panel_x = surf.get_width() - panel_w - 15
+        panel_y = surf.get_height() - panel_h - 45
+
+        panel_bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        panel_bg.fill((14, 18, 28, 235))
+        surf.blit(panel_bg, (panel_x, panel_y))
+        pygame.draw.rect(surf, (180, 100, 255), (panel_x, panel_y, panel_w, panel_h), 1, border_radius=6)
+
+        t_surf = self.font_bold.render("PIXEL WORLD MODEL (Visual Dream)", True, (200, 140, 255))
+        surf.blit(t_surf, (panel_x + 10, panel_y + 8))
+
+        if self.dream_model is not None and self.env_right is not None:
+            # Create 64x64 top-down ground truth thumbnail
+            thumb_surf = pygame.Surface((64, 64))
+            thumb_surf.fill((28, 34, 46))
+            rx = int(self.env_right.robot_x * 64.0 / 900.0)
+            ry = int(self.env_right.robot_y * 64.0 / 600.0)
+            gx = int(self.env_right.goal_x * 64.0 / 900.0)
+            gy = int(self.env_right.goal_y * 64.0 / 600.0)
+            pygame.draw.circle(thumb_surf, (0, 255, 180), (gx, gy), 3)
+            pygame.draw.circle(thumb_surf, (0, 200, 255), (rx, ry), 3)
+            for obs in self.env_right.obstacles:
+                ox = int(obs.x * 64.0 / 900.0)
+                oy = int(obs.y * 64.0 / 600.0)
+                ow = max(2, int(obs.width * 64.0 / 900.0))
+                oh = max(2, int(obs.height * 64.0 / 600.0))
+                pygame.draw.rect(thumb_surf, (220, 100, 60), (ox, oy, ow, oh))
+
+            # Run inference through DreamConvNet
+            import torch
+            import torch.nn.functional as F
+            arr = np.transpose(pygame.surfarray.array3d(thumb_surf), (2, 0, 1)).astype(np.float32) / 255.0
+            inp_t = torch.as_tensor(arr).unsqueeze(0)
+            act_t = F.one_hot(torch.tensor([self.last_executed_action]), num_classes=5).float()
+            with torch.no_grad():
+                pred_out = self.dream_model(inp_t, act_t).squeeze(0).numpy()
+            pred_rgb = np.clip(np.transpose(pred_out, (1, 2, 0)) * 255.0, 0, 255).astype(np.uint8)
+            dream_surf = pygame.surfarray.make_surface(pred_rgb)
+
+            # Blit side-by-side scaled to 90x90
+            gt_scaled = pygame.transform.scale(thumb_surf, (90, 90))
+            dr_scaled = pygame.transform.scale(dream_surf, (90, 90))
+
+            surf.blit(gt_scaled, (panel_x + 18, panel_y + 34))
+            surf.blit(dr_scaled, (panel_x + 150, panel_y + 34))
+            pygame.draw.rect(surf, (60, 80, 110), (panel_x + 18, panel_y + 34, 90, 90), 1)
+            pygame.draw.rect(surf, (180, 100, 255), (panel_x + 150, panel_y + 34, 90, 90), 1)
+
+            lbl_gt = self.font_info.render("Ground Truth", True, (160, 180, 200))
+            lbl_dr = self.font_info.render("Neural Dream", True, (210, 160, 255))
+            surf.blit(lbl_gt, (panel_x + 22, panel_y + 128))
+            surf.blit(lbl_dr, (panel_x + 158, panel_y + 128))
+
+            cap = self.font_info.render("Pixel next-frame predictor (experimental)", True, (140, 160, 185))
+            surf.blit(cap, (panel_x + 12, panel_y + 152))
+        else:
+            txt = self.font_info.render("Dream model standby (run scripts/train_dream_model.py)", True, (160, 175, 195))
+            surf.blit(txt, (panel_x + 15, panel_y + 50))
+
     def _draw_live_metrics_hud(self, surf: pygame.Surface) -> None:
         hud_w, hud_h = 320, 100
         hud_x = 15
@@ -812,7 +898,7 @@ class Application:
         pygame.draw.rect(self.screen, (50, 70, 95), pill_rect, 1, border_radius=13)
 
         ctrl_txt = self.font_info.render(
-            "[S] Split-Screen Compare  |  [I] Imagination HUD  |  [TAB] Toggle WM  |  [1/2] Scenario  |  [R] Reset  |  [H] Help  |  [ESC] Menu",
+            "[S] Split-Screen  |  [I] Imagination HUD  |  [D] Visual Dream  |  [TAB] Toggle WM  |  [1/2] Scenario  |  [H] Help  |  [ESC] Menu",
             True, (190, 215, 235)
         )
         self.screen.blit(ctrl_txt, (pill_rect.centerx - ctrl_txt.get_width() // 2, pill_rect.centery - ctrl_txt.get_height() // 2))
@@ -842,6 +928,7 @@ class Application:
             ("[E] Key", "Toggle Interactive Edit Mode (Click floor to place obstacles)"),
             ("[Q] Key", "Cycle Graphics Quality Preset (Low / Med / High)"),
             ("[I] Key", "Toggle Imagination panel (10-step history, latency & MAE)"),
+            ("[D] Key", "Toggle Pixel World Model Dream Mode (64x64 next-frame neural dream)"),
             ("[TAB] / [T]", "Toggle World Model ON/OFF in single view"),
             ("[1] / [2]", "Switch Scenario 1 (Static Chair) and Scenario 2 (Moving Person)"),
             ("[R] / [N]", "Reset current episode layout / Advance to next seed"),
@@ -936,6 +1023,9 @@ class Application:
             elif event.key == pygame.K_i:
                 self.show_imagination = not self.show_imagination
                 self.set_banner(f"Imagination Panel {'SHOWN' if self.show_imagination else 'HIDDEN'}", color=(0, 200, 255), duration_frames=45)
+            elif event.key == pygame.K_d:
+                self.show_dream = not getattr(self, "show_dream", False)
+                self.set_banner(f"Visual Dream Panel {'SHOWN' if self.show_dream else 'HIDDEN'} (Key D)", color=(180, 100, 255), duration_frames=60)
             elif event.key in (pygame.K_TAB, pygame.K_t):
                 if self.robot_model is None:
                     self.set_banner("Cannot enable World Model: checkpoint not found!", duration_frames=120)

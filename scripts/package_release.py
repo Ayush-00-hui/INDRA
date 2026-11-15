@@ -19,7 +19,8 @@ EXCLUDED_DIRS = {
     "__pycache__",
     "data",
     "demo_frames",
-    "trailer_frames"
+    "trailer_frames",
+    "release"
 }
 
 EXCLUDED_EXTS = {

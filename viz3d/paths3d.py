@@ -44,11 +44,11 @@ class Paths3D:
     def _init_shader(self) -> None:
         try:
             import os
-            from panda3d.core import Shader
-            v_p = "assets/shaders/hologram.vert"
-            f_p = "assets/shaders/hologram.frag"
+            from panda3d.core import Shader, Filename
+            v_p = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "shaders", "hologram.vert"))
+            f_p = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "shaders", "hologram.frag"))
             if os.path.exists(v_p) and os.path.exists(f_p):
-                self.hologram_shader = Shader.load(Shader.SL_GLSL, v_p, f_p)
+                self.hologram_shader = Shader.load(Shader.SL_GLSL, Filename.fromOsSpecific(v_p), Filename.fromOsSpecific(f_p))
         except Exception:
             self.hologram_shader = None
 
