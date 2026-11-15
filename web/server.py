@@ -72,6 +72,24 @@ def api_health():
     }
 
 
+@app.get("/api/diagnostics")
+def api_diagnostics():
+    """System & GPU Diagnostics Endpoint."""
+    import torch
+    cuda_avail = torch.cuda.is_available()
+    diag = {
+        "device": "cuda" if cuda_avail else "cpu",
+        "gpu_name": torch.cuda.get_device_name(0) if cuda_avail else "CPU Fallback",
+        "vram_allocated_mb": round(torch.cuda.memory_allocated(0) / (1024 * 1024), 2) if cuda_avail else 0.0,
+        "vram_reserved_mb": round(torch.cuda.memory_reserved(0) / (1024 * 1024), 2) if cuda_avail else 0.0,
+        "active_sessions": active_connections,
+        "max_sessions": MAX_CONCURRENT_SESSIONS,
+        "python_version": sys.version.split()[0],
+        "torch_version": torch.__version__,
+    }
+    return diag
+
+
 @app.get("/api/scenarios")
 def api_scenarios():
     """Return catalog of simulation scenarios with availability status."""
