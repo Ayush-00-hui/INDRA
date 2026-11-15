@@ -14,7 +14,7 @@ A **World Model** is an artificial intelligence system that learns an internal r
 
 Instead of acting purely reactively or relying on brittle trial-and-error in the real world:
 1. **Learn:** A 3-layer neural network learns the physical dynamics of the room and obstacle repulsion fields via **DAgger on-policy iterative data aggregation**.
-2. **Imagine:** Using batched, vectorized Model Predictive Control (MPC), the robot simulates hundreds of candidate trajectories in parallel in latent space over a 14-step receding horizon.
+2. **Imagine:** Using batched, vectorized Model Predictive Control (MPC), the robot simulates hundreds of candidate trajectories in parallel in simulation state space over a 14-step receding horizon.
 3. **Act:** It evaluates each imagined trajectory, discards collision courses, executes the first action of the optimal path, and continuously replans at 30 FPS.
 
 ```
@@ -149,7 +149,7 @@ Evaluated over 50 unseen seeded layouts per scenario (TUNE seeds 1000–1049):
 | **Oracle-MPC (Upper Bound)** | 98.0% | 0.96 | 1.54 | 59.7 |
 
 > **Key Findings:**  
-> - In Scenario 1, reactive greedy gets pinned against the chair, suffering **146+ collisions**. Our World Model evaluates candidate detours in latent space, achieving **90.0% success** and slashing collisions by **99.0%**.
+> - In Scenario 1, reactive greedy gets pinned against the chair, suffering **146+ collisions**. Our World Model evaluates candidate detours in simulation state space, achieving **90.0% success** and slashing collisions by **99.0%**.
 > - In Scenario 2, the World Model learns obstacle velocity with a held-out MAE of **0.0058**, achieving **96.0% success** and **0.04 collisions**.
 
 ---

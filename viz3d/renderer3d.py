@@ -78,17 +78,25 @@ class Renderer3D:
             self._fallback_renderer.sounds = self.sounds
         return self._fallback_renderer
 
-    def trigger_collision_effects(self, x: float, y: float) -> None:
+    def trigger_collision_effects(self, x: Any, y: Optional[float] = None) -> None:
         """Trigger collision audio, recoil, and particle effects."""
         self.sounds.play("collision")
+        if isinstance(x, (tuple, list)):
+            px, py = float(x[0]), float(x[1])
+        else:
+            px, py = float(x), float(y if y is not None else 0.0)
         if self._fallback_renderer:
-            self._fallback_renderer.trigger_collision_effects(x, y)
+            self._fallback_renderer.trigger_collision_effects((px, py))
 
-    def trigger_goal_effects(self, x: float, y: float) -> None:
+    def trigger_goal_effects(self, x: Any, y: Optional[float] = None) -> None:
         """Trigger goal victory audio, chime, and particle effects."""
         self.sounds.play("goal")
+        if isinstance(x, (tuple, list)):
+            px, py = float(x[0]), float(x[1])
+        else:
+            px, py = float(x), float(y if y is not None else 0.0)
         if self._fallback_renderer:
-            self._fallback_renderer.trigger_goal_effects(x, y)
+            self._fallback_renderer.trigger_goal_effects((px, py))
 
     def cycle_camera(self) -> str:
         """Cycle camera mode (Key C)."""
@@ -188,7 +196,7 @@ class Renderer3D:
         self.hud.render(target_surface, env, plan_info, last_info)
 
         if self.show_hitboxes:
-            fallback._render_debug_hitboxes(target_surface, env)
+            fallback._render_debug_hitboxes(env, target_surface)
 
     def render_classic(self, env: Any, screen: pygame.Surface) -> None:
         """Explicit classic fallback."""

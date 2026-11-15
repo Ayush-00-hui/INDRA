@@ -24,6 +24,7 @@ from visuals.particles import ParticleManager
 from visuals.lighting import LightingManager
 from visuals.camera import CameraEffects
 from visuals.ui import draw_glass_panel, draw_badge, draw_progress_bar
+from visuals.layout import HUDLayoutManager
 
 logger = logging.getLogger("VisualRenderer")
 
@@ -46,6 +47,7 @@ class RobotRenderer:
         self.classic_mode = classic_mode
         self.fallback_active = False
         self.fallback_reason = ""
+        self.layout_manager = HUDLayoutManager(self.width, self.height)
 
         # Hitbox debug overlay toggle (F3)
         self.show_hitboxes = False
@@ -529,9 +531,10 @@ class RobotRenderer:
         """
         Glassmorphism top HUD bar.
         """
-        hud_w = 460
-        hud_h = 76
-        hud_rect = pygame.Rect(16, 14, hud_w, hud_h)
+        layout = self.layout_manager.get_layout()
+        hud_rect = layout["status_panel"]
+        hud_w = hud_rect.width
+        hud_h = hud_rect.height
         draw_glass_panel(surface, hud_rect, bg_color=(16, 22, 32), alpha=215, border_color=(45, 65, 90), radius=8)
 
         # Method Title Badge (Green for World Model, Red/Coral for Greedy Baseline)
@@ -539,8 +542,9 @@ class RobotRenderer:
         badge_col = Colors.SUCCESS if is_wm else Colors.DANGER
         badge_rect = draw_badge(surface, method_title, (hud_rect.x + 12, hud_rect.y + 10), bg_color=badge_col)
 
-        # Quality & FPS tag
-        q_tag = f"Q:{self.quality.name} | {int(round(fps))} FPS"
+        # Quality & FPS tag (prevent displaying 0.0 FPS on first frame or headless)
+        display_fps = 60.0 if fps <= 0.0 else fps
+        q_tag = f"Q:{self.quality.name} | {int(round(display_fps))} FPS"
         q_surf = self.font_body.render(q_tag, True, (140, 165, 195))
         surface.blit(q_surf, (hud_rect.right - q_surf.get_width() - 14, hud_rect.y + 12))
 
@@ -555,7 +559,7 @@ class RobotRenderer:
         surface.blit(st_surf, (hud_rect.x + 12, hud_rect.y + 36))
 
         # Progress bar toward max steps
-        pbar_rect = pygame.Rect(hud_rect.x + 12, hud_rect.bottom - 16, hud_w - 24, 6)
+        pbar_rect = pygame.Rect(hud_rect.x + 12, hud_rect.bottom - 14, hud_w - 24, 6)
         prog = min(1.0, env.step_count / float(env.MAX_STEPS))
         pbar_col = Colors.CYAN if prog < 0.8 else Colors.WARNING
         draw_progress_bar(surface, pbar_rect, prog, fill_color=pbar_col)

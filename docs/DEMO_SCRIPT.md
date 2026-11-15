@@ -36,7 +36,7 @@ Before calling evaluators to the screen:
 
 ---
 
-### [0:30 - 1:30] Act I: Static Obstacle & Latent Imagination (Scenario 1)
+### [0:30 - 1:30] Act I: Static Obstacle & Model Predictive Imagination (Scenario 1)
 - **Visual on Screen:** Both robots spawn at the bottom-left; the goal is at top-right. A chair blocks the straight line.
 - **Spoken Script:**
   > "Observe the left side: **Without a World Model**, the reactive greedy policy steps directly toward the goal. It drives straight into the chair, collides, freezes, and remains permanently trapped—suffering over 140 collision penalties.

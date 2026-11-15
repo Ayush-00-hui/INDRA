@@ -49,7 +49,7 @@ WORLD MODEL + MPC:
 - **The World Model Solution:** Supervised dynamics learning + Receding Horizon MPC = High sample efficiency, zero physical damage, and full interpretability.
 
 > **Speaker Notes:**  
-> Consider a classic failure mode in robotics: a chair sits between the robot and its goal. A reactive agent walks directly toward the goal and gets pinned against the obstacle, suffering continuous collision penalties. A world model simulates candidate actions in neural latent space, discovers the collision in imagination, and steers around it.
+> Consider a classic failure mode in robotics: a chair sits between the robot and its goal. A reactive agent walks directly toward the goal and gets pinned against the obstacle, suffering continuous collision penalties. A world model simulates candidate actions in neural state space, discovers the collision in imagination, and steers around it.
 
 ---
 
@@ -267,7 +267,7 @@ Error (L2)
   - Visual Regression Suite: `tests/test_visual_regression.py` (100% bit-for-bit identical outcomes).
 
 > **Speaker Notes:**  
-> Evaluators can press `M` at any time to enter "Mind View"—a holographic cybernetic overlay that reveals the robot's latent imagination in real time. We also provide a pre-compiled 30-second video trailer in `results/trailer.gif` demonstrating reactive failure versus world model detour.
+> Evaluators can press `M` at any time to enter "Mind View"—a holographic cybernetic overlay that reveals the robot's predictive imagination in real time. We also provide a pre-compiled 30-second video trailer in `results/trailer.gif` demonstrating reactive failure versus world model detour.
 
 ---
 

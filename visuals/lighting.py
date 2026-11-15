@@ -43,11 +43,13 @@ class LightingEngine:
         alpha_arr = (inner_alpha * (1.0 - norm_dist) ** 2).astype(np.uint8)
         alpha_arr[norm_dist >= 1.0] = 0
 
-        # Assign to surface via surfarray
+        # Premultiply RGB by alpha fraction so additive blending (BLEND_ADD)
+        # adds zero color outside the circle, eliminating solid rectangle artifacts
+        factor = alpha_arr.astype(np.float32) / 255.0
         rgb_arr = np.zeros((size, size, 3), dtype=np.uint8)
-        rgb_arr[..., 0] = cr
-        rgb_arr[..., 1] = cg
-        rgb_arr[..., 2] = cb
+        rgb_arr[..., 0] = (cr * factor).astype(np.uint8)
+        rgb_arr[..., 1] = (cg * factor).astype(np.uint8)
+        rgb_arr[..., 2] = (cb * factor).astype(np.uint8)
 
         surf_pixels = pygame.surfarray.pixels3d(surf)
         surf_alpha = pygame.surfarray.pixels_alpha(surf)
@@ -74,7 +76,11 @@ class LightingEngine:
             y1 = int(center_y - half_spread)
             y2 = int(center_y + half_spread)
             if y2 > y1 and alpha > 0:
-                pygame.draw.line(surf, (255, 250, 210, alpha), (col, y1), (col, y2), 1)
+                factor = alpha / 255.0
+                r_c = int(255 * factor)
+                g_c = int(250 * factor)
+                b_c = int(210 * factor)
+                pygame.draw.line(surf, (r_c, g_c, b_c, alpha), (col, y1), (col, y2), 1)
 
         try:
             return surf.convert_alpha()

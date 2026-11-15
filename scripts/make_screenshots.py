@@ -8,7 +8,7 @@ Produces 8 high-resolution showcase captures in 'results/screenshots/':
 5. hero_hitbox_debug.png: F3 mathematical hitbox alignment overlay
 6. hero_collision_bonk.png: Physical collision sparks and BONK badge
 7. hero_goal_celebration.png: Confetti fountain and 3-Star Rating Card
-8. hero_imagination_hud.png: Latent MPC 10-step trajectory history & latency metrics
+8. hero_imagination_hud.png: Model-Based MPC 10-step trajectory history & latency metrics
 """
 
 import os
@@ -60,10 +60,11 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
         a, p_info = plan(m1, s, 5, horizon=14, n_samples=300, return_trajectories=True)
         s, _, _, _ = env_s1.step(a)
     surf1 = pygame.Surface((900, 600))
+    env_s1.current_plan_info = p_info
+    env_s1.render(surf1)  # Initialize renderer
     if hasattr(env_s1, "_modern_renderer") and env_s1._modern_renderer:
         env_s1._modern_renderer.show_mind_view = True
-    env_s1.current_plan_info = p_info
-    env_s1.render(surf1)
+        env_s1.render(surf1)
     pygame.image.save(surf1, os.path.join(output_dir, "hero_mind_view_s1.png"))
 
     # 4. HERO MIND VIEW SCENARIO 2 (Moving Person)
@@ -76,10 +77,11 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
         a2, p_info2 = plan(m2, s2, 5, horizon=14, n_samples=300, return_trajectories=True)
         s2, _, _, _ = env_s2.step(a2)
     surf2 = pygame.Surface((900, 600))
+    env_s2.current_plan_info = p_info2
+    env_s2.render(surf2)  # Initialize renderer
     if hasattr(env_s2, "_modern_renderer") and env_s2._modern_renderer:
         env_s2._modern_renderer.show_mind_view = True
-    env_s2.current_plan_info = p_info2
-    env_s2.render(surf2)
+        env_s2.render(surf2)
     pygame.image.save(surf2, os.path.join(output_dir, "hero_mind_view_s2.png"))
 
     # 5. HERO HITBOX DEBUG (F3)
@@ -123,6 +125,79 @@ def make_screenshots(output_dir: str = "results/screenshots") -> None:
     print(f"\nAll 8 hero presentation screenshots saved cleanly to '{output_dir}/'")
 
 
+def make_3d_screenshots(output_dir: str = "results/screenshots3d") -> None:
+    print("================================================================")
+    print("     GENERATING 5 HERO 3D PRESENTATION SCREENSHOTS FOR NBA      ")
+    print("================================================================")
+    os.makedirs(output_dir, exist_ok=True)
+    try:
+        from viz3d.renderer3d import Renderer3D
+        m1 = load_model("models/robot_model.pt", state_size=16, action_size=5)
+
+        # 1. 3D Dollhouse
+        print("[3D 1/5] Capturing hero_3d_dollhouse.png...")
+        env = RobotEnv(scenario=1)
+        s = env.reset(seed=1001)
+        r3d = Renderer3D(900, 600)
+        if r3d.scene and hasattr(r3d.scene, "camera"):
+            r3d.scene.camera.set_mode("overview")
+        surf = pygame.Surface((900, 600))
+        p_info = None
+        for _ in range(15):
+            a, p_info = plan(m1, s, 5, horizon=14, n_samples=300, return_trajectories=True)
+            s, _, _, _ = env.step(a)
+        r3d.render(env, surf, plan_info=p_info)
+        pygame.image.save(surf, os.path.join(output_dir, "hero_3d_dollhouse.png"))
+
+        # 2. 3D Mind View
+        print("[3D 2/5] Capturing hero_3d_mind_view.png...")
+        r3d.show_mind_view = True
+        surf_mv = pygame.Surface((900, 600))
+        r3d.render(env, surf_mv, plan_info=p_info)
+        pygame.image.save(surf_mv, os.path.join(output_dir, "hero_3d_mind_view.png"))
+        r3d.show_mind_view = False
+
+        # 3. 3D Topdown
+        print("[3D 3/5] Capturing hero_3d_topdown.png...")
+        if r3d.scene and hasattr(r3d.scene, "camera"):
+            r3d.scene.camera.set_mode("topdown")
+        surf_td = pygame.Surface((900, 600))
+        r3d.render(env, surf_td, plan_info=p_info)
+        pygame.image.save(surf_td, os.path.join(output_dir, "hero_3d_topdown.png"))
+
+        # 4. 3D POV
+        print("[3D 4/5] Capturing hero_3d_pov.png...")
+        if r3d.scene and hasattr(r3d.scene, "camera"):
+            r3d.scene.camera.set_mode("robot_pov")
+        surf_pov = pygame.Surface((900, 600))
+        r3d.render(env, surf_pov, plan_info=p_info)
+        pygame.image.save(surf_pov, os.path.join(output_dir, "hero_3d_pov.png"))
+
+        # 5. 3D Split Screen
+        print("[3D 5/5] Capturing hero_3d_split.png...")
+        surf_split = pygame.Surface((1800, 600))
+        env_greedy = RobotEnv(scenario=1)
+        env_greedy.reset(seed=1001)
+        for _ in range(15):
+            ag = get_greedy_action(env_greedy.robot_x, env_greedy.robot_y, env_greedy.goal_x, env_greedy.goal_y)
+            env_greedy.step(ag)
+        surf_left = pygame.Surface((900, 600))
+        if r3d.scene and hasattr(r3d.scene, "camera"):
+            r3d.scene.camera.set_mode("overview")
+        r3d.render(env_greedy, surf_left, method_title="WITHOUT WORLD MODEL")
+        surf_split.blit(surf_left, (0, 0))
+        surf_right = pygame.Surface((900, 600))
+        r3d.render(env, surf_right, plan_info=p_info, method_title="WITH WORLD MODEL")
+        surf_split.blit(surf_right, (900, 0))
+        pygame.draw.line(surf_split, (0, 200, 255), (900, 0), (900, 600), 2)
+        pygame.image.save(surf_split, os.path.join(output_dir, "hero_3d_split.png"))
+
+        print(f"\nAll 5 3D hero presentation screenshots saved cleanly to '{output_dir}/'")
+    except Exception as e:
+        print(f"Warning: 3D screenshot capture encountered: {e}")
+
+
 if __name__ == "__main__":
     make_screenshots()
+    make_3d_screenshots()
 
