@@ -12,7 +12,7 @@
 
 ## Abstract
 
-Autonomous decision-making in robotics frequently relies either on purely reactive heuristics—which lack spatial foresight and suffer from severe local minima traps—or on model-free reinforcement learning, which requires millions of trial-and-error environment interactions and lacks behavioral interpretability. In this work, we present **"World Model: Learn, Imagine, Act,"** a modular, real-time framework integrating a supervised neural dynamics model with a vectorized Model Predictive Control (MPC) planner. The world model learns to predict environmental transition deltas ($\Delta s$) and immediate reward signals ($r$) from experience. During planning, the agent evaluates hundreds of simulated futures in parallel in latent space over a receding horizon, discarding collision trajectories before taking a physical step. 
+Autonomous decision-making in robotics frequently relies either on purely reactive heuristics—which lack spatial foresight and suffer from severe local minima traps—or on model-free reinforcement learning, which requires millions of trial-and-error environment interactions and lacks behavioral interpretability. In this work, we present **"World Model: Learn, Imagine, Act,"** a modular, real-time framework integrating a supervised neural dynamics model with a vectorized Model Predictive Control (MPC) planner. The world model learns to predict environmental transition deltas ($\Delta s$) and immediate reward signals ($r$) from experience. During planning, the agent evaluates hundreds of simulated futures in parallel in state space via the learned dynamics model over a receding horizon, discarding collision trajectories before taking a physical step. 
 
 Evaluated across static obstacle navigation (Scenario 1) and dynamic moving obstacle avoidance (Scenario 2), our world model lifts navigation success from **20.0%** (reactive baseline) to **90.0%** in Scenario 1 and **96.0%** in Scenario 2, while reducing physical collision events by **>98%**. By implementing Dataset Aggregation (DAgger), on-policy rollouts resolve covariate shift, accelerating convergence from 13.3% to 93.3% in 4 iterative rounds. The shared architecture enforces a strict abstract environment contract (`BaseEnv`), enabling seamless pluggability across robotic navigation and autonomous driving. Running on standard consumer CPU hardware, planning latency averages **8.7 ms**, comfortably satisfying real-time 30 FPS rendering constraints.
 
@@ -30,7 +30,7 @@ This project designs, implements, and benchmarks a working prototype of a **Neur
 
 ### Core Objectives
 1. **Learn:** Accurately approximate environmental transition physics and penalty manifolds using a compact multi-layer perceptron trained on observed state transitions.
-2. **Imagine:** Autoregressively roll out candidate action trajectories in latent space over a receding lookahead horizon without interacting with physical actuators.
+2. **Imagine:** Autoregressively roll out candidate action trajectories in state space over a receding lookahead horizon without interacting with physical actuators.
 3. **Act:** Execute the optimal first action identified by the imagined rollout, observe the resulting real-world state, and continuously replan to compensate for unmodeled disturbances.
 4. **Engineer for Accreditation:** Deliver a transparent, verifiable, reproducible, and defensive system suitable for rigorous evaluation by the National Board of Accreditation (NBA).
 
@@ -46,7 +46,7 @@ The foundational formulation of modern deep world models was established by Davi
 - **Memory (M):** A Recurrent Neural Network with a Mixture Density Network (MDN-RNN) that models the temporal predictive distribution $P(z_{t+1} \mid z_t, a_t, h_t)$.
 - **Controller (C):** A small linear controller optimized strictly inside the "hallucinations" of the M network using Covariance Matrix Adaptation Evolution Strategy (CMA-ES).
 
-Our prototype directly adopts this conceptual decoupling. Because our robotic environment exposes normalized spatial and velocity vectors, our state representation serves directly as the compact latent space, allowing our shared engine to focus computation on transition regression (M) and predictive trajectory selection (C).
+Our prototype directly adopts this conceptual decoupling. Because our robotic environment exposes normalized spatial and velocity vectors, our state representation serves directly as the compact state space, allowing our shared engine to focus computation on transition regression (M) and predictive trajectory selection (C).
 
 ### 2.2 Dreamer Series (Hafner et al., 2019–2023)
 Danijar Hafner and colleagues advanced world models through the **Dreamer** lineage (DreamerV1, DreamerV2, DreamerV3). Dreamer introduces the Recurrent State-Space Model (RSSM), which blends deterministic recurrent hidden states with stochastic latent variables to handle non-deterministic transitions. In Dreamer, an actor-critic policy is trained entirely on imagined trajectories generated by the RSSM.
@@ -123,7 +123,7 @@ The planner (`planner/mpc.py`) evaluates candidate trajectory distributions usin
    - **50% Structured Primitives:** Straight lines, orthogonal 90° L-turns, and two-turn evasive detours. These primitives provide coherent long-range paths that navigate around wide convex obstacles.
    - **50% Temporally Persistent Random Walks:** Action persistence held for chunks of 2 to 4 consecutive steps. This prevents Brownian motion jitter and ensures wide spatial exploration.
    - **Cached Tensor Primitives:** The primitive set is constructed once and cached in `_PRIMITIVE_CACHE[(action_size, horizon, device)]`, eliminating per-call memory allocations.
-2. **Batched Latent Rollout:**
+2. **Batched State-Space Rollout:**
    All $N=300$ candidate action sequences are rolled out in parallel as batched 2D tensors. At each horizon step $k \in \{0, \dots, H-1\}$, the world model predicts next states and rewards for all 300 candidates simultaneously in a single forward pass.
 3. **Trajectory Scoring & Receding Horizon Execution:**
    The cumulative discounted return for each candidate sequence $\tau = (a_0, \dots, a_{H-1})$ is computed as:
@@ -276,7 +276,7 @@ Academic integrity requires transparently documenting physical assumptions and f
 To ensure maximum visual clarity and engagement during live evaluation by the National Board of Accreditation (NBA), the platform incorporates a dedicated procedural visual engine (`visuals/`):
 - **Pre-Rendered Multi-Layer Composition:** Static laboratory floor tiles, walls, and ambient occlusion are pre-rendered into cached surfaces, delivering full 60 FPS presentation with a draw time of only **0.60 ms per frame** on CPU-only hardware.
 - **Accurate Hitbox Sprites:** All procedural assets (Executive Office Chair, Laboratory Workstations, Service Bot, Walking Human) strictly match their physical AABB collision envelopes.
-- **Holographic Mind View (M Key):** Evaluators can inspect the latent MPC decision space in real time, featuring animated flowing neon candidate ribbons, alpha-scaled returns, ghost robots along rollout trajectories, and dynamic reasoning thought bubbles.
+- **Holographic Mind View (M Key):** Evaluators can inspect the model-based MPC decision space in real time, featuring animated flowing neon candidate ribbons, alpha-scaled returns, ghost robots along rollout trajectories, and dynamic reasoning thought bubbles.
 - **Juice & Auditory Feedback:** Synthesized 16-bit procedural audio waveforms (`bonk.wav`, `move.wav`, `goal.wav`, `think.wav`), particle spark explosions, screen shake, and 3-Star Rating evaluation cards.
 - **Media Artifacts:**
   - Automated 30-second presentation trailer: `results/trailer.gif`

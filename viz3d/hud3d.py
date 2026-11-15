@@ -15,6 +15,7 @@ from typing import Optional, Dict, Any, List
 
 from visuals.theme import Theme, get_font
 from visuals.ui import draw_glass_panel, draw_badge, draw_progress_bar
+from visuals.layout import HUDLayoutManager
 
 
 class UnderstandingHUD:
@@ -25,6 +26,7 @@ class UnderstandingHUD:
     def __init__(self, width: int = 960, height: int = 600):
         self.width = width
         self.height = height
+        self.layout = HUDLayoutManager(width, height)
 
         self.show_legend: bool = False
         self.tour_active: bool = False
@@ -94,12 +96,10 @@ class UnderstandingHUD:
 
     def _render_pipeline_strip(self, surface: pygame.Surface, plan_info: Optional[Dict[str, Any]], fps: float) -> None:
         """Render top-center pipeline strip: OBSERVE -> IMAGINE -> CHOOSE -> ACT."""
-        strip_w = 460
-        strip_h = 38
-        strip_x = self.width - strip_w - 16
-        strip_y = 14
+        strip_rect = self.layout.get_layout()["pipeline_strip"]
+        strip_x, strip_y = strip_rect.x, strip_rect.y
 
-        draw_glass_panel(surface, pygame.Rect(strip_x, strip_y, strip_w, strip_h), bg_color=(14, 20, 30), alpha=215, border_color=(45, 65, 90), radius=6)
+        draw_glass_panel(surface, strip_rect, bg_color=(14, 20, 30), alpha=215, border_color=(45, 65, 90), radius=6)
 
         is_planning = (plan_info is not None)
         plan_ms = plan_info.get("plan_time_ms", 18.5) if plan_info else 0.0
@@ -126,12 +126,11 @@ class UnderstandingHUD:
         if plan_info is None:
             return
 
-        card_w = 260
-        card_h = 105
-        card_x = self.width - card_w - 16
-        card_y = 60
+        card_rect = self.layout.get_layout()["why_card"]
+        card_x, card_y = card_rect.x, card_rect.y
+        card_w, card_h = card_rect.width, card_rect.height
 
-        draw_glass_panel(surface, pygame.Rect(card_x, card_y, card_w, card_h), bg_color=(14, 20, 30), alpha=220, border_color=(45, 65, 90), radius=6)
+        draw_glass_panel(surface, card_rect, bg_color=(14, 20, 30), alpha=220, border_color=(45, 65, 90), radius=6)
 
         title_surf = self.font_title.render("Why this move?", True, (0, 215, 255))
         surface.blit(title_surf, (card_x + 10, card_y + 8))

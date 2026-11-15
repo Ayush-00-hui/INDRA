@@ -89,7 +89,7 @@ def make_trailer(
 
         t1 = get_font(28, bold=True).render("WORLD MODEL: LEARN, IMAGINE, ACT", True, (255, 255, 255))
         t2 = get_font(16).render("Autonomous Robotics Obstacle Evasion (NBA Demonstration)", True, Colors.CYAN)
-        t3 = get_font(13).render("Evaluating Reactive Greedy Failure vs. Predictive Latent MPC", True, (160, 180, 210))
+        t3 = get_font(13).render("Evaluating Reactive Greedy Failure vs. Predictive Model-Based MPC", True, (160, 180, 210))
 
         screen.blit(t1, (width // 2 - t1.get_width() // 2, 220))
         screen.blit(t2, (width // 2 - t2.get_width() // 2, 265))
@@ -113,7 +113,7 @@ def make_trailer(
     # -------------------------------------------------------------
     # 3. WORLD MODEL MPC TRIUMPH (140 frames / ~4.6s)
     # -------------------------------------------------------------
-    print("[3/4] Rendering World Model Latent MPC Detour...")
+    print("[3/4] Rendering World Model Predictive MPC Detour...")
     model_s1 = load_model("models/robot_model.pt", state_size=16, action_size=5)
     env_wm = RobotEnv(scenario=1)
     state = env_wm.reset(seed=1001)

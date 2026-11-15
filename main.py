@@ -18,6 +18,7 @@ from model.world_model import load_model, WorldModel
 from planner.mpc import plan
 from scripts.collect_data_robot import get_greedy_action
 from scripts.evaluate_robot import get_greedy_with_unstick_action
+from visuals.layout import HUDLayoutManager
 
 
 # ---------------------------------------------------------------------------
@@ -705,17 +706,22 @@ class Application:
         - Planning Latency in ms (Target < 25ms)
         - Dynamic throttle indicator
         """
-        panel_w, panel_h = 290, 160
-        panel_x = self.SINGLE_WIDTH - panel_w - 15
-        panel_y = 45
+        if self.split_mode:
+            panel_w, panel_h = 280, 160
+            panel_x = surf.get_width() - panel_w - 15
+            panel_y = 48
+        else:
+            layout = HUDLayoutManager(surf.get_width(), surf.get_height(), is_split=False).get_layout()
+            panel_rect = layout["imagination_panel"]
+            panel_x, panel_y, panel_w, panel_h = panel_rect.x, panel_rect.y, panel_rect.width, panel_rect.height
 
         panel_bg = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
         panel_bg.fill((12, 16, 24, 230))
         surf.blit(panel_bg, (panel_x, panel_y))
         pygame.draw.rect(surf, (0, 200, 255), (panel_x, panel_y, panel_w, panel_h), 1, border_radius=6)
 
-        # Header
-        t_surf = self.font_bold.render("IMAGINATION ENGINE (Latent MPC)", True, (0, 220, 255))
+        # Header (honest state-space model nomenclature)
+        t_surf = self.font_bold.render("IMAGINATION ENGINE (Model-Based MPC)", True, (0, 220, 255))
         surf.blit(t_surf, (panel_x + 10, panel_y + 8))
 
         # Draw trajectory history (last 10 steps)
@@ -782,6 +788,8 @@ class Application:
         surf.blit(self.font_bold.render(f"MODE: {mode_txt}", True, mode_col), (hud_x + 10, hud_y + 8))
 
         fps = self.clock.get_fps()
+        if fps <= 0.0:
+            fps = 60.0
         act_name = ACTION_NAMES.get(self.last_executed_action, "STAY")
         lines = [
             f"FPS: {fps:4.1f}  |  Action: {act_name:<5}  |  Seed: {self.current_seed}",
