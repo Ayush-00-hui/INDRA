@@ -9,6 +9,8 @@ Generates stylized-realistic PBR models offline with zero external downloads:
 """
 
 import math
+import os
+import logging
 from typing import Tuple, Dict, Any, Optional
 from panda3d.core import (
     GeomVertexFormat,
@@ -20,7 +22,37 @@ from panda3d.core import (
     NodePath,
     Vec3,
     Vec4,
+    Filename,
+    Point3,
 )
+
+logger = logging.getLogger("assets3d")
+
+
+def _load_glb(rel_name: str) -> Optional[NodePath]:
+    """Helper to load authored GLB model from assets/models/ or web models folder."""
+    try:
+        import direct.showbase.ShowBaseGlobal as sbg
+        if not hasattr(sbg, "base") or sbg.base is None or sbg.base.loader is None:
+            return None
+        base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+        candidates = [
+            os.path.join(base_dir, "assets", "models", rel_name),
+            os.path.join(base_dir, "web", "frontend", "public", "models", rel_name),
+            os.path.join(base_dir, "web", "dist", "models", rel_name),
+        ]
+        target = None
+        for cand in candidates:
+            if os.path.exists(cand):
+                target = cand
+                break
+        if not target:
+            return None
+        fn = Filename.fromOsSpecific(target)
+        return sbg.base.loader.loadModel(fn)
+    except Exception as e:
+        logger.debug("Failed to load GLB %s: %s", rel_name, e)
+        return None
 
 
 def create_box(
@@ -146,10 +178,48 @@ def build_robot_model() -> NodePath:
     Build stylized-realistic delivery/service robot:
     Diameter: 0.36m (radius 0.18m matching ROBOT_RADIUS 18px).
     Features: chassis, rubber bumper, spinning wheels, visor, rotating scanner, status beacon.
+    Uses rover.glb authored model when available, falling back to procedural model.
     """
     root = NodePath("robot_root")
 
-    # Main cylindrical chassis
+    glb_model = _load_glb("rover.glb")
+    if glb_model is not None:
+        wrapper = root.attachNewNode("rover_wrapper")
+        sx = 0.355 / 0.30
+        sy = 0.355 / 0.35
+        sz = 0.355 / 0.385
+        glb_model.setScale(sx, sy, sz)
+        glb_model.setPos(-2.00 * sx, 1.50 * sy, -0.0067 * sz)
+        glb_model.reparentTo(wrapper)
+
+        # Rotating LiDAR / Scanner Turret on top
+        scanner_pivot = root.attachNewNode("scanner_pivot")
+        scanner_pivot.setPos(0, 0, 0.32)
+        scanner_base = create_cylinder(
+            radius=0.045, height=0.035, segments=16,
+            color=(0.18, 0.22, 0.26, 1.0), name="scanner_base"
+        )
+        scanner_base.reparentTo(scanner_pivot)
+        scanner_optic = create_box(
+            dx=0.02, dy=0.04, dz=0.018,
+            color=(0.0, 0.9, 0.5, 1.0), name="scanner_optic"
+        )
+        scanner_optic.setPos(0, 0.02, 0.015)
+        scanner_optic.reparentTo(scanner_pivot)
+        root.setPythonTag("scanner", scanner_pivot)
+
+        # Status LED Beacon on antenna
+        beacon = create_box(
+            dx=0.03, dy=0.03, dz=0.03,
+            color=(0.0, 0.85, 1.0, 1.0), name="status_beacon"
+        )
+        beacon.setPos(0, 0, 0.38)
+        beacon.reparentTo(root)
+        root.setPythonTag("beacon", beacon)
+        root.setPythonTag("wheels", [])
+        return root
+
+    # Main cylindrical chassis (procedural fallback)
     chassis = create_cylinder(
         radius=0.165, height=0.18, segments=24,
         color=(0.92, 0.94, 0.96, 1.0), name="chassis"
@@ -242,11 +312,21 @@ def build_office_chair_model() -> NodePath:
     Office Chair Model:
     Footprint: 0.80m x 0.80m hit envelope.
     Cushion size: 0.74m x 0.74m (covers 85.5% of 0.8x0.8m hit area).
-    Features: 5-star wheeled base, chrome piston, cushion, ergonomic back, armrests.
+    Uses chair.glb authored model when available, falling back to procedural chair.
     """
     root = NodePath("chair_root")
 
-    # 5-Star wheeled base
+    glb_model = _load_glb("chair.glb")
+    if glb_model is not None:
+        sx = 0.76 / 0.33495
+        sy = 0.74 / 0.3143
+        sz = 2.25
+        glb_model.setScale(sx, sy, sz)
+        glb_model.setPos(-0.1675 * sx, -0.157 * sy, 0.0)
+        glb_model.reparentTo(root)
+        return root
+
+    # 5-Star wheeled base (procedural fallback)
     star_base = root.attachNewNode("star_base")
     for i in range(5):
         angle = 2.0 * math.pi * i / 5.0
@@ -321,11 +401,46 @@ def build_office_chair_model() -> NodePath:
 
 
 # =========================================================================
-# 3. OTHER OBSTACLE PROPS (Crates, Cabinet, Trash Bin, Plant)
+# 3. OTHER OBSTACLE PROPS (Desks, Crates, Cabinet, Trash Bin, Plant)
 # =========================================================================
+def build_desk_model(w: float = 1.2, d: float = 0.7, h: float = 0.75) -> NodePath:
+    """Workstation desk / laboratory testing bench."""
+    root = NodePath("desk_root")
+    glb_model = _load_glb("desk.glb")
+    if glb_model is not None:
+        sx = w / 0.734
+        sy = d / 0.392
+        sz = h / 0.384
+        glb_model.setScale(sx, sy, sz)
+        glb_model.setPos(-0.357 * sx, -0.184 * sy, 0.0)
+        glb_model.reparentTo(root)
+        return root
+
+    # Procedural Desk Fallback
+    top = create_box(w, d, 0.05, color=(0.85, 0.88, 0.92, 1.0), name="desk_top")
+    top.setPos(0, 0, h - 0.025)
+    top.reparentTo(root)
+    for lx in [-w * 0.45, w * 0.45]:
+        for ly in [-d * 0.42, d * 0.42]:
+            leg = create_cylinder(0.025, h - 0.05, segments=12, color=(0.20, 0.22, 0.26, 1.0), name="desk_leg")
+            leg.setPos(lx, ly, 0.0)
+            leg.reparentTo(root)
+    return root
+
+
 def build_crate_model(w: float = 0.8, d: float = 0.8, h: float = 0.6) -> NodePath:
     """Cargo / delivery crate with wooden slats and caution tape stripe."""
     root = NodePath("crate_root")
+    glb_model = _load_glb("crate.glb")
+    if glb_model is not None:
+        sx = w / 0.2125
+        sy = d / 0.2125
+        sz = h / 0.281
+        glb_model.setScale(sx, sy, sz)
+        glb_model.setPos(-0.10625 * sx, -0.10625 * sy, 0.0)
+        glb_model.reparentTo(root)
+        return root
+
     body = create_box(w, d, h, color=(0.72, 0.56, 0.38, 1.0), name="crate_body")
     body.setPos(0, 0, h * 0.5)
     body.reparentTo(root)
@@ -340,6 +455,16 @@ def build_crate_model(w: float = 0.8, d: float = 0.8, h: float = 0.6) -> NodePat
 def build_cabinet_model(w: float = 0.6, d: float = 0.6, h: float = 0.95) -> NodePath:
     """Steel office filing cabinet with drawer handles."""
     root = NodePath("cabinet_root")
+    glb_model = _load_glb("cabinet.glb")
+    if glb_model is not None:
+        sx = w / 0.5345
+        sy = d / 0.2223
+        sz = h / 0.3844
+        glb_model.setScale(sx, sy, sz)
+        glb_model.setPos(-0.2572 * sx, -0.0988 * sy, 0.0)
+        glb_model.reparentTo(root)
+        return root
+
     body = create_box(w, d, h, color=(0.42, 0.46, 0.52, 1.0), name="cabinet_body")
     body.setPos(0, 0, h * 0.5)
     body.reparentTo(root)
@@ -367,6 +492,14 @@ def build_trash_bin_model(radius: float = 0.22, h: float = 0.55) -> NodePath:
 def build_plant_model(pot_radius: float = 0.25, h: float = 0.75) -> NodePath:
     """Potted office ficus/monstera plant."""
     root = NodePath("plant_root")
+    glb_model = _load_glb("plant.glb")
+    if glb_model is not None:
+        scale = h / 0.654
+        glb_model.setScale(scale)
+        glb_model.setPos(0, 0, 0)
+        glb_model.reparentTo(root)
+        return root
+
     # Terracotta pot
     pot = create_cylinder(pot_radius, 0.35, segments=16, color=(0.78, 0.42, 0.28, 1.0), name="pot")
     pot.reparentTo(root)
@@ -393,7 +526,29 @@ def build_goal_pad_model(radius: float = 0.22) -> NodePath:
     """
     root = NodePath("goal_root")
 
-    # Metallic dock base
+    glb_model = _load_glb("goal_pad.glb")
+    if glb_model is not None:
+        scale = (2.0 * radius) / 1.09
+        glb_model.setScale(scale)
+        glb_model.setPos(-0.0297 * scale, 0.0045 * scale, 0.0)
+        glb_model.reparentTo(root)
+
+        # Vertical translucent energy beacon (cone / cylinder)
+        beacon = create_cylinder(radius * 0.75, 1.8, segments=16, color=(0.0, 0.95, 0.70, 0.25), name="energy_beacon")
+        beacon.setPos(0, 0, 0.04)
+        beacon.setTransparency(True)
+        beacon.reparentTo(root)
+        root.setPythonTag("beacon", beacon)
+
+        gem = create_box(0.08, 0.08, 0.08, color=(0.2, 1.0, 0.75, 1.0), name="energy_gem")
+        gem.setPos(0, 0, 0.25)
+        gem.setP(45)
+        gem.setR(45)
+        gem.reparentTo(root)
+        root.setPythonTag("gem", gem)
+        return root
+
+    # Metallic dock base (procedural fallback)
     base = create_cylinder(radius, 0.04, segments=24, color=(0.22, 0.26, 0.30, 1.0), name="dock_base")
     base.reparentTo(root)
 
@@ -429,12 +584,34 @@ def build_goal_pad_model(radius: float = 0.22) -> NodePath:
 def build_human_model() -> NodePath:
     """
     Articulated Walking Person:
-    Height: 1.72m. Fits comfortably inside 45cm obstacle radius.
+    Height: ~1.22m (scale 0.45). Fits comfortably inside 45cm obstacle radius.
     Features: Pelvis/Torso, Head, pivot joints for hips and shoulders for continuous walk animation.
+    Uses human.glb authored model when available, falling back to procedural mannequin.
     """
     root = NodePath("human_root")
 
-    # Torso (Jacket/Coat)
+    glb_model = _load_glb("human.glb")
+    if glb_model is not None:
+        scale = 0.45
+        glb_model.setScale(scale)
+        glb_model.setPos(0, 0, 0)
+        glb_model.reparentTo(root)
+
+        torso = glb_model.find("**/torso")
+        leg_l = glb_model.find("**/leg-left")
+        leg_r = glb_model.find("**/leg-right")
+        arm_l = glb_model.find("**/arm-left")
+        arm_r = glb_model.find("**/arm-right")
+        head = glb_model.find("**/head")
+        if torso: root.setPythonTag("torso", torso)
+        if leg_l: root.setPythonTag("hip_left", leg_l)
+        if leg_r: root.setPythonTag("hip_right", leg_r)
+        if arm_l: root.setPythonTag("shoulder_left", arm_l)
+        if arm_r: root.setPythonTag("shoulder_right", arm_r)
+        if head: root.setPythonTag("head", head)
+        return root
+
+    # Torso (Jacket/Coat) (procedural fallback)
     torso = create_box(0.36, 0.22, 0.55, color=(0.18, 0.35, 0.58, 1.0), name="torso")
     torso.setPos(0, 0, 1.10)
     torso.reparentTo(root)

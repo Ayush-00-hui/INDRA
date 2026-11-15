@@ -146,19 +146,19 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
         <!-- 4-Step Pipeline Strip -->
         <div class="pipeline-strip">
-          <div class="pipeline-node active">
+          <div class="pipeline-node active" title="Perception: 16-dimensional continuous state vector from sensor observations">
             <span class="node-label">Observe</span>
-            <span class="node-metric">16D</span>
+            <span class="node-metric">Sensors</span>
           </div>
-          <div class="pipeline-node active">
+          <div class="pipeline-node active" title="Imagination: 300 candidate rollouts simulated 14 steps ahead via neural world model">
             <span class="node-label">Imagine</span>
-            <span class="node-metric" id="metric-plan-samples">300x14</span>
+            <span class="node-metric" id="metric-plan-samples">300 Futures</span>
           </div>
-          <div class="pipeline-node active">
+          <div class="pipeline-node active" title="Optimization: MPC trajectory evaluation maximizing goal progress while avoiding collisions">
             <span class="node-label">Choose</span>
-            <span class="node-metric">ArgMax</span>
+            <span class="node-metric">Optimal</span>
           </div>
-          <div class="pipeline-node active">
+          <div class="pipeline-node active" title="Actuation: Physical robot executes the first step of the winning trajectory">
             <span class="node-label">Act</span>
             <span id="lbl-chosen-action" class="node-metric" style="color: var(--accent-green);">STAY</span>
           </div>
@@ -386,28 +386,30 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       metricLatency.textContent = `${frame.plan.ms ? frame.plan.ms.toFixed(1) : "8.7"} ms`;
       metricPlanSamples.textContent = `${frame.plan.samples || 300}x${frame.plan.horizon || 14}`;
 
-      const actionNames = ["UP", "DOWN", "LEFT", "RIGHT", "STAY"];
-      const chosenAct = actionNames[frame.plan.chosen_action] || "STAY";
+      const actionNames = ["NORTH", "SOUTH", "WEST", "EAST", "STAY"];
+      const chosenIdx = frame.plan.chosen_action !== undefined ? frame.plan.chosen_action : 4;
+      const chosenAct = actionNames[chosenIdx] || "STAY";
       lblChosenAction.textContent = chosenAct;
 
-      // Render Candidate Alternative Bars from REAL plan data
+      // Render Candidate Alternative Bars from REAL plan data with validated labels
       if (frame.plan.alts && frame.plan.alts.length > 0) {
         let barsHtml = "";
         const topAlts = frame.plan.alts.slice(0, 3);
         const maxScore = Math.max(...topAlts.map((a: any) => Math.abs(a.score || 1)), 1.0);
 
         topAlts.forEach((alt: any) => {
-          const actName = actionNames[alt.action] || `Act ${alt.action}`;
+          const actIdx = alt.first_action !== undefined ? alt.first_action : (alt.action !== undefined ? alt.action : 4);
+          const actName = actionNames[actIdx] || `Action ${actIdx}`;
           const isColl = alt.score < -5.0 || (alt.predicted_collision_step && alt.predicted_collision_step > 0);
           const color = isColl ? "var(--accent-orange)" : "var(--accent-green)";
           const pct = Math.min(100, Math.max(15, Math.round((Math.abs(alt.score) / maxScore) * 85)));
           barsHtml += `
-            <div class="candidate-row" style="display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 0.75rem; margin-bottom: 4px;">
-              <span style="width: 52px; color: #94a3b8;">${actName}:</span>
+            <div class="candidate-row" style="display: flex; align-items: center; gap: 8px; font-family: var(--font-sans); font-size: 0.78rem; margin-bottom: 6px;">
+              <span style="width: 58px; color: var(--text-muted); font-weight: 500;">${actName}:</span>
               <div style="flex: 1; height: 8px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden;">
                 <div style="width: ${pct}%; height: 100%; background: ${color}; border-radius: 4px;"></div>
               </div>
-              <span style="width: 44px; text-align: right; color: ${color}; font-weight: 600;">${alt.score > 0 ? "+" : ""}${alt.score.toFixed(1)}</span>
+              <span style="width: 44px; text-align: right; color: ${color}; font-weight: 600; font-family: var(--font-mono);">${alt.score > 0 ? "+" : ""}${alt.score.toFixed(1)}</span>
             </div>
           `;
         });
@@ -418,9 +420,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         if (collCount > 0) {
           const worstAlt = frame.plan.alts.find((a: any) => a.predicted_collision_step && a.predicted_collision_step > 0);
           const colStep = worstAlt?.predicted_collision_step || 4;
-          whyExplanation.textContent = `Rejected ${collCount} candidate trajectories predicting collision at step +${colStep}. Action [${chosenAct}] chosen with highest imagined return.`;
+          whyExplanation.textContent = `Rejected ${collCount} candidate rollouts predicting obstacle collision at step +${colStep}. Selected [${chosenAct}] for maximum imagined clearance.`;
         } else {
-          whyExplanation.textContent = `Simulated 300 candidate trajectories. Action [${chosenAct}] provides optimal goal convergence with safe obstacle clearance.`;
+          whyExplanation.textContent = `Evaluated 300 candidate rollouts. Selected [${chosenAct}] as the safest path toward the goal dock.`;
         }
       }
     }

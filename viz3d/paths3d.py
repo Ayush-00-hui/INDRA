@@ -18,7 +18,7 @@ from panda3d.core import (
 )
 
 from viz3d.mapping import WorldMapping
-from viz3d.assets3d import create_cylinder
+from viz3d.assets3d import create_cylinder, _load_glb
 
 
 class Paths3D:
@@ -146,23 +146,29 @@ class Paths3D:
 
             self.chosen_path_node.attachNewNode(lines_chosen.create())
 
-            # 3. Translucent Ghost Robots along chosen path (at steps 3, 6, 9...)
+            # 3. Translucent Holographic Ghost Robots along chosen path (at steps 3, 6, 9, 12)
             for step_idx in [3, 6, 9, 12]:
                 if step_idx < len(pts_3d):
                     gx, gy, gz = pts_3d[step_idx]
-                    ghost_cyl = create_cylinder(
-                        radius=0.18, height=0.16, segments=12,
-                        color=(0.0, 0.95, 0.85, 0.35 if not is_mind_view else 0.55),
-                        name=f"ghost_step_{step_idx}"
-                    )
-                    ghost_cyl.setTransparency(True)
-                    if self.hologram_shader and is_mind_view:
-                        try:
-                            ghost_cyl.setShader(self.hologram_shader)
-                        except Exception:
-                            pass
-                    ghost_cyl.setPos(gx, gy, gz)
-                    ghost_cyl.reparentTo(self.ghosts_root)
+                    ghost_rover = _load_glb("rover.glb")
+                    if ghost_rover is not None:
+                        ghost_node = self.ghosts_root.attachNewNode(f"ghost_step_{step_idx}")
+                        scale = 0.36 / 0.35
+                        ghost_rover.setScale(scale)
+                        ghost_rover.setPos(-2.00 * scale, 1.50 * scale, -0.0067 * scale)
+                        ghost_rover.reparentTo(ghost_node)
+                        ghost_node.setPos(gx, gy, gz)
+                        ghost_node.setTransparency(True)
+                        ghost_node.setColorScale(0.0, 0.95, 0.75, 0.40 if not is_mind_view else 0.65)
+                    else:
+                        ghost_cyl = create_cylinder(
+                            radius=0.18, height=0.16, segments=12,
+                            color=(0.0, 0.95, 0.85, 0.35 if not is_mind_view else 0.55),
+                            name=f"ghost_step_{step_idx}"
+                        )
+                        ghost_cyl.setTransparency(True)
+                        ghost_cyl.setPos(gx, gy, gz)
+                        ghost_cyl.reparentTo(self.ghosts_root)
 
     def update(self, dt: float) -> None:
         self.flow_time += dt

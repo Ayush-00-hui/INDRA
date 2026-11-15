@@ -55,6 +55,12 @@ All 3D models are dedicated to the Public Domain under Creative Commons Zero (CC
   - **License:** CC0 1.0 Universal (Public Domain)
   - **Source:** https://quaternius.com/packs/modularmen.html
 
+- **TurtleBot3 Waffle Pi Robot Mesh Suite (`assets/models/turtlebot3/`):**
+  - **Author:** ROBOTIS Co., Ltd.
+  - **Meshes:** `waffle_pi_base.stl`, `lds.stl` (360 Laser Distance Sensor), `left_tire.stl`, `right_tire.stl`
+  - **License:** Apache License 2.0
+  - **Source:** https://github.com/ROBOTIS-GIT/turtlebot3
+
 - **3D Procedural Mesh Engine Fallback (`viz3d/assets3d.py`):**
   - Procedural 3D box, cylinder, Office Chair, Robot Model, Goal Pad, and Human Mannequin generators synthesized mathematically via Panda3D `GeomVertexWriter`. Fully offline fallback dedicated to CC0.
 

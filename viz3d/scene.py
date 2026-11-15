@@ -17,6 +17,7 @@ from viz3d.paths3d import Paths3D
 from viz3d.cameras import CameraController
 from viz3d.assets3d import (
     build_office_chair_model,
+    build_desk_model,
     build_crate_model,
     build_cabinet_model,
     build_trash_bin_model,
@@ -94,10 +95,13 @@ class Scene3D:
         has_person = False
         if getattr(env, "scenario", 1) == 2:
             for obs in getattr(env, "obstacles", []):
-                if hasattr(obs, "radius") and obs.radius:
+                is_p = getattr(obs, "kind", "") == "person" or (hasattr(obs, "radius") and obs.radius)
+                if is_p:
                     has_person = True
                     vy = getattr(obs, "vy", 0.0)
-                    self.person.sync_from_env(obs.x, obs.y, vy, show_prediction=True)
+                    cx = obs.x + getattr(obs, "width", 45.0) * 0.5
+                    cy = obs.y + getattr(obs, "height", 45.0) * 0.5
+                    self.person.sync_from_env(cx, cy, vy, show_prediction=True)
                     self.person.root.show()
                     break
         if not has_person:
@@ -118,10 +122,11 @@ class Scene3D:
         obstacles = getattr(env, "obstacles", [])
         for idx, obs in enumerate(obstacles):
             # Skip circular moving person in Scenario 2 (handled by Person3D)
-            if hasattr(obs, "radius") and obs.radius:
+            is_p = getattr(obs, "kind", "") == "person" or (hasattr(obs, "radius") and obs.radius)
+            if is_p:
                 continue
 
-            # Rectangular Obstacles (Chairs, Boxes, Crates)
+            # Rectangular Obstacles (Chairs, Desks, Crates, Cabinets)
             w_px = getattr(obs, "width", 80.0)
             h_px = getattr(obs, "height", 80.0)
             w_m, d_m = WorldMapping.size_to_3d(w_px, h_px)
@@ -131,11 +136,13 @@ class Scene3D:
             center_y_px = obs.y + h_px * 0.5
             ox_3d, oy_3d, _ = WorldMapping.px_to_3d(center_x_px, center_y_px, 0.0)
 
-            # Hero obstacle is the chair (or first obstacle)
-            if idx == 0 or getattr(obs, "kind", "") == "chair" or (w_px == 80.0 and h_px == 80.0):
+            kind = getattr(obs, "kind", "")
+            if kind == "chair" or (idx == 0 and w_px == 80.0 and h_px == 80.0):
                 model = build_office_chair_model()
                 # Deterministic angle based on seed
                 model.setH((self._current_episode_seed * 47 + idx * 73) % 360)
+            elif kind == "block" or w_px >= 100 or h_px >= 100 or abs(w_px - h_px) > 20:
+                model = build_desk_model(w_m, d_m, 0.75)
             elif idx % 3 == 1:
                 model = build_crate_model(w_m, d_m, 0.60)
             elif idx % 3 == 2:

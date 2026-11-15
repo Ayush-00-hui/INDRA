@@ -44,17 +44,17 @@ class World3D:
 
     def _build_room(self) -> None:
         """Construct floor, walls with dollhouse cutaway, and baseboards."""
-        # 1. Main Floor (Polished concrete / lab tiles)
+        # 1. Main Floor (Bright polished concrete / university lab floor)
         cm_floor = CardMaker("arena_floor")
         cm_floor.setFrame(-self.ROOM_W * 0.5, self.ROOM_W * 0.5, -self.ROOM_D * 0.5, self.ROOM_D * 0.5)
         self.floor = self.root.attachNewNode(cm_floor.generate())
         self.floor.setP(-90)
-        self.floor.setColor(0.24, 0.28, 0.35, 1.0)
+        self.floor.setColor(0.78, 0.82, 0.86, 1.0)
 
-        # Safety border lines (inset 0.25m from perimeter)
+        # Safety border lines (inset 0.25m from perimeter) - High-visibility hazard gold
         lines = LineSegs("safety_lines")
-        lines.setColor(0.95, 0.75, 0.15, 0.85)
-        lines.setThickness(2.5)
+        lines.setColor(0.98, 0.75, 0.14, 0.95)
+        lines.setThickness(3.5)
 
         hw = self.ROOM_W * 0.5 - 0.25
         hd = self.ROOM_D * 0.5 - 0.25
@@ -66,9 +66,20 @@ class World3D:
         lines.drawTo(-hw, hd, z_line)
         lines.drawTo(-hw, -hd, z_line)
 
-        # Floor center grid lines
-        lines.setColor(0.32, 0.38, 0.48, 0.4)
-        lines.setThickness(1.0)
+        # Inner hazard charcoal accent border (inset 0.28m)
+        lines.setColor(0.15, 0.18, 0.22, 0.85)
+        lines.setThickness(2.0)
+        hw_in = hw - 0.04
+        hd_in = hd - 0.04
+        lines.moveTo(-hw_in, -hd_in, z_line)
+        lines.drawTo(hw_in, -hd_in, z_line)
+        lines.drawTo(hw_in, hd_in, z_line)
+        lines.drawTo(-hw_in, hd_in, z_line)
+        lines.drawTo(-hw_in, -hd_in, z_line)
+
+        # Floor center grid lines (clean laboratory tile grid)
+        lines.setColor(0.65, 0.70, 0.76, 0.40)
+        lines.setThickness(1.2)
         for gx in range(int(-self.ROOM_W * 0.5) + 1, int(self.ROOM_W * 0.5)):
             lines.moveTo(gx, -self.ROOM_D * 0.5, z_line)
             lines.drawTo(gx, self.ROOM_D * 0.5, z_line)
@@ -76,20 +87,33 @@ class World3D:
             lines.moveTo(-self.ROOM_W * 0.5, gy, z_line)
             lines.drawTo(self.ROOM_W * 0.5, gy, z_line)
 
+        # Registration Crosshairs at four corners of test arena
+        cross_size = 0.22
+        lines.setColor(0.20, 0.50, 0.85, 0.75)
+        lines.setThickness(2.2)
+        for cx_sign in [-1, 1]:
+            for cy_sign in [-1, 1]:
+                rcx = cx_sign * 3.8
+                rcy = cy_sign * 2.4
+                lines.moveTo(rcx - cross_size, rcy, z_line)
+                lines.drawTo(rcx + cross_size, rcy, z_line)
+                lines.moveTo(rcx, rcy - cross_size, z_line)
+                lines.drawTo(rcx, rcy + cross_size, z_line)
+
         self.root.attachNewNode(lines.create())
 
-        # 2. North Wall (Back): Y = +3.0
+        # 2. North Wall (Back): Y = +3.0 - Clean modern lab wall
         wall_north = create_box(
             dx=self.ROOM_W, dy=0.20, dz=self.WALL_H,
-            color=(0.38, 0.42, 0.50, 1.0), name="wall_north"
+            color=(0.86, 0.89, 0.93, 1.0), name="wall_north"
         )
         wall_north.setPos(0, self.ROOM_D * 0.5 + 0.10, self.WALL_H * 0.5)
         wall_north.reparentTo(self.root)
 
-        # North Baseboard
+        # North Baseboard - Precision slate/navy trim
         bb_north = create_box(
             dx=self.ROOM_W, dy=0.04, dz=0.12,
-            color=(0.18, 0.20, 0.25, 1.0), name="bb_north"
+            color=(0.15, 0.18, 0.24, 1.0), name="bb_north"
         )
         bb_north.setPos(0, self.ROOM_D * 0.5 - 0.02, 0.06)
         bb_north.reparentTo(self.root)
@@ -97,7 +121,7 @@ class World3D:
         # 3. West Wall (Left): X = -4.5
         wall_west = create_box(
             dx=0.20, dy=self.ROOM_D, dz=self.WALL_H,
-            color=(0.35, 0.39, 0.46, 1.0), name="wall_west"
+            color=(0.82, 0.85, 0.90, 1.0), name="wall_west"
         )
         wall_west.setPos(-self.ROOM_W * 0.5 - 0.10, 0, self.WALL_H * 0.5)
         wall_west.reparentTo(self.root)
@@ -105,7 +129,7 @@ class World3D:
         # West Baseboard
         bb_west = create_box(
             dx=0.04, dy=self.ROOM_D, dz=0.12,
-            color=(0.18, 0.20, 0.25, 1.0), name="bb_west"
+            color=(0.15, 0.18, 0.24, 1.0), name="bb_west"
         )
         bb_west.setPos(-self.ROOM_W * 0.5 + 0.02, 0, 0.06)
         bb_west.reparentTo(self.root)
@@ -113,7 +137,7 @@ class World3D:
         # 4. East Wall (Right): X = +4.5
         wall_east = create_box(
             dx=0.20, dy=self.ROOM_D, dz=self.WALL_H,
-            color=(0.35, 0.39, 0.46, 1.0), name="wall_east"
+            color=(0.82, 0.85, 0.90, 1.0), name="wall_east"
         )
         wall_east.setPos(self.ROOM_W * 0.5 + 0.10, 0, self.WALL_H * 0.5)
         wall_east.reparentTo(self.root)
@@ -121,16 +145,15 @@ class World3D:
         # East Baseboard
         bb_east = create_box(
             dx=0.04, dy=self.ROOM_D, dz=0.12,
-            color=(0.18, 0.20, 0.25, 1.0), name="bb_east"
+            color=(0.15, 0.18, 0.24, 1.0), name="bb_east"
         )
         bb_east.setPos(self.ROOM_W * 0.5 - 0.02, 0, 0.06)
         bb_east.reparentTo(self.root)
 
         # 5. South Wall (Front Cutaway / Dollhouse View): Y = -3.0
-        # Low glass partition / curb so camera has clear sightline into arena
         curb_south = create_box(
             dx=self.ROOM_W, dy=0.08, dz=0.25,
-            color=(0.20, 0.24, 0.30, 1.0), name="curb_south"
+            color=(0.25, 0.28, 0.35, 1.0), name="curb_south"
         )
         curb_south.setPos(0, -self.ROOM_D * 0.5 - 0.04, 0.125)
         curb_south.reparentTo(self.root)
@@ -141,13 +164,13 @@ class World3D:
         backdrop_floor = self.root.attachNewNode(cm_backdrop.generate())
         backdrop_floor.setP(-90)
         backdrop_floor.setPos(0, 0, -0.01)
-        backdrop_floor.setColor(0.10, 0.12, 0.16, 1.0)
+        backdrop_floor.setColor(0.18, 0.22, 0.28, 1.0)
 
     def _setup_lighting(self) -> None:
-        """Create directional sun light with shadows and soft ambient lighting."""
-        # 1. Sun Directional Light
+        """Create bright directional sun light with shadows and crisp ambient lighting."""
+        # 1. Sun Directional Light (Warm key sunlight)
         dlight = DirectionalLight("arena_sun")
-        dlight.setColor(Vec4(0.95, 0.93, 0.88, 1.0))
+        dlight.setColor(Vec4(1.25, 1.20, 1.10, 1.0))
         dlight.setShadowCaster(True, 2048, 2048)
         dnp = self.root.attachNewNode(dlight)
         # Angled from West-South-West down onto the floor
@@ -155,18 +178,18 @@ class World3D:
         self.root.setLight(dnp)
         self.lights.append(dnp)
 
-        # 2. Ambient Light (Soft fill)
+        # 2. Ambient Light (Cool fluorescent lab fill light)
         alight = AmbientLight("arena_ambient")
-        alight.setColor(Vec4(0.32, 0.35, 0.42, 1.0))
+        alight.setColor(Vec4(0.68, 0.72, 0.78, 1.0))
         anp = self.root.attachNewNode(alight)
         self.root.setLight(anp)
         self.lights.append(anp)
 
-        # 3. Overhead Spot / Point Lights (Crisp highlights on arena)
+        # 3. Overhead Spot / Point Lights (Crisp specular highlights on arena)
         for px in [-2.5, 2.5]:
             for py in [-1.0, 1.0]:
                 plight = PointLight(f"plight_{px}_{py}")
-                plight.setColor(Vec4(0.4, 0.45, 0.55, 1.0))
+                plight.setColor(Vec4(0.55, 0.60, 0.70, 1.0))
                 pnp = self.root.attachNewNode(plight)
                 pnp.setPos(px, py, self.WALL_H + 0.5)
                 self.root.setLight(pnp)

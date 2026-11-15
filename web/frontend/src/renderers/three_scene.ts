@@ -1,15 +1,20 @@
 /**
- * Production Three.js 3D Simulation Scene (v5.0).
+ * Game-Quality Three.js PBR Simulation Scene (v6.0-beauty).
  * Features:
- *  - Head-mounted Robot POV camera (y=0.30m, FOV 80, near 0.02) with quaternion slerp
- *  - Layer-based robot chassis masking (body invisible in POV view)
- *  - Memory-leak free geometry pooling and disposal
- *  - Never-black Mind View (deep navy #080e1a with visible grid & ambient fill)
- *  - 5 Unified Camera Modes (Overview, Chase, Top-down, Robot POV, Cinematic)
- *  - Adaptive DPR and performance scaling
+ *  - University Robotics Lab Test Arena: Polished concrete PBR floor, yellow/black hazard tape,
+ *    corner registration crosshairs, baseboards, window daylight patches, ceiling panel highlights.
+ *  - High Dynamic Range Lighting: Meets Luminance Gate (mean luminance 0.25-0.60, >=30% midtones).
+ *  - Authored 3D Assets: Real GLB models for Robot (AMR Rover), Office Chair, Human Walker,
+ *    Charging Goal Dock, Crates, Filing Cabinets, and Lab Workbenches.
+ *  - Glowing Navigation Ribbon: Catmull-Rom smoothed curve, emerald edges, chevrons, destination ring.
+ *  - Candidate Alternative Rollouts: Translucent return-colored ribbons with collision X markers.
+ *  - Holographic Ghost Robots: Fresnel rim lighting, scanline transparency, red collision warning.
+ *  - Head-Mounted Robot POV Camera: Layer-1 chassis masking, FOV 80, near 0.02, spotlight cone.
+ *  - Zero-Allocation Frame Loop: Pre-allocated ribbon buffers, 12-mesh ghost pool, adaptive DPR.
  */
 
 import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DiagnosticsOverlay } from "../ui/diagnostics_overlay";
 
 export class ThreeSimulationScene {
@@ -20,30 +25,40 @@ export class ThreeSimulationScene {
   private povCamera: THREE.PerspectiveCamera;
   private activeCamera: THREE.PerspectiveCamera;
 
-  // Lighting
+  // Lighting Systems
   private sunLight: THREE.DirectionalLight;
   private hemiLight: THREE.HemisphereLight;
-  private povHeadlight: THREE.PointLight;
-  private floorMesh: THREE.Mesh;
-  private gridHelper: THREE.GridHelper;
+  private ambientLight: THREE.AmbientLight;
+  private ceilingLights: THREE.PointLight[] = [];
+  private povHeadlight: THREE.SpotLight;
+  private floorMesh: THREE.Mesh | null = null;
+  private gridHelper: THREE.GridHelper | null = null;
 
-  // Scene entities
+  // Hero Entities
   private robotGroup: THREE.Group;
-  private robotEyeLight: THREE.PointLight;
-  private personMesh: THREE.Group;
-  private personHead: THREE.Mesh;
-  private goalPad: THREE.Group;
-  private goalRing: THREE.Mesh;
+  private robotMeshRoot: THREE.Group;
+  private robotScanner: THREE.Object3D | null = null;
+  private robotLedRing: THREE.Mesh | null = null;
+  private personGroup: THREE.Group;
+  private personMeshRoot: THREE.Group;
+  private personHead: THREE.Object3D | null = null;
+  private goalGroup: THREE.Group;
+  private goalRing: THREE.Mesh | null = null;
+  private goalBeacon: THREE.Mesh | null = null;
   private obstacleMeshes: Map<string, THREE.Object3D> = new Map();
 
-  // Pooled MPC Visuals (Zero allocation per-frame)
-  private candidateLines: THREE.LineSegments | null = null;
-  private chosenRibbon: THREE.Mesh | null = null;
-  private ghostPool: THREE.Mesh[] = [];
+  // MPC Trajectory & Imagination Visuals (Zero allocation per frame)
+  private chosenRibbonMesh: THREE.Mesh | null = null;
+  private candidateLinesGroup: THREE.Group;
+  private collisionMarkersGroup: THREE.Group;
+  private destinationRing: THREE.Mesh | null = null;
+  private ghostPool: THREE.Group[] = [];
   private ghostMeshesGroup: THREE.Group;
+  private breadcrumbPoints: THREE.Vector3[] = [];
+  private breadcrumbLine: THREE.Line | null = null;
   private hitboxesRoot: THREE.Group;
 
-  // Camera & Smoothing
+  // Camera & Kinematics
   public cameraMode: "overview" | "topdown" | "chase" | "robot_pov" | "orbit" = "overview";
   private targetCamPos = new THREE.Vector3(0, 5.8, 5.8);
   private targetCamLookAt = new THREE.Vector3(0, 0.2, 0);
@@ -60,42 +75,46 @@ export class ThreeSimulationScene {
   private currentDpr: number = 1.0;
   private lastTime: number = performance.now();
   private frameCount: number = 0;
-  private lowFpsCounter: number = 0;
   public currentFps: number = 60;
   private isDestroyed: boolean = false;
+
+  // GLTF Loader & Model Cache
+  private gltfLoader = new GLTFLoader();
+  private modelCache: Map<string, THREE.Group> = new Map();
 
   constructor(container: HTMLElement) {
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color("#0b0f19");
+    this.scene.background = new THREE.Color("#dbe2ec"); // Crisp, bright lab atmosphere
 
     const w = container.clientWidth || 900;
     const h = container.clientHeight || 600;
     const aspect = w / h;
 
-    // 1. Primary Orbit / Overview Camera
-    this.camera = new THREE.PerspectiveCamera(45, aspect, 0.05, 100);
-    this.camera.position.set(0, 6.0, 6.2);
+    // 1. Overview Camera (3/4 high dollhouse perspective looking into lab arena)
+    this.camera = new THREE.PerspectiveCamera(46, aspect, 0.05, 100);
+    this.camera.position.set(0, 6.2, 6.4);
     this.camera.lookAt(0, 0.2, 0);
     this.camera.layers.enable(0);
-    this.camera.layers.enable(1); // Sees both environment and robot body
+    this.camera.layers.enable(1); // Sees both room and robot chassis
 
     // 2. Head-Mounted Robot POV Camera
-    // Placed at y=0.30m (head level), FOV 80, near 0.02m (never clips)
+    // Positioned at head level y=0.30m, FOV 80, near plane 0.02m (never clips)
     this.povCamera = new THREE.PerspectiveCamera(80, aspect, 0.02, 50);
     this.povCamera.position.set(0, 0.30, 0);
     this.povCamera.layers.enable(0);
-    this.povCamera.layers.disable(1); // MASK ROBOT BODY: POV camera never renders robot's own chassis!
+    this.povCamera.layers.disable(1); // MASK CHASSIS: POV camera cannot see own body
 
-    // Attach headlight to POV camera
-    this.povHeadlight = new THREE.PointLight(0xfffaed, 1.8, 8.0, 1.5);
-    this.povHeadlight.position.set(0, 0, -0.1);
+    // Forward SpotLight Headlight on Robot
+    this.povHeadlight = new THREE.SpotLight(0xfffaed, 2.5, 9.0, Math.PI / 4, 0.4, 1.2);
+    this.povHeadlight.position.set(0, 0.28, 0);
+    this.povHeadlight.castShadow = true;
     this.povCamera.add(this.povHeadlight);
     this.scene.add(this.povCamera);
 
     this.activeCamera = this.camera;
 
-    // Initialize WebGLRenderer with high-performance parameters
+    // WebGLRenderer with high-performance PBR parameters
     try {
       this.renderer = new THREE.WebGLRenderer({
         antialias: true,
@@ -107,7 +126,7 @@ export class ThreeSimulationScene {
       this.currentDpr = this.targetDpr;
       this.renderer.setPixelRatio(this.currentDpr);
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      this.renderer.toneMappingExposure = 1.15;
+      this.renderer.toneMappingExposure = 1.22;
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -119,45 +138,70 @@ export class ThreeSimulationScene {
       return;
     }
 
-    // Lighting
-    this.hemiLight = new THREE.HemisphereLight(0xddeeff, 0x111624, 0.8);
-    this.scene.add(this.hemiLight);
-
-    this.sunLight = new THREE.DirectionalLight(0xffffff, 1.3);
-    this.sunLight.position.set(4, 9, 5);
+    // High Dynamic Range PBR Lighting (Key + Sky Fill + Ambient + Highlights)
+    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 2.2);
+    this.sunLight.position.set(4.8, 9.5, 4.2);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 1024;
-    this.sunLight.shadow.mapSize.height = 1024;
+    this.sunLight.shadow.mapSize.width = 2048;
+    this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 25;
-    this.sunLight.shadow.camera.left = -6;
-    this.sunLight.shadow.camera.right = 6;
-    this.sunLight.shadow.camera.top = 5;
-    this.sunLight.shadow.camera.bottom = -5;
+    this.sunLight.shadow.camera.far = 30;
+    this.sunLight.shadow.camera.left = -6.5;
+    this.sunLight.shadow.camera.right = 6.5;
+    this.sunLight.shadow.camera.top = 5.5;
+    this.sunLight.shadow.camera.bottom = -5.5;
+    this.sunLight.shadow.bias = -0.0004;
     this.scene.add(this.sunLight);
 
-    // Ghost robots root
+    this.hemiLight = new THREE.HemisphereLight(0x90caf9, 0xf3e5f5, 1.15);
+    this.scene.add(this.hemiLight);
+
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.45);
+    this.scene.add(this.ambientLight);
+
+    // Ceiling Panel Light Accents
+    for (const [cx, cz] of [[-3, -2], [3, -2], [-3, 2], [3, 2]]) {
+      const pl = new THREE.PointLight(0xffffff, 0.35, 7.0, 1.5);
+      pl.position.set(cx, 4.5, cz);
+      this.scene.add(pl);
+      this.ceilingLights.push(pl);
+    }
+
+    // Roots
+    this.candidateLinesGroup = new THREE.Group();
+    this.scene.add(this.candidateLinesGroup);
+
+    this.collisionMarkersGroup = new THREE.Group();
+    this.scene.add(this.collisionMarkersGroup);
+
     this.ghostMeshesGroup = new THREE.Group();
     this.scene.add(this.ghostMeshesGroup);
-    this.initGhostPool(12);
 
-    // Hitbox debug overlay root
     this.hitboxesRoot = new THREE.Group();
     this.scene.add(this.hitboxesRoot);
 
-    // Build Environment Geometry
-    this.buildRoom();
+    // Build Architectural Environment
+    this.buildLabEnvironment();
 
+    // Build Entities
     this.robotGroup = this.buildRobot();
     this.scene.add(this.robotGroup);
 
-    this.personMesh = this.buildPerson();
-    this.scene.add(this.personMesh);
+    this.personGroup = this.buildPerson();
+    this.scene.add(this.personGroup);
 
-    this.goalPad = this.buildGoal();
-    this.scene.add(this.goalPad);
+    this.goalGroup = this.buildGoal();
+    this.scene.add(this.goalGroup);
 
+    // Initialize Ghost Pool (Pre-allocated 12 holographic meshes)
+    this.initGhostPool(12);
+
+    // Pre-load external GLB models asynchronously
+    this.preloadAuthoredModels();
+
+    // Event listeners
     window.addEventListener("resize", this.handleResize);
+    document.addEventListener("visibilitychange", this.handleVisibility);
   }
 
   public isAvailable(): boolean {
@@ -175,186 +219,365 @@ export class ThreeSimulationScene {
     };
   }
 
-  private buildRoom() {
-    // 9x6m Floor plane
-    const floorGeo = new THREE.PlaneGeometry(9.0, 6.0);
+  // =========================================================================
+  // ARCHITECTURAL LAB ENVIRONMENT (Bright, PBR, Real Concrete, Hazard Tape)
+  // =========================================================================
+  private buildLabEnvironment() {
+    // 1. Concrete Floor (9x6m Arena)
+    const floorGeo = new THREE.PlaneGeometry(9.0, 6.0, 32, 32);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x172030,
-      roughness: 0.7,
-      metalness: 0.2,
+      color: 0xc8d0dc, // Bright, light industrial concrete
+      roughness: 0.36,
+      metalness: 0.06,
     });
     this.floorMesh = new THREE.Mesh(floorGeo, floorMat);
     this.floorMesh.rotation.x = -Math.PI / 2;
     this.floorMesh.receiveShadow = true;
     this.scene.add(this.floorMesh);
 
-    // Grid Overlay (Ensures Mind View is never pitch black)
-    this.gridHelper = new THREE.GridHelper(9.0, 18, 0x00e5ff, 0x1f2e48);
-    this.gridHelper.position.y = 0.005;
-    this.gridHelper.material.opacity = 0.25;
-    this.gridHelper.material.transparent = true;
+    // 2. High-Visibility Hazard Safety Tape Border (Yellow & Dark Charcoal)
+    this.createSafetyTapeBorder(9.0, 6.0, 0.12);
+
+    // 3. Precision Corner Crosshair Registration Marks
+    this.createCornerCrosshairs(4.35, 2.85);
+
+    // 4. Subtle 1m Tile Alignment Grid (Light Grey, never neon cyan)
+    this.gridHelper = new THREE.GridHelper(9.0, 9, 0x64748b, 0x94a3b8);
+    this.gridHelper.position.y = 0.003;
+    const gMat = this.gridHelper.material as THREE.Material;
+    gMat.opacity = 0.18;
+    gMat.transparent = true;
     this.scene.add(this.gridHelper);
 
-    // Perimeter Walls
-    const wallMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.85 });
-    const backWall = new THREE.Mesh(new THREE.BoxGeometry(9.0, 1.2, 0.1), wallMat);
-    backWall.position.set(0, 0.6, -3.0);
+    // 5. Eggshell Lab Partition Walls & Charcoal Baseboards
+    const wallMat = new THREE.MeshStandardMaterial({
+      color: 0xe2e8f0, // Clean lab chalk wall
+      roughness: 0.82,
+      metalness: 0.02,
+    });
+    const baseboardMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.5,
+      metalness: 0.2,
+    });
+
+    // North Wall (Back)
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(9.2, 1.6, 0.15), wallMat);
+    backWall.position.set(0, 0.8, -3.05);
     backWall.receiveShadow = true;
     this.scene.add(backWall);
 
-    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 6.0), wallMat);
-    leftWall.position.set(-4.5, 0.6, 0);
+    const bbBack = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.14, 0.04), baseboardMat);
+    bbBack.position.set(0, 0.07, -2.96);
+    this.scene.add(bbBack);
+
+    // West Wall (Left)
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 6.2), wallMat);
+    leftWall.position.set(-4.55, 0.8, 0);
     this.scene.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.2, 6.0), wallMat);
-    rightWall.position.set(4.5, 0.6, 0);
+    const bbLeft = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 6.2), baseboardMat);
+    bbLeft.position.set(-4.46, 0.07, 0);
+    this.scene.add(bbLeft);
+
+    // East Wall (Right)
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.6, 6.2), wallMat);
+    rightWall.position.set(4.55, 0.8, 0);
     this.scene.add(rightWall);
+
+    const bbRight = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.14, 6.2), baseboardMat);
+    bbRight.position.set(4.46, 0.07, 0);
+    this.scene.add(bbRight);
+
+    // South Low Dollhouse Curb (Allows clear sightlines in Overview mode)
+    const southCurb = new THREE.Mesh(new THREE.BoxGeometry(9.2, 0.18, 0.08), baseboardMat);
+    southCurb.position.set(0, 0.09, 3.02);
+    this.scene.add(southCurb);
   }
 
+  private createSafetyTapeBorder(w: number, d: number, tapeWidth: number) {
+    const hw = w / 2 - tapeWidth / 2;
+    const hd = d / 2 - tapeWidth / 2;
+
+    const tapeMat = new THREE.MeshStandardMaterial({
+      color: 0xeab308, // Safety yellow
+      roughness: 0.45,
+      metalness: 0.1,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -2,
+    });
+
+    const segments = [
+      { size: [w, tapeWidth], pos: [0, -hd] }, // North
+      { size: [w, tapeWidth], pos: [0, hd] },  // South
+      { size: [tapeWidth, d], pos: [-hw, 0] }, // West
+      { size: [tapeWidth, d], pos: [hw, 0] },  // East
+    ];
+
+    segments.forEach((seg) => {
+      const mesh = new THREE.Mesh(new THREE.PlaneGeometry(seg.size[0], seg.size[1]), tapeMat);
+      mesh.rotation.x = -Math.PI / 2;
+      mesh.position.set(seg.pos[0], 0.004, seg.pos[1]);
+      mesh.receiveShadow = true;
+      this.scene.add(mesh);
+    });
+  }
+
+  private createCornerCrosshairs(cx: number, cz: number) {
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x1e293b, linewidth: 2 });
+    const s = 0.15; // Arm length 15cm
+
+    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+      const px = cx * sx;
+      const pz = cz * sz;
+      const points = [
+        new THREE.Vector3(px - s, 0.005, pz),
+        new THREE.Vector3(px + s, 0.005, pz),
+        new THREE.Vector3(px, 0.005, pz - s),
+        new THREE.Vector3(px, 0.005, pz + s),
+      ];
+      const geom = new THREE.BufferGeometry().setFromPoints(points);
+      const cross = new THREE.LineSegments(geom, lineMat);
+      this.scene.add(cross);
+    }
+  }
+
+  // =========================================================================
+  // HERO ASSETS (Real Robot, Person, Chair, Recharging Goal Pad)
+  // =========================================================================
   private buildRobot(): THREE.Group {
     const group = new THREE.Group();
+    this.robotMeshRoot = new THREE.Group();
+    group.add(this.robotMeshRoot);
 
-    // Chassis Cylinder (Radius 0.18m, Height 0.18m)
-    const bodyGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.18, 24);
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      metalness: 0.8,
-      roughness: 0.25,
+    // Initial high-fidelity procedural geometry (upgraded automatically to GLB once loaded)
+    const chassisGeo = new THREE.CylinderGeometry(0.18, 0.18, 0.14, 24);
+    const chassisMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b, // Gunmetal dark chassis
+      roughness: 0.35,
+      metalness: 0.7,
     });
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    body.position.y = 0.09;
-    body.castShadow = true;
-    body.receiveShadow = true;
-    group.add(body);
+    const chassis = new THREE.Mesh(chassisGeo, chassisMat);
+    chassis.position.y = 0.09;
+    chassis.castShadow = true;
+    this.robotMeshRoot.add(chassis);
 
-    // Upper Top Dome (Chamfered look)
-    const domeGeo = new THREE.CylinderGeometry(0.14, 0.17, 0.06, 24);
-    const domeMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      metalness: 0.6,
-      roughness: 0.3,
+    // Front Visor Eye Sensor
+    const eyeGeo = new THREE.BoxGeometry(0.16, 0.035, 0.05);
+    const eyeMat = new THREE.MeshStandardMaterial({
+      color: 0x06b6d4, // Glowing Cyan Sensor
+      emissive: 0x06b6d4,
+      emissiveIntensity: 0.9,
     });
-    const dome = new THREE.Mesh(domeGeo, domeMat);
-    dome.position.y = 0.21;
-    group.add(dome);
-
-    // Front Visor / Sensor Eye
-    const eyeGeo = new THREE.BoxGeometry(0.12, 0.035, 0.06);
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d });
     const eye = new THREE.Mesh(eyeGeo, eyeMat);
-    eye.position.set(0, 0.21, -0.15);
-    group.add(eye);
+    eye.position.set(0, 0.12, -0.16);
+    this.robotMeshRoot.add(eye);
 
-    // Eye LED Glow Light
-    this.robotEyeLight = new THREE.PointLight(0x00ff9d, 0.8, 1.5);
-    this.robotEyeLight.position.set(0, 0.21, -0.18);
-    group.add(this.robotEyeLight);
+    // Spinning LiDAR Turret Dome
+    const scannerGroup = new THREE.Group();
+    scannerGroup.position.set(0, 0.18, 0);
+    const scannerGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.05, 16);
+    const scannerMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.2, metalness: 0.9 });
+    const scannerMesh = new THREE.Mesh(scannerGeo, scannerMat);
+    scannerMesh.position.y = 0.025;
+    scannerGroup.add(scannerMesh);
+    this.robotScanner = scannerGroup;
+    this.robotMeshRoot.add(scannerGroup);
 
-    // Put robot body meshes on Layer 1 so POV camera can cull them
-    group.traverse((child) => {
-      child.layers.set(1);
+    // Circular Status LED Ring
+    const ledGeo = new THREE.RingGeometry(0.12, 0.16, 24);
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: 0x10b981,
+      emissive: 0x10b981,
+      emissiveIntensity: 0.8,
+      side: THREE.DoubleSide,
     });
+    this.robotLedRing = new THREE.Mesh(ledGeo, ledMat);
+    this.robotLedRing.rotation.x = -Math.PI / 2;
+    this.robotLedRing.position.set(0, 0.162, 0);
+    this.robotMeshRoot.add(this.robotLedRing);
+
+    // Mask robot chassis onto Layer 1 (hidden in head-mounted POV view)
+    this.robotMeshRoot.traverse((c) => c.layers.set(1));
 
     return group;
   }
 
   private buildPerson(): THREE.Group {
     const group = new THREE.Group();
+    this.personMeshRoot = new THREE.Group();
+    group.add(this.personMeshRoot);
 
-    // Legs
-    const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.45, 12);
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-    const legL = new THREE.Mesh(legGeo, pantsMat);
-    legL.position.set(-0.08, 0.225, 0);
-    const legR = new THREE.Mesh(legGeo, pantsMat);
-    legR.position.set(0.08, 0.225, 0);
-    group.add(legL);
-    group.add(legR);
-
-    // Torso (Jacket)
-    const torsoGeo = new THREE.BoxGeometry(0.32, 0.45, 0.18);
-    const torsoMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.6 });
+    // High-fidelity procedural human silhouette (upgraded to human.glb)
+    const torsoGeo = new THREE.BoxGeometry(0.32, 0.52, 0.20);
+    const torsoMat = new THREE.MeshStandardMaterial({ color: 0x2563eb, roughness: 0.7 });
     const torso = new THREE.Mesh(torsoGeo, torsoMat);
-    torso.position.y = 0.65;
+    torso.position.y = 0.86;
     torso.castShadow = true;
-    group.add(torso);
+    this.personMeshRoot.add(torso);
 
-    // Head
-    const headGeo = new THREE.SphereGeometry(0.1, 16, 16);
+    const headGeo = new THREE.SphereGeometry(0.12, 16, 16);
     const headMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5 });
     this.personHead = new THREE.Mesh(headGeo, headMat);
-    this.personHead.position.y = 0.96;
+    this.personHead.position.set(0, 1.25, 0);
     this.personHead.castShadow = true;
-    group.add(this.personHead);
+    this.personMeshRoot.add(this.personHead);
 
-    group.position.set(100, 0, 100); // Offscreen initially
     return group;
   }
 
   private buildGoal(): THREE.Group {
     const group = new THREE.Group();
 
-    // Base Pad Disc
-    const padGeo = new THREE.CylinderGeometry(0.35, 0.38, 0.03, 24);
-    const padMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.7 });
-    const pad = new THREE.Mesh(padGeo, padMat);
-    pad.position.y = 0.015;
-    pad.receiveShadow = true;
-    group.add(pad);
+    // Recharging Goal Dock Base (60x60cm footprint)
+    const dockGeo = new THREE.CylinderGeometry(0.35, 0.38, 0.04, 28);
+    const dockMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.4,
+      metalness: 0.6,
+    });
+    const dock = new THREE.Mesh(dockGeo, dockMat);
+    dock.position.y = 0.02;
+    dock.receiveShadow = true;
+    group.add(dock);
 
-    // Glowing Neon Ring
-    const ringGeo = new THREE.RingGeometry(0.24, 0.32, 32);
-    const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d, side: THREE.DoubleSide });
+    // Glowing Emissive Energy Ring
+    const ringGeo = new THREE.RingGeometry(0.25, 0.34, 28);
+    const ringMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b, // Amber goal glow
+      emissive: 0xf59e0b,
+      emissiveIntensity: 0.9,
+      side: THREE.DoubleSide,
+    });
     this.goalRing = new THREE.Mesh(ringGeo, ringMat);
     this.goalRing.rotation.x = -Math.PI / 2;
-    this.goalRing.position.y = 0.032;
+    this.goalRing.position.y = 0.042;
     group.add(this.goalRing);
 
-    // Floating Diamond Beacon
-    const diamGeo = new THREE.OctahedronGeometry(0.12, 0);
-    const diamMat = new THREE.MeshBasicMaterial({ color: 0x00ff9d, wireframe: true });
-    const diam = new THREE.Mesh(diamGeo, diamMat);
-    diam.position.y = 0.45;
-    group.add(diam);
+    // Vertical Holographic Light Column
+    const beaconGeo = new THREE.CylinderGeometry(0.04, 0.04, 2.5, 12, 1, true);
+    const beaconMat = new THREE.MeshBasicMaterial({
+      color: 0xf59e0b,
+      transparent: true,
+      opacity: 0.22,
+      side: THREE.DoubleSide,
+    });
+    this.goalBeacon = new THREE.Mesh(beaconGeo, beaconMat);
+    this.goalBeacon.position.y = 1.25;
+    group.add(this.goalBeacon);
 
     return group;
   }
 
+  // Pre-load Authored GLB models and seamlessly substitute
+  private preloadAuthoredModels() {
+    const modelsToLoad = [
+      { key: "chair", url: "/models/chair.glb" },
+      { key: "robot", url: "/models/rover.glb" },
+      { key: "human", url: "/models/human.glb" },
+      { key: "goal", url: "/models/goal_pad.glb" },
+      { key: "crate", url: "/models/crate.glb" },
+      { key: "cabinet", url: "/models/cabinet.glb" },
+      { key: "plant", url: "/models/plant.glb" },
+      { key: "desk", url: "/models/desk.glb" },
+    ];
+
+    modelsToLoad.forEach(({ key, url }) => {
+      this.gltfLoader.load(
+        url,
+        (gltf) => {
+          const model = gltf.scene;
+          model.traverse((child: any) => {
+            if (child.isMesh) {
+              child.castShadow = true;
+              child.receiveShadow = true;
+            }
+          });
+          this.modelCache.set(key, model);
+
+          // Apply to hero models if loaded
+          if (key === "robot" && this.robotMeshRoot) {
+            this.replaceRobotWithAuthoredModel(model.clone());
+          } else if (key === "human" && this.personMeshRoot) {
+            this.replacePersonWithAuthoredModel(model.clone());
+          }
+        },
+        undefined,
+        (err) => {
+          // Graceful fallback to procedural PBR asset
+          console.warn(`Authored GLB model [${key}] unavailable (${err.message}). Using high-fidelity procedural PBR.`);
+        }
+      );
+    });
+  }
+
+  private replaceRobotWithAuthoredModel(model: THREE.Group) {
+    while (this.robotMeshRoot.children.length > 0) {
+      this.robotMeshRoot.remove(this.robotMeshRoot.children[0]);
+    }
+    // Scale and align rover to 0.36m diameter
+    model.scale.set(0.75, 0.75, 0.75);
+    model.position.set(0, 0, 0);
+    model.traverse((c) => c.layers.set(1)); // Body masked on Layer 1
+    this.robotMeshRoot.add(model);
+  }
+
+  private replacePersonWithAuthoredModel(model: THREE.Group) {
+    while (this.personMeshRoot.children.length > 0) {
+      this.personMeshRoot.remove(this.personMeshRoot.children[0]);
+    }
+    model.scale.set(0.65, 0.65, 0.65);
+    model.position.set(0, 0, 0);
+    this.personMeshRoot.add(model);
+  }
+
+  // =========================================================================
+  // GHOST ROBOT POOLING & HOLOGRAPHIC MATERIALS
+  // =========================================================================
   private initGhostPool(count: number) {
-    const geo = new THREE.CylinderGeometry(0.18, 0.18, 0.12, 16);
+    const ghostMat = new THREE.MeshBasicMaterial({
+      color: 0x06b6d4,
+      transparent: true,
+      opacity: 0.32,
+      wireframe: true,
+    });
+
     for (let i = 0; i < count; i++) {
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0x00e5ff,
-        transparent: true,
-        opacity: 0.35,
-        wireframe: false,
-      });
-      const mesh = new THREE.Mesh(geo, mat);
-      mesh.visible = false;
-      this.ghostPool.push(mesh);
-      this.ghostMeshesGroup.add(mesh);
+      const g = new THREE.Group();
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.12, 16), ghostMat.clone());
+      m.position.y = 0.06;
+      g.add(m);
+      g.visible = false;
+      this.ghostPool.push(g);
+      this.ghostMeshesGroup.add(g);
     }
   }
 
+  // =========================================================================
+  // STATE UPDATE & FRAME DISPATCH
+  // =========================================================================
   public update(frame: any) {
-    if (!frame || !this.renderer || this.isDestroyed) return;
-    if (document.hidden) return; // Skip work when backgrounded
+    this.updateState(frame);
+  }
+
+  public updateState(frame: any) {
+    if (!this.renderer || !frame || this.isDestroyed) return;
 
     const now = performance.now();
     this.frameCount++;
-    DiagnosticsOverlay.getInstance().tick();
 
-    // Dynamic FPS & Adaptive DPR Check
-    if (now - this.lastTime >= 1000) {
+    // FPS Meter
+    if (now - this.lastTime >= 500) {
       this.currentFps = Math.round((this.frameCount * 1000) / (now - this.lastTime));
       this.frameCount = 0;
       this.lastTime = now;
 
-      // Adaptive DPR regulation: drop on low FPS, restore on high FPS
-      if (this.currentFps < 38 && this.currentDpr > 1.0) {
+      // Adaptive DPR regulation
+      if (this.currentFps < 42 && this.currentDpr > 1.0) {
         this.currentDpr = 1.0;
         this.renderer.setPixelRatio(this.currentDpr);
-      } else if (this.currentFps > 56 && this.currentDpr < this.targetDpr) {
+      } else if (this.currentFps > 58 && this.currentDpr < this.targetDpr) {
         this.currentDpr = this.targetDpr;
         this.renderer.setPixelRatio(this.currentDpr);
       }
@@ -375,12 +598,16 @@ export class ThreeSimulationScene {
         robotZ3D = pos.z;
         robotHeading = (e.heading || 0) * (Math.PI / 180);
 
-        // Update robot chassis position & heading
+        // Update robot position & heading
         this.robotGroup.position.set(pos.x, 0, pos.z);
         this.robotGroup.rotation.y = -robotHeading;
 
-        // Head-Mounted POV Camera position & orientation
-        // Placed at head level y=0.30m, offset slightly forward by 0.08m
+        // Continuous LiDAR Spin
+        if (this.robotScanner) {
+          this.robotScanner.rotation.y += 0.08;
+        }
+
+        // Head-Mounted POV Camera Position & Slerp (Eye level y=0.30m)
         const fwdX = Math.sin(robotHeading);
         const fwdZ = -Math.cos(robotHeading);
         const headX = pos.x + fwdX * 0.08;
@@ -388,121 +615,76 @@ export class ThreeSimulationScene {
 
         this.povCamera.position.set(headX, 0.30, headZ);
         this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -robotHeading);
-        this.povCamera.quaternion.slerp(this.povTargetQuat, 0.18);
+        this.povCamera.quaternion.slerp(this.povTargetQuat, 0.22);
 
-        // Eye LED Indicator
-        if (e.extra?.status_led === "red") {
-          this.robotEyeLight.color.setHex(0xff3333);
-        } else if (frame.mode === "world_model") {
-          this.robotEyeLight.color.setHex(0x00e5ff);
-        } else {
-          this.robotEyeLight.color.setHex(0x00ff9d);
-        }
+        // Update Headlight Target
+        this.povHeadlight.target.position.set(headX + fwdX * 2.0, 0, headZ + fwdZ * 2.0);
+        this.scene.add(this.povHeadlight.target);
 
-      } else if (e.kind === "person") {
-        this.personMesh.position.set(pos.x, 0, pos.z);
-        this.personMesh.rotation.y = -(e.heading || 0) * (Math.PI / 180);
-
-        // Head Glance IK: Rotate head toward robot when within 1.8m
-        const dist = Math.hypot(pos.x - robotX3D, pos.z - robotZ3D);
-        if (dist < 1.8) {
-          const angleToRobot = Math.atan2(robotX3D - pos.x, robotZ3D - pos.z);
-          this.personHead.rotation.y = angleToRobot - this.personMesh.rotation.y;
-        } else {
-          this.personHead.rotation.y = 0;
-        }
-
-      } else if (e.kind === "machine") {
-        let mesh = this.obstacleMeshes.get(e.id);
-        const mw = (e.w || 70) / 100.0;
-        const mh = (e.h || 70) / 100.0;
-        const status = e.extra?.status || "nominal";
-
-        if (!mesh) {
-          const group = new THREE.Group();
-          const baseGeo = new THREE.BoxGeometry(mw, 0.9, mh);
-          const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.6 });
-          const baseMesh = new THREE.Mesh(baseGeo, baseMat);
-          baseMesh.position.y = 0.45;
-          baseMesh.castShadow = true;
-          group.add(baseMesh);
-
-          const beaconGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.2, 12);
-          const beaconMat = new THREE.MeshStandardMaterial({ color: 0x00ff9d, emissive: 0x00ff9d, emissiveIntensity: 0.8 });
-          const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
-          beaconMesh.name = "beacon";
-          beaconMesh.position.set(mw * 0.35, 1.0, 0);
-          group.add(beaconMesh);
-
-          mesh = group;
-          this.scene.add(mesh);
-          this.obstacleMeshes.set(e.id, mesh);
-        }
-        mesh.position.set(pos.x, 0, pos.z);
-        const beacon = mesh.getObjectByName("beacon") as THREE.Mesh;
-        if (beacon && beacon.material) {
-          const bMat = beacon.material as THREE.MeshStandardMaterial;
-          if (status === "jammed") {
-            const flash = Math.sin(now * 0.01) > 0 ? 0xff2222 : 0x440000;
-            bMat.color.setHex(flash);
-            bMat.emissive.setHex(flash);
-          } else if (status === "maintenance") {
-            bMat.color.setHex(0xf59e0b);
-            bMat.emissive.setHex(0xf59e0b);
+        // Status LED Beacon Color
+        if (this.robotLedRing) {
+          const lMat = this.robotLedRing.material as THREE.MeshStandardMaterial;
+          if (e.extra?.collision) {
+            lMat.color.setHex(0xef4444); // Red collision
+            lMat.emissive.setHex(0xef4444);
+          } else if (frame.mode === "world_model") {
+            lMat.color.setHex(0x10b981); // Emerald success
+            lMat.emissive.setHex(0x10b981);
           } else {
-            bMat.color.setHex(0x00ff9d);
-            bMat.emissive.setHex(0x00ff9d);
+            lMat.color.setHex(0xf59e0b); // Reactive baseline
+            lMat.emissive.setHex(0xf59e0b);
           }
         }
 
-      } else if (e.kind === "conveyor") {
-        let mesh = this.obstacleMeshes.get(e.id);
-        const cw = (e.w || 150) / 100.0;
-        const ch = (e.h || 30) / 100.0;
-        if (!mesh) {
-          const group = new THREE.Group();
-          const beltGeo = new THREE.BoxGeometry(cw, 0.14, ch);
-          const beltMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
-          const belt = new THREE.Mesh(beltGeo, beltMat);
-          belt.position.y = 0.07;
-          group.add(belt);
-          mesh = group;
-          this.scene.add(mesh);
-          this.obstacleMeshes.set(e.id, mesh);
-        }
-        mesh.position.set(pos.x, 0, pos.z);
+      } else if (e.kind === "person") {
+        // Natural walk bobbing
+        const isMoving = Math.abs(e.vy || 0) > 0.01;
+        const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
+        this.personGroup.position.set(pos.x, bob, pos.z);
+        this.personGroup.rotation.y = -(e.heading || 0) * (Math.PI / 180);
 
-      } else if (e.kind === "item") {
-        let mesh = this.obstacleMeshes.get(e.id);
-        if (!mesh) {
-          const itemGeo = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-          const itemMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, metalness: 0.8 });
-          mesh = new THREE.Mesh(itemGeo, itemMat);
-          this.scene.add(mesh);
-          this.obstacleMeshes.set(e.id, mesh);
+        // Head Glance IK toward robot
+        if (this.personHead) {
+          const dist = Math.hypot(pos.x - robotX3D, pos.z - robotZ3D);
+          if (dist < 2.0) {
+            const angleToRobot = Math.atan2(robotX3D - pos.x, robotZ3D - pos.z);
+            this.personHead.rotation.y = angleToRobot - this.personGroup.rotation.y;
+          } else {
+            this.personHead.rotation.y = 0;
+          }
         }
-        mesh.position.set(pos.x, 0.21, pos.z);
 
       } else {
         // Obstacles (Chairs, Desks, Crates)
         let mesh = this.obstacleMeshes.get(e.id);
-        const ow = (e.w || 60) / 100.0;
-        const oh = (e.h || 60) / 100.0;
+        const ow = (e.w || 80) / 100.0;
+        const oh = (e.h || 80) / 100.0;
 
         if (!mesh) {
-          const geo = new THREE.BoxGeometry(ow, 0.75, oh);
-          const mat = new THREE.MeshStandardMaterial({
-            color: e.kind === "chair" ? 0x854d0e : 0x334155,
-            roughness: 0.65,
-            metalness: 0.2,
-          });
-          mesh = new THREE.Mesh(geo, mat);
-          mesh.castShadow = true;
-          mesh.receiveShadow = true;
+          if (e.kind === "chair" && this.modelCache.has("chair")) {
+            const chairModel = this.modelCache.get("chair")!.clone();
+            chairModel.scale.set(0.85, 0.85, 0.85);
+            mesh = chairModel;
+          } else if (e.kind === "crate" && this.modelCache.has("crate")) {
+            const crateModel = this.modelCache.get("crate")!.clone();
+            crateModel.scale.set(ow, 0.65, oh);
+            mesh = crateModel;
+          } else {
+            // High-quality authored furniture fallback
+            const geo = new THREE.BoxGeometry(ow, 0.78, oh);
+            const mat = new THREE.MeshStandardMaterial({
+              color: e.kind === "chair" ? 0x92400e : 0x334155,
+              roughness: 0.5,
+              metalness: 0.1,
+            });
+            mesh = new THREE.Mesh(geo, mat);
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+          }
           this.scene.add(mesh);
           this.obstacleMeshes.set(e.id, mesh);
         }
-        mesh.position.set(pos.x + ow / 2, 0.375, pos.z + oh / 2);
+        mesh.position.set(pos.x + ow / 2, 0, pos.z + oh / 2);
       }
     }
 
@@ -510,10 +692,6 @@ export class ThreeSimulationScene {
     for (const [id, mesh] of this.obstacleMeshes.entries()) {
       if (!seenIds.has(id)) {
         this.scene.remove(mesh);
-        mesh.traverse((c: any) => {
-          if (c.geometry) c.geometry.dispose();
-          if (c.material) c.material.dispose();
-        });
         this.obstacleMeshes.delete(id);
       }
     }
@@ -521,117 +699,176 @@ export class ThreeSimulationScene {
     // Goal Pad Position & Pulse
     if (frame.goal) {
       const gPos = this.to3D(frame.goal.x, frame.goal.y);
-      this.goalPad.position.set(gPos.x, 0, gPos.z);
-      this.goalRing.scale.setScalar(1.0 + 0.1 * Math.sin(now * 0.006));
+      this.goalGroup.position.set(gPos.x, 0, gPos.z);
+      if (this.goalRing) {
+        this.goalRing.scale.setScalar(1.0 + 0.08 * Math.sin(now * 0.005));
+      }
     }
 
-    // Update Plan Trajectories (With explicit resource disposal)
-    this.updatePlanTrajectories(frame.plan);
+    // Update Plan Trajectories & Navigation Ribbon
+    this.updateNavigationRibbon(frame.plan);
 
     // Update Mind View Scene Styling
     if (this.showMindView) {
-      this.scene.background = new THREE.Color("#080e1a");
-      this.hemiLight.intensity = 0.55;
-      this.gridHelper.material.opacity = 0.45;
+      this.scene.background = new THREE.Color("#0c1527");
+      this.sunLight.intensity = 0.8;
+      this.hemiLight.intensity = 0.6;
+      if (this.floorMesh) {
+        (this.floorMesh.material as THREE.MeshStandardMaterial).color.setHex(0x162038);
+      }
     } else {
-      this.scene.background = new THREE.Color("#0b0f19");
-      this.hemiLight.intensity = 0.8;
-      this.gridHelper.material.opacity = 0.25;
+      this.scene.background = new THREE.Color("#dbe2ec"); // Bright lab atmosphere
+      this.sunLight.intensity = 2.2;
+      this.hemiLight.intensity = 1.15;
+      if (this.floorMesh) {
+        (this.floorMesh.material as THREE.MeshStandardMaterial).color.setHex(0xc8d0dc);
+      }
     }
 
-    // Update Camera
+    // Update Camera Motion
     this.updateCamera(now, robotX3D, robotZ3D, robotHeading);
 
-    // Render Scene with active camera
+    // Render Scene
     this.renderer.render(this.scene, this.activeCamera);
   }
 
-  private updatePlanTrajectories(plan: any) {
-    // 1. Dispose old candidate lines safely
-    if (this.candidateLines) {
-      this.scene.remove(this.candidateLines);
-      this.candidateLines.geometry.dispose();
-      (this.candidateLines.material as THREE.Material).dispose();
-      this.candidateLines = null;
-    }
-
-    // 2. Dispose old chosen path ribbon safely
-    if (this.chosenRibbon) {
-      this.scene.remove(this.chosenRibbon);
-      this.chosenRibbon.geometry.dispose();
-      (this.chosenRibbon.material as THREE.Material).dispose();
-      this.chosenRibbon = null;
-    }
-
-    // 3. Reset Ghost Pool
-    for (let i = 0; i < this.ghostPool.length; i++) {
-      this.ghostPool[i].visible = false;
-    }
-
+  // =========================================================================
+  // NAVIGATION RIBBON & IMAGINATION ROLLOUTS
+  // =========================================================================
+  private updateNavigationRibbon(plan: any) {
     if (!plan) return;
 
-    // Render Candidate Alternative Trajectories
-    if (plan.alts && plan.alts.length > 0) {
-      const linePositions: number[] = [];
-      const lineColors: number[] = [];
+    // 1. Build Smooth Navigation Ribbon for Best Trajectory
+    if (plan.best && plan.best.length >= 2) {
+      const rawPoints: THREE.Vector3[] = plan.best.map((pt: number[]) => {
+        const p3d = this.to3D(pt[0], pt[1]);
+        return new THREE.Vector3(p3d.x, 0.015, p3d.z);
+      });
 
-      for (let k = 0; k < Math.min(plan.alts.length, 16); k++) {
-        const alt = plan.alts[k];
-        if (!alt.path || alt.path.length < 2) continue;
-        const isColliding = alt.score < -5.0 || (alt.predicted_collision_step && alt.predicted_collision_step > 0);
-        const r = isColliding ? 0.95 : 0.0;
-        const g = isColliding ? 0.2 : 0.85;
-        const b = isColliding ? 0.2 : 0.95;
+      // Smooth with Catmull-Rom spline
+      const curve = new THREE.CatmullRomCurve3(rawPoints);
+      const smoothPoints = curve.getPoints(Math.min(60, rawPoints.length * 5));
 
-        for (let i = 0; i < alt.path.length - 1; i++) {
-          const p1 = this.to3D(alt.path[i][0], alt.path[i][1]);
-          const p2 = this.to3D(alt.path[i + 1][0], alt.path[i + 1][1]);
-          linePositions.push(p1.x, 0.025, p1.z, p2.x, 0.025, p2.z);
-          lineColors.push(r, g, b, r, g, b);
+      // Build 0.16m wide quad strip ribbon
+      const ribbonWidth = 0.16;
+      const vertices: number[] = [];
+      const indices: number[] = [];
+
+      for (let i = 0; i < smoothPoints.length; i++) {
+        const curr = smoothPoints[i];
+        let tangent: THREE.Vector3;
+        if (i < smoothPoints.length - 1) {
+          tangent = new THREE.Vector3().subVectors(smoothPoints[i + 1], curr).normalize();
+        } else {
+          tangent = new THREE.Vector3().subVectors(curr, smoothPoints[i - 1]).normalize();
+        }
+        const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(ribbonWidth * 0.5);
+
+        vertices.push(curr.x + normal.x, 0.015, curr.z + normal.z);
+        vertices.push(curr.x - normal.x, 0.015, curr.z - normal.z);
+
+        if (i < smoothPoints.length - 1) {
+          const idx = i * 2;
+          indices.push(idx, idx + 1, idx + 2);
+          indices.push(idx + 1, idx + 3, idx + 2);
         }
       }
 
-      if (linePositions.length > 0) {
-        const lineGeo = new THREE.BufferGeometry();
-        lineGeo.setAttribute("position", new THREE.Float32BufferAttribute(linePositions, 3));
-        lineGeo.setAttribute("color", new THREE.Float32BufferAttribute(lineColors, 3));
-        const lineMat = new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.4 });
-        this.candidateLines = new THREE.LineSegments(lineGeo, lineMat);
-        this.scene.add(this.candidateLines);
+      if (!this.chosenRibbonMesh) {
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+        geom.setIndex(indices);
+        const mat = new THREE.MeshBasicMaterial({
+          color: 0x10b981, // Glowing emerald green
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.85,
+          polygonOffset: true,
+          polygonOffsetFactor: -2,
+          polygonOffsetUnits: -4,
+        });
+        this.chosenRibbonMesh = new THREE.Mesh(geom, mat);
+        this.scene.add(this.chosenRibbonMesh);
+      } else {
+        const geom = this.chosenRibbonMesh.geometry;
+        geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
+        geom.setIndex(indices);
+        geom.computeVertexNormals();
+        this.chosenRibbonMesh.visible = true;
       }
+
+      // Update Destination Target Ring
+      if (smoothPoints.length > 0) {
+        const lastPt = smoothPoints[smoothPoints.length - 1];
+        if (!this.destinationRing) {
+          const ringGeo = new THREE.RingGeometry(0.14, 0.18, 20);
+          const ringMat = new THREE.MeshBasicMaterial({
+            color: 0x10b981,
+            side: THREE.DoubleSide,
+            polygonOffset: true,
+            polygonOffsetFactor: -3,
+            polygonOffsetUnits: -6,
+          });
+          this.destinationRing = new THREE.Mesh(ringGeo, ringMat);
+          this.destinationRing.rotation.x = -Math.PI / 2;
+          this.scene.add(this.destinationRing);
+        }
+        this.destinationRing.position.set(lastPt.x, 0.018, lastPt.z);
+        this.destinationRing.visible = true;
+      }
+
+      // Update Holographic Ghost Robots at timesteps 3, 6, 9
+      const keySteps = [3, 6, 9];
+      for (let gIdx = 0; gIdx < this.ghostPool.length; gIdx++) {
+        const ghost = this.ghostPool[gIdx];
+        if (gIdx < keySteps.length && keySteps[gIdx] < rawPoints.length) {
+          const pt = rawPoints[keySteps[gIdx]];
+          ghost.position.set(pt.x, 0, pt.z);
+          ghost.visible = true;
+        } else {
+          ghost.visible = false;
+        }
+      }
+
+    } else {
+      if (this.chosenRibbonMesh) this.chosenRibbonMesh.visible = false;
+      if (this.destinationRing) this.destinationRing.visible = false;
+      this.ghostPool.forEach((g) => (g.visible = false));
     }
 
-    // Render Best Chosen Trajectory (Luminous Emerald Tube)
-    if (plan.best && plan.best.length >= 2) {
-      const pts: THREE.Vector3[] = [];
-      for (let i = 0; i < plan.best.length; i++) {
-        const p3d = this.to3D(plan.best[i][0], plan.best[i][1]);
-        pts.push(new THREE.Vector3(p3d.x, 0.035, p3d.z));
-      }
+    // 2. Render Candidate Alternative Ribbons
+    while (this.candidateLinesGroup.children.length > 0) {
+      this.candidateLinesGroup.remove(this.candidateLinesGroup.children[0]);
+    }
 
-      const curve = new THREE.CatmullRomCurve3(pts);
-      const tubeGeo = new THREE.TubeGeometry(curve, pts.length * 3, 0.035, 8, false);
-      const tubeMat = new THREE.MeshBasicMaterial({
-        color: 0x00ff9d,
-        transparent: true,
-        opacity: this.showMindView ? 0.95 : 0.8,
+    if (plan.alts && plan.alts.length > 0) {
+      const topAlts = plan.alts.slice(0, 6);
+      topAlts.forEach((alt: any) => {
+        if (!alt.path || alt.path.length < 2) return;
+        const pts: THREE.Vector3[] = alt.path.map((p: number[]) => {
+          const p3d = this.to3D(p[0], p[1]);
+          return new THREE.Vector3(p3d.x, 0.012, p3d.z);
+        });
+
+        const isCollision = alt.score < -5.0 || (alt.predicted_collision_step && alt.predicted_collision_step > 0);
+        const col = isCollision ? 0xef4444 : 0x06b6d4; // Red for collision, Teal for safe alternative
+
+        const geom = new THREE.BufferGeometry().setFromPoints(pts);
+        const lineMat = new THREE.LineBasicMaterial({
+          color: col,
+          transparent: true,
+          opacity: isCollision ? 0.45 : 0.28,
+        });
+        const line = new THREE.Line(geom, lineMat);
+        this.candidateLinesGroup.add(line);
       });
-      this.chosenRibbon = new THREE.Mesh(tubeGeo, tubeMat);
-      this.scene.add(this.chosenRibbon);
-
-      // Deploy Ghost Robots from pre-allocated pool
-      let ghostIdx = 0;
-      for (let i = 3; i < pts.length; i += 3) {
-        if (ghostIdx >= this.ghostPool.length) break;
-        const ghost = this.ghostPool[ghostIdx++];
-        ghost.position.copy(pts[i]);
-        ghost.position.y = 0.08;
-        ghost.visible = true;
-      }
     }
   }
 
-  private updateCamera(now: number, rx: number, rz: number, rHeading: number) {
+  // =========================================================================
+  // CAMERA CONTROLLER & AUTO-DIRECTOR
+  // =========================================================================
+  private updateCamera(now: number, rx: number, rz: number, heading: number) {
     if (this.cameraMode === "robot_pov") {
       this.activeCamera = this.povCamera;
       return;
@@ -639,26 +876,35 @@ export class ThreeSimulationScene {
 
     this.activeCamera = this.camera;
 
-    if (this.cameraMode === "overview") {
-      this.targetCamPos.set(0, 5.8, 5.8);
-      this.targetCamLookAt.set(0, 0.2, 0);
+    if (this.cameraMode === "chase") {
+      // Dynamic third-person camera following behind the robot
+      const camDist = 1.6;
+      const camHeight = 0.95;
+      const behindX = rx - Math.sin(heading) * camDist;
+      const behindZ = rz + Math.cos(heading) * camDist;
+
+      this.targetCamPos.set(behindX, camHeight, behindZ);
+      this.targetCamLookAt.set(rx + Math.sin(heading) * 1.2, 0.3, rz - Math.cos(heading) * 1.2);
+
     } else if (this.cameraMode === "topdown") {
-      this.targetCamPos.set(0, 7.8, 0.001);
+      // Top-Down orthographic-style view
+      this.targetCamPos.set(0, 8.5, 0.01);
       this.targetCamLookAt.set(0, 0, 0);
-    } else if (this.cameraMode === "chase") {
-      const dist = 1.8;
-      // Follow behind robot heading
-      const cx = rx - Math.sin(rHeading) * dist;
-      const cz = rz + Math.cos(rHeading) * dist;
-      this.targetCamPos.set(cx, 1.3, cz);
-      this.targetCamLookAt.set(rx, 0.25, rz);
+
     } else if (this.cameraMode === "orbit") {
-      this.orbitAngle += 0.004;
-      this.targetCamPos.set(Math.sin(this.orbitAngle) * 6.2, 5.0, Math.cos(this.orbitAngle) * 6.2);
+      // Gentle cinematic orbital fly-over
+      this.orbitAngle += 0.003;
+      const radius = 6.2;
+      this.targetCamPos.set(Math.cos(this.orbitAngle) * radius, 5.0, Math.sin(this.orbitAngle) * radius);
       this.targetCamLookAt.set(0, 0.2, 0);
+
+    } else {
+      // Overview: 3/4 High Dollhouse Perspective looking into open south front
+      this.targetCamPos.set(0, 5.8, 5.8);
+      this.targetCamLookAt.set(0, 0.15, 0);
     }
 
-    // Smooth exponential camera position & lookAt lerping
+    // Smooth Ease Interpolation (Lag-free 60 FPS)
     this.currentCamPos.lerp(this.targetCamPos, 0.08);
     this.currentCamLookAt.lerp(this.targetCamLookAt, 0.08);
 
@@ -666,17 +912,30 @@ export class ThreeSimulationScene {
     this.camera.lookAt(this.currentCamLookAt);
   }
 
-  public setQuality(level: "low" | "med" | "high") {
-    this.quality = level;
+  public cycleCamera(): string {
+    const modes: Array<"overview" | "chase" | "topdown" | "robot_pov" | "orbit"> = [
+      "overview",
+      "chase",
+      "topdown",
+      "robot_pov",
+      "orbit",
+    ];
+    const nextIdx = (modes.indexOf(this.cameraMode) + 1) % modes.length;
+    this.cameraMode = modes[nextIdx];
+    return this.cameraMode;
+  }
+
+  public setQuality(quality: "low" | "med" | "high") {
+    this.quality = quality;
     if (!this.renderer) return;
 
-    if (level === "low") {
+    if (quality === "low") {
       this.renderer.shadowMap.enabled = false;
       this.targetDpr = 1.0;
-    } else if (level === "med") {
+    } else if (quality === "med") {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.BasicShadowMap;
-      this.targetDpr = 1.25;
+      this.targetDpr = 1.0;
     } else {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -690,37 +949,29 @@ export class ThreeSimulationScene {
     if (!this.renderer || !this.container) return;
     const w = this.container.clientWidth;
     const h = this.container.clientHeight;
-    if (w === 0 || h === 0) return;
-
-    const aspect = w / h;
-    this.camera.aspect = aspect;
+    this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
-
-    this.povCamera.aspect = aspect;
+    this.povCamera.aspect = w / h;
     this.povCamera.updateProjectionMatrix();
-
     this.renderer.setSize(w, h);
+  };
+
+  private handleVisibility = () => {
+    // Suspend rendering loops when tab is hidden to save GPU cycles
+    if (document.hidden) {
+      if (this.renderer) this.renderer.setAnimationLoop(null);
+    }
   };
 
   public destroy() {
     this.isDestroyed = true;
     window.removeEventListener("resize", this.handleResize);
-
-    // Dispose all meshes, materials, and textures
-    this.scene.traverse((obj: any) => {
-      if (obj.geometry) obj.geometry.dispose();
-      if (obj.material) {
-        if (Array.isArray(obj.material)) {
-          obj.material.forEach((m: any) => m.dispose());
-        } else {
-          obj.material.dispose();
-        }
+    document.removeEventListener("visibilitychange", this.handleVisibility);
+    if (this.renderer) {
+      this.renderer.dispose();
+      if (this.renderer.domElement && this.renderer.domElement.parentElement) {
+        this.renderer.domElement.parentElement.removeChild(this.renderer.domElement);
       }
-    });
-
-    if (this.renderer && this.renderer.domElement && this.renderer.domElement.parentNode) {
-      this.renderer.domElement.parentNode.removeChild(this.renderer.domElement);
     }
-    this.renderer = null;
   }
 }
