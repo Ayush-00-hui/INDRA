@@ -314,9 +314,13 @@ class Application:
     # MODEL LOADING & ROBOTICS SETUP
     # =========================================================================
     def _load_robot_model(self, scenario: int) -> None:
+        ensemble_path = "models/robot_ensemble.pt"
         scen2_path = "models/robot_model_s2.pt"
         default_path = "models/robot_model.pt"
-        model_path = scen2_path if (scenario == 2 and os.path.exists(scen2_path)) else default_path
+        if os.path.exists(ensemble_path):
+            model_path = ensemble_path
+        else:
+            model_path = scen2_path if (scenario == 2 and os.path.exists(scen2_path)) else default_path
 
         if not os.path.exists(model_path):
             self.robot_model = None
