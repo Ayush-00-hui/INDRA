@@ -114,7 +114,8 @@ def make_trailer(
     # 3. WORLD MODEL MPC TRIUMPH (140 frames / ~4.6s)
     # -------------------------------------------------------------
     print("[3/4] Rendering World Model Predictive MPC Detour...")
-    model_s1 = load_model("models/robot_model.pt", state_size=16, action_size=5)
+    m_path = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else "models/robot_model.pt"
+    model_s1 = load_model(m_path, state_size=16, action_size=5)
     env_wm = RobotEnv(scenario=1)
     state = env_wm.reset(seed=1001)
 
@@ -132,8 +133,8 @@ def make_trailer(
     # 4. SCENARIO 2: MOVING PERSON EVASION (140 frames / ~4.6s)
     # -------------------------------------------------------------
     print("[4/4] Rendering Scenario 2 Dynamic Pedestrian Evasion...")
-    s2_path = "models/robot_model_s2.pt" if os.path.exists("models/robot_model_s2.pt") else "models/robot_model.pt"
-    model_s2 = load_model(s2_path, state_size=16, action_size=5)
+    m2_path = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else ("models/robot_model_s2.pt" if os.path.exists("models/robot_model_s2.pt") else "models/robot_model.pt")
+    model_s2 = load_model(m2_path, state_size=16, action_size=5)
     env_s2 = RobotEnv(scenario=2)
     state2 = env_s2.reset(seed=1005)
 

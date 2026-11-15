@@ -34,11 +34,11 @@ class Goal3D:
     def _init_beacon_shader(self) -> None:
         try:
             import os
-            from panda3d.core import Shader, CardMaker
-            v_p = "assets/shaders/beacon.vert"
-            f_p = "assets/shaders/beacon.frag"
+            from panda3d.core import Shader, CardMaker, Filename
+            v_p = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "shaders", "beacon.vert"))
+            f_p = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "assets", "shaders", "beacon.frag"))
             if os.path.exists(v_p) and os.path.exists(f_p):
-                shader = Shader.load(Shader.SL_GLSL, v_p, f_p)
+                shader = Shader.load(Shader.SL_GLSL, Filename.fromOsSpecific(v_p), Filename.fromOsSpecific(f_p))
                 cm = CardMaker("goal_energy_ring")
                 cm.setFrame(-0.45, 0.45, -0.45, 0.45)
                 self.energy_card = self.root.attachNewNode(cm.generate())

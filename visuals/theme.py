@@ -131,11 +131,23 @@ class Theme:
 Colors = Theme
 
 
-def get_font(size: int = 14, bold: bool = False) -> pygame.font.Font:
-    """Retrieve robust system font with graceful fallbacks."""
+def get_font(size: int = 14, bold: bool = False, mono: bool = False) -> pygame.font.Font:
+    """Retrieve bundled OFL font (Inter / JetBrains Mono) with graceful system fallback."""
     if not pygame.font.get_init():
         pygame.font.init()
-    family = "Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
+    import os
+    if mono and os.path.exists("assets/fonts/JetBrainsMono-Regular.ttf"):
+        try:
+            return pygame.font.Font("assets/fonts/JetBrainsMono-Regular.ttf", size)
+        except Exception:
+            pass
+    elif not mono and os.path.exists("assets/fonts/Inter-Regular.ttf"):
+        try:
+            return pygame.font.Font("assets/fonts/Inter-Regular.ttf", size)
+        except Exception:
+            pass
+
+    family = "Consolas, Courier New, monospace" if mono else "Segoe UI, Arial, Helvetica, DejaVu Sans, sans-serif"
     try:
         f = pygame.font.SysFont(family, size, bold=bold)
         if f is not None:

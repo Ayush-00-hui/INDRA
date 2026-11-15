@@ -98,10 +98,31 @@ def test_model_loading():
         ns2, r2 = m2.predict(s_t, a_t)
         assert ns2.shape == (4, 16)
 
-    return "Loaded S1 and S2 models successfully"
+    # Check Ensemble model if present
+    if os.path.exists("models/robot_ensemble.pt"):
+        m_ens = load_model("models/robot_ensemble.pt", state_size=16, action_size=5)
+        ns_ens, r_ens = m_ens.predict(s_t, a_t)
+        assert ns_ens.shape == (4, 16) and r_ens.shape == (4,)
+        if hasattr(m_ens, "predict_with_uncertainty"):
+            ns_m, ns_s, r_m, r_s = m_ens.predict_with_uncertainty(s_t, a_t)
+            assert ns_m.shape == (4, 16) and ns_s.shape == (4, 16)
+
+    # Check Dream model if present
+    if os.path.exists("models/dream_model.pt"):
+        from scripts.train_dream_model import DreamConvNet
+        m_dream = DreamConvNet(action_size=5)
+        m_dream.load_state_dict(torch.load("models/dream_model.pt", map_location="cpu"))
+        m_dream.eval()
+        dummy_img = torch.zeros((1, 3, 64, 64), dtype=torch.float32)
+        dummy_act = torch.zeros((1, 5), dtype=torch.float32)
+        pred_dream = m_dream(dummy_img, dummy_act)
+        assert pred_dream.shape == (1, 3, 64, 64)
+
+    return "Loaded S1, S2, Ensemble & Dream models successfully"
 
 
 def test_mpc_planner():
+    import torch
     from envs.robot_env import RobotEnv
     from model.world_model import load_model
     from planner.mpc import plan
@@ -109,6 +130,11 @@ def test_mpc_planner():
     env = RobotEnv(scenario=1)
     s = env.reset(seed=100)
     m = load_model("models/robot_model.pt", state_size=16, action_size=5)
+
+    # Warm-up CUDA kernels, primitive cache, and trajectory memory
+    _ = plan(model=m, state=s, action_size=5, horizon=14, n_samples=300, gamma=0.95, return_trajectories=True)
+    if hasattr(torch, "cuda") and torch.cuda.is_available():
+        torch.cuda.synchronize()
 
     t0 = time.perf_counter()
     action, info = plan(
@@ -120,6 +146,8 @@ def test_mpc_planner():
         gamma=0.95,
         return_trajectories=True
     )
+    if hasattr(torch, "cuda") and torch.cuda.is_available():
+        torch.cuda.synchronize()
     lat_ms = (time.perf_counter() - t0) * 1000.0
     assert 0 <= action < 5
     assert "best_trajectory" in info

@@ -177,8 +177,10 @@ def run_scenario_final(scenario: int, model_path: str, n_episodes: int = 100, ba
 
 
 def main():
-    rows_s1 = run_scenario_final(scenario=1, model_path="models/robot_model.pt", n_episodes=100, base_seed=5000)
-    rows_s2 = run_scenario_final(scenario=2, model_path="models/robot_model_s2.pt", n_episodes=100, base_seed=5000)
+    model_s1 = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else "models/robot_model.pt"
+    model_s2 = "models/robot_ensemble.pt" if os.path.exists("models/robot_ensemble.pt") else "models/robot_model_s2.pt"
+    rows_s1 = run_scenario_final(scenario=1, model_path=model_s1, n_episodes=100, base_seed=5000)
+    rows_s2 = run_scenario_final(scenario=2, model_path=model_s2, n_episodes=100, base_seed=5000)
 
     all_rows = rows_s1 + rows_s2
     df = pd.DataFrame(all_rows)
