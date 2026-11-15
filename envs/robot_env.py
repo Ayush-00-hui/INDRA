@@ -315,10 +315,10 @@ class RobotEnv(BaseEnv):
         self.last_step_info = info
         return self._get_state(), float(reward), done, info
 
-    def render(self, screen: pygame.Surface) -> None:
+    def render(self, screen: pygame.Surface, draw_hud: bool = True, **kwargs) -> None:
         """Render the room, obstacles, robot, goal, and HUD onto Pygame screen."""
         if not getattr(self, "use_modern_renderer", True) or getattr(self, "renderer_mode", "auto") == "classic":
-            self._render_classic(screen)
+            self._render_classic(screen, draw_hud=draw_hud)
             return
 
         mode = getattr(self, "renderer_mode", "auto")
@@ -349,15 +349,17 @@ class RobotEnv(BaseEnv):
                     target_surface=screen,
                     plan_info=getattr(self, "current_plan_info", None),
                     last_info=getattr(self, "last_step_info", None),
-                    method_title=f"MODE: {self.mode_str}"
+                    method_title=f"MODE: {self.mode_str}",
+                    draw_hud=draw_hud,
+                    **kwargs
                 )
                 return
             except Exception:
                 self.use_modern_renderer = False
 
-        self._render_classic(screen)
+        self._render_classic(screen, draw_hud=draw_hud)
 
-    def _render_classic(self, screen: pygame.Surface) -> None:
+    def _render_classic(self, screen: pygame.Surface, draw_hud: bool = True) -> None:
         """Original lightweight classic renderer fallback."""
         if self._font is None:
             pygame.font.init()
@@ -419,28 +421,29 @@ class RobotEnv(BaseEnv):
         pygame.draw.line(screen, (60, 70, 90), robot_center, goal_center, 1)
 
         # 5. HUD Display
-        hud_bg = pygame.Rect(15, 12, 420, 78)
-        pygame.draw.rect(screen, (15, 18, 25, 220), hud_bg, border_radius=8)
-        pygame.draw.rect(screen, (50, 60, 80), hud_bg, 2, border_radius=8)
+        if draw_hud:
+            hud_bg = pygame.Rect(15, 12, 420, 78)
+            pygame.draw.rect(screen, (15, 18, 25, 220), hud_bg, border_radius=8)
+            pygame.draw.rect(screen, (50, 60, 80), hud_bg, 2, border_radius=8)
 
-        # Mode text color
-        is_wm = "WORLD MODEL" in self.mode_str
-        mode_color = (80, 250, 140) if is_wm else (250, 160, 80)
-        mode_txt = self._font.render(f"MODE: {self.mode_str}", True, mode_color)
-        screen.blit(mode_txt, (25, 18))
+            # Mode text color
+            is_wm = "WORLD MODEL" in self.mode_str
+            mode_color = (80, 250, 140) if is_wm else (250, 160, 80)
+            mode_txt = self._font.render(f"MODE: {self.mode_str}", True, mode_color)
+            screen.blit(mode_txt, (25, 18))
 
-        stats_txt = self._small_font.render(
-            f"Ep: {self.episode_count}  |  Step: {self.step_count}/{self.MAX_STEPS}  |  "
-            f"Hits: {self.collision_count}  |  Goals: {self.success_count}",
-            True, (200, 210, 225)
-        )
-        screen.blit(stats_txt, (25, 44))
+            stats_txt = self._small_font.render(
+                f"Ep: {self.episode_count}  |  Step: {self.step_count}/{self.MAX_STEPS}  |  "
+                f"Hits: {self.collision_count}  |  Goals: {self.success_count}",
+                True, (200, 210, 225)
+            )
+            screen.blit(stats_txt, (25, 44))
 
-        scen_txt = self._small_font.render(
-            f"Scenario: {'1 (Static Chair)' if self.scenario == 1 else '2 (Moving Person)'}  [Toggle: 1/2]",
-            True, (160, 175, 195)
-        )
-        screen.blit(scen_txt, (25, 64))
+            scen_txt = self._small_font.render(
+                f"Scenario: {'1 (Static Chair)' if self.scenario == 1 else '2 (Moving Person)'}  [Toggle: 1/2]",
+                True, (160, 175, 195)
+            )
+            screen.blit(scen_txt, (25, 64))
 
     def place_obstacle(self, x: float, y: float, kind: str = "chair") -> bool:
         """

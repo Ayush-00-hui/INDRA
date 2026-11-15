@@ -193,7 +193,8 @@ class RobotRenderer:
         plan_info: Optional[Dict[str, Any]] = None,
         last_info: Optional[Dict[str, Any]] = None,
         method_title: str = "WITH WORLD MODEL",
-        fps: float = 30.0
+        fps: float = 30.0,
+        draw_hud: bool = True,
     ) -> None:
         """
         Orchestrates rendering with defensive fallback.
@@ -203,7 +204,7 @@ class RobotRenderer:
             return
 
         try:
-            self._render_modern(env, target_surface, plan_info, last_info, method_title, fps)
+            self._render_modern(env, target_surface, plan_info, last_info, method_title, fps, draw_hud=draw_hud)
         except Exception as e:
             logger.error(f"Visual renderer exception (switching to classic fallback): {e}", exc_info=True)
             self.fallback_active = True
@@ -217,7 +218,8 @@ class RobotRenderer:
         plan_info: Optional[Dict[str, Any]],
         last_info: Optional[Dict[str, Any]],
         method_title: str,
-        fps: float
+        fps: float,
+        draw_hud: bool = True,
     ) -> None:
         """
         Modern video game aesthetic rendering implementation.
@@ -396,7 +398,8 @@ class RobotRenderer:
         # -------------------------------------------------------------
         # LAYER 11: HUD GLASS PANEL
         # -------------------------------------------------------------
-        self._render_hud(env, surface, method_title, fps)
+        if draw_hud:
+            self._render_hud(env, surface, method_title, fps)
 
     def _render_holographic_paths(self, env: Any, surface: pygame.Surface, plan_info: Dict[str, Any]) -> None:
         """

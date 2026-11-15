@@ -32,14 +32,19 @@ class RobotAdapter:
         self.episode_count: int = 1
         self.current_seed: int = 1001
 
-        # Load World Model
+        # Load World Model: prefer distilled student or fast single model (8ms), fallback to ensemble
         self.model = None
+        self.prev_state: Optional[np.ndarray] = None
+        self.last_real_mae: Optional[float] = None
+
         if model_path is None:
             if os_exists := __import__("os").path.exists:
-                if os_exists("models/robot_ensemble.pt"):
-                    model_path = "models/robot_ensemble.pt"
+                if os_exists("models/robot_student.pt"):
+                    model_path = "models/robot_student.pt"
                 elif os_exists("models/robot_model.pt"):
                     model_path = "models/robot_model.pt"
+                elif os_exists("models/robot_ensemble.pt"):
+                    model_path = "models/robot_ensemble.pt"
 
         if model_path and __import__("os").path.exists(model_path):
             try:
@@ -85,8 +90,27 @@ class RobotAdapter:
             # Reactive greedy baseline
             chosen_action = get_greedy_action(self.env.robot_x, self.env.robot_y, self.env.goal_x, self.env.goal_y)
 
+        self.prev_state = self.state.copy() if self.state is not None else None
         self.last_action = chosen_action
         next_s, reward, done, info = self.env.step(chosen_action)
+
+        # Real 1-step prediction error computation
+        if self.mode == "world_model" and self.model is not None and self.prev_state is not None:
+            try:
+                import torch
+                with torch.no_grad():
+                    device = self.model.state_mean.device
+                    s_t = torch.as_tensor(self.prev_state, dtype=torch.float32, device=device).unsqueeze(0)
+                    a_t = torch.as_tensor([chosen_action], dtype=torch.long, device=device)
+                    pred_next_s, _ = self.model.predict(s_t, a_t)
+                    pred_delta = (pred_next_s[0].cpu().numpy() - self.prev_state)
+                    actual_delta = next_s - self.prev_state
+                    self.last_real_mae = float(np.mean(np.abs(pred_delta - actual_delta)))
+            except Exception:
+                self.last_real_mae = None
+        else:
+            self.last_real_mae = None
+
         self.state = next_s
         self.cum_reward += reward
 
@@ -226,5 +250,5 @@ class RobotAdapter:
             plan=plan_obj,
             metrics=metrics,
             events=events,
-            model_error=0.016 if self.mode == "world_model" else None
+            model_error=round(self.last_real_mae, 4) if (self.mode == "world_model" and self.last_real_mae is not None) else None
         )

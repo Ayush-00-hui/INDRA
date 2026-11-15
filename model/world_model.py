@@ -396,12 +396,14 @@ def save_model(model: Any, path: str) -> None:
     """Save model state dict, architecture configuration, and normalization buffers."""
     os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
     is_ensemble = isinstance(model, EnsembleWorldModel)
+    is_student = hasattr(model, "uncertainty_head")
     payload = {
         "state_dict": model.state_dict(),
         "state_size": model.state_size,
         "action_size": model.action_size,
-        "hidden": model.hidden,
+        "hidden": getattr(model, "hidden", 128),
         "is_ensemble": is_ensemble,
+        "is_student": is_student,
         "num_models": getattr(model, "num_models", 1),
         "num_blocks": getattr(model, "num_blocks", 3),
     }
@@ -411,7 +413,7 @@ def save_model(model: Any, path: str) -> None:
 def load_model(path: str, state_size: Optional[int] = None, action_size: Optional[int] = None) -> Any:
     """
     Load model from disk, configure device, and switch to evaluation mode.
-    Seamlessly loads both standard WorldModel and EnsembleWorldModel checkpoints.
+    Seamlessly loads both standard WorldModel, EnsembleWorldModel, and StudentWorldModel checkpoints.
     Validates state and action dimensions and raises a clear descriptive ValueError if mismatched.
     """
     device = get_device()
@@ -441,6 +443,9 @@ def load_model(path: str, state_size: Optional[int] = None, action_size: Optiona
             num_models = checkpoint.get("num_models", 5)
             num_blocks = checkpoint.get("num_blocks", 3)
             model = EnsembleWorldModel(state_size=s_size, action_size=a_size, num_models=num_models, hidden=hidden, num_blocks=num_blocks)
+        elif checkpoint.get("is_student", False) or "delta_head.weight" in checkpoint.get("state_dict", {}):
+            from scripts.distill_student import StudentWorldModel
+            model = StudentWorldModel(state_size=s_size, action_size=a_size, hidden=hidden)
         else:
             model = WorldModel(state_size=s_size, action_size=a_size, hidden=hidden)
 

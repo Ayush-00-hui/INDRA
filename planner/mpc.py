@@ -113,16 +113,17 @@ def plan(
     gamma: float = 0.95,
     return_trajectories: bool = False,
     use_primitives: bool = True,
-    last_action: Optional[int] = None
+    last_action: Optional[int] = None,
+    method: str = "random",
+    uncertainty_penalty: float = 0.0
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """
-    Random-Shooting Model Predictive Control (MPC) planner.
-    
+    Random-Shooting / CEM / MPPI Model Predictive Control (MPC) planner.
     Generates n_samples candidate action sequences over a planning horizon
     (combining temporally persistent random sequences and structured motion primitives),
     evaluates them via fully batched rollouts in the learned WorldModel,
     and returns the first action of the trajectory with the highest expected discounted return.
-    
+
     Args:
         model (WorldModel): Trained world model instance.
         state (np.ndarray): Current environment state vector of shape (state_size,).
@@ -168,9 +169,20 @@ def plan(
         # Rollout through imagined future steps (fully batched across samples)
         for t in range(horizon):
             act_t = actions[:, t]
-            next_states, pred_rewards = model.predict(curr_states, act_t)
+            if uncertainty_penalty > 0.0 and hasattr(model, "predict_with_uncertainty"):
+                res = model.predict_with_uncertainty(curr_states, act_t)
+                if len(res) == 4:
+                    next_states, next_states_std, pred_rewards, _ = res
+                    unc = next_states_std.mean(dim=-1)
+                else:
+                    next_states, pred_rewards, unc_tensor = res
+                    unc = unc_tensor.mean(dim=-1)
+                step_reward = pred_rewards - (uncertainty_penalty * unc)
+            else:
+                next_states, pred_rewards = model.predict(curr_states, act_t)
+                step_reward = pred_rewards
 
-            returns += discount * pred_rewards
+            returns += discount * step_reward
             discount *= gamma
             curr_states = next_states
 
