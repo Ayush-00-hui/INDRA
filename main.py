@@ -922,6 +922,7 @@ class Application:
         guide = [
             ("[S] Key", "Toggle Split-Screen side-by-side evaluator view"),
             ("[C] Key", "Cycle 3D Camera: 3/4 Dollhouse / Follow / Top-Down / POV / Orbit"),
+            ("[V] Key", "Toggle Robot First-Person POV Camera View"),
             ("[M] Key", "Toggle Holographic Mind View (What the robot imagines)"),
             ("[L] Key", "Toggle Visual Legend (Ribbons, ghosts, trail, LED codes)"),
             ("[G] Key", "Toggle Guided Tour (6-step NBA pedagogical walkthrough)"),
@@ -975,6 +976,17 @@ class Application:
                     if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "cycle_camera"):
                         mode_name = env._modern_renderer.cycle_camera()
                 self.set_banner(f"Camera Mode: {mode_name.upper()} (Key C)", color=(0, 220, 255), duration_frames=60)
+            elif event.key == pygame.K_v:
+                mode_name = "Overview"
+                for env in [self.env_left, self.env_right]:
+                    if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "renderer_3d"):
+                        r3d = env._modern_renderer.renderer_3d
+                        if hasattr(r3d, "camera_controller"):
+                            current = r3d.camera_controller.mode
+                            new_mode = "robot_pov" if current != "robot_pov" else "overview"
+                            r3d.camera_controller.set_mode(new_mode)
+                            mode_name = new_mode
+                self.set_banner(f"Robot POV Mode: {mode_name.upper()} (Key V)", color=(0, 220, 255), duration_frames=60)
             elif event.key == pygame.K_l:
                 for env in [self.env_left, self.env_right]:
                     if env and getattr(env, "_modern_renderer", None) and hasattr(env._modern_renderer, "toggle_legend"):
