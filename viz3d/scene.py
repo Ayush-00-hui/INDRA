@@ -150,7 +150,7 @@ class Scene3D:
     def update(self, dt: float) -> None:
         """Step all entities, procedural animations, and camera easing."""
         self.robot.update(dt)
-        self.person.update(dt)
+        self.person.update(dt, robot_pos=self.robot.root.getPos())
         self.goal.update(dt)
         self.paths.update(dt)
 
