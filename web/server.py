@@ -9,6 +9,8 @@ import json
 import asyncio
 import socket
 import logging
+import threading
+import webbrowser
 from concurrent.futures import ThreadPoolExecutor
 from typing import Dict, Any, Optional
 
@@ -286,24 +288,36 @@ if os.path.exists(dist_dir):
 def find_free_port(start_port: int = 8000, max_port: int = 8050) -> int:
     """Find first available local port."""
     for p in range(start_port, max_port):
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        # 1. Check if port is already in use / listening
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s1:
+            s1.settimeout(0.05)
             try:
-                s.bind(("127.0.0.1", p))
+                if s1.connect_ex(("127.0.0.1", p)) == 0:
+                    continue
+            except Exception:
+                pass
+
+        # 2. Test binding with a fresh socket
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s2:
+            try:
+                s2.bind(("127.0.0.1", p))
                 return p
             except OSError:
                 continue
     return start_port
 
 
-def run_server(host: str = "127.0.0.1", port: Optional[int] = None):
+def run_server(host: str = "127.0.0.1", port: Optional[int] = None, open_browser: bool = True):
     """Run uvicorn application server."""
     import uvicorn
+    import webbrowser
     if port is None:
         port = find_free_port(8000)
 
+    url = f"http://{host}:{port}/"
     print("=" * 68)
     print(f"  WORLD MODEL SIMULATION SERVER (FastAPI + WebSockets v4.0)")
-    print(f"  Local URL:  http://{host}:{port}/")
+    print(f"  Local URL:  {url}")
     if host == "0.0.0.0":
         try:
             hostname = socket.gethostname()
@@ -312,6 +326,10 @@ def run_server(host: str = "127.0.0.1", port: Optional[int] = None):
         except Exception:
             pass
     print("=" * 68)
+
+    if open_browser:
+        target_open_url = f"http://127.0.0.1:{port}/" if host == "0.0.0.0" else url
+        threading.Timer(0.8, lambda: webbrowser.open(target_open_url)).start()
 
     uvicorn.run(app, host=host, port=port, log_level="info")
 
