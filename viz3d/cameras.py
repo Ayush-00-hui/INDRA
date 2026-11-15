@@ -35,6 +35,24 @@ class CameraController:
         self.target_lookat = Vec3(0, 0, 0.3)
 
         self.orbit_angle: float = 0.0
+        self.intro_timer: float = 0.0  # Optional 3s fly-over
+        self.is_slowmo: bool = False
+        self.slowmo_timer: float = 0.0
+
+    def start_intro_flyover(self, duration: float = 3.0) -> None:
+        """Trigger smooth introductory fly-over from high corner to overview."""
+        self.intro_timer = duration
+        self.curr_pos = Vec3(-6.5, -8.5, 7.8)
+        self.curr_lookat = Vec3(0, 0, 0.4)
+
+    def skip_intro(self) -> None:
+        """Skip intro fly-over immediately (SPACE key)."""
+        self.intro_timer = 0.0
+
+    def trigger_slowmo(self, duration: float = 0.5) -> None:
+        """Trigger brief dramatic slow-motion replay on collision or near miss."""
+        self.is_slowmo = True
+        self.slowmo_timer = duration
 
     def cycle_mode(self) -> str:
         """Advance to next camera perspective (Key C)."""
@@ -49,7 +67,17 @@ class CameraController:
 
     def update(self, dt: float, robot_pos: Vec3, robot_heading: float) -> None:
         """Update target camera position and interpolate smoothly."""
-        if self.mode == "overview":
+        if self.slowmo_timer > 0:
+            self.slowmo_timer -= dt
+            if self.slowmo_timer <= 0:
+                self.is_slowmo = False
+
+        if self.intro_timer > 0:
+            self.intro_timer -= dt
+            # Cinematic high fly-over easing into 3/4 dollhouse
+            self.target_pos = Vec3(0, -6.2, 5.2)
+            self.target_lookat = Vec3(0, 0.2, 0.4)
+        elif self.mode == "overview":
             # 3/4 Dollhouse perspective: South-looking-North
             self.target_pos = Vec3(0, -6.2, 5.2)
             self.target_lookat = Vec3(0, 0.2, 0.4)

@@ -96,11 +96,28 @@ class Person3D:
 
             self.trail_root.attachNewNode(lines.create())
 
-    def update(self, dt: float) -> None:
-        """Advance procedural walk cycle animation."""
+    def update(self, dt: float, robot_pos: Optional[Vec3] = None) -> None:
+        """Advance procedural walk cycle animation and head glance IK."""
         self.pose.update(dt, pos_speed=18.0, rot_speed=12.0)
         self.root.setPos(self.pose.x, self.pose.y, self.pose.z)
         self.root.setH(self.pose.h)
+
+        # Procedural head turn toward robot when within 1.5m
+        head = self.model.find("**/head")
+        if head and robot_pos is not None:
+            dx = robot_pos.x - self.pose.x
+            dy = robot_pos.y - self.pose.y
+            dist = math.hypot(dx, dy)
+            if dist < 1.5:
+                # Look toward robot relative to person heading
+                angle_to_robot = math.degrees(math.atan2(dx, dy)) - self.pose.h
+                # Wrap to [-180, 180]
+                while angle_to_robot > 180: angle_to_robot -= 360
+                while angle_to_robot < -180: angle_to_robot += 360
+                clamped_yaw = max(-50.0, min(50.0, angle_to_robot))
+                head.setH(clamped_yaw)
+            else:
+                head.setH(0.0)
 
         speed = abs(self.velocity_y)
         if speed > 0.1:
