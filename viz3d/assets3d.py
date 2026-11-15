@@ -151,32 +151,32 @@ def build_robot_model() -> NodePath:
 
     # Main cylindrical chassis
     chassis = create_cylinder(
-        radius=0.18, height=0.18, segments=24,
+        radius=0.165, height=0.18, segments=24,
         color=(0.92, 0.94, 0.96, 1.0), name="chassis"
     )
     chassis.setPos(0, 0, 0.04)
     chassis.reparentTo(root)
 
-    # Lower rubber bumper
+    # Lower rubber bumper (stays strictly inside 0.18m radius)
     bumper = create_cylinder(
-        radius=0.185, height=0.04, segments=24,
+        radius=0.178, height=0.04, segments=24,
         color=(0.18, 0.20, 0.24, 1.0), name="bumper"
     )
     bumper.setPos(0, 0, 0.02)
     bumper.reparentTo(root)
 
-    # Left & Right Wheels (pivots for rotation)
+    # Left & Right Wheels (nested in chassis wells, outer face at x = +/- 0.178m)
     wheels = []
-    for side, x_offset in [("left", -0.175), ("right", 0.175)]:
+    for side, x_offset, shift_x in [("left", -0.16, 0.015), ("right", 0.16, -0.015)]:
         wheel_pivot = root.attachNewNode(f"wheel_pivot_{side}")
         wheel_pivot.setPos(x_offset, 0, 0.05)
         # Wheel cylinder oriented along X axis
         wheel_geom = create_cylinder(
-            radius=0.05, height=0.03, segments=14,
+            radius=0.045, height=0.022, segments=14,
             color=(0.12, 0.14, 0.16, 1.0), name=f"wheel_{side}"
         )
         wheel_geom.setHpr(0, 90, 0)
-        wheel_geom.setPos(-0.015, 0, 0)
+        wheel_geom.setPos(shift_x, 0, 0)
         wheel_geom.reparentTo(wheel_pivot)
         wheels.append(wheel_pivot)
     root.setPythonTag("wheels", wheels)
