@@ -28,6 +28,26 @@ class Goal3D:
 
         self.time: float = 0.0
         self.victory_timer: float = 0.0
+        self.energy_card = None
+        self._init_beacon_shader()
+
+    def _init_beacon_shader(self) -> None:
+        try:
+            import os
+            from panda3d.core import Shader, CardMaker
+            v_p = "assets/shaders/beacon.vert"
+            f_p = "assets/shaders/beacon.frag"
+            if os.path.exists(v_p) and os.path.exists(f_p):
+                shader = Shader.load(Shader.SL_GLSL, v_p, f_p)
+                cm = CardMaker("goal_energy_ring")
+                cm.setFrame(-0.45, 0.45, -0.45, 0.45)
+                self.energy_card = self.root.attachNewNode(cm.generate())
+                self.energy_card.setP(-90)
+                self.energy_card.setZ(0.045)
+                self.energy_card.setTransparency(True)
+                self.energy_card.setShader(shader)
+        except Exception:
+            self.energy_card = None
 
     def sync_from_env(self, goal_x: float, goal_y: float) -> None:
         """Place goal at exact metric environment coordinates."""

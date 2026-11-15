@@ -38,6 +38,19 @@ class Paths3D:
         # Historical breadcrumb history
         self.history_points: List[Tuple[float, float, float]] = []
         self.flow_time: float = 0.0
+        self.hologram_shader = None
+        self._init_shader()
+
+    def _init_shader(self) -> None:
+        try:
+            import os
+            from panda3d.core import Shader
+            v_p = "assets/shaders/hologram.vert"
+            f_p = "assets/shaders/hologram.frag"
+            if os.path.exists(v_p) and os.path.exists(f_p):
+                self.hologram_shader = Shader.load(Shader.SL_GLSL, v_p, f_p)
+        except Exception:
+            self.hologram_shader = None
 
     def reset_history(self) -> None:
         """Clear breadcrumbs on episode reset."""
@@ -143,6 +156,11 @@ class Paths3D:
                         name=f"ghost_step_{step_idx}"
                     )
                     ghost_cyl.setTransparency(True)
+                    if self.hologram_shader and is_mind_view:
+                        try:
+                            ghost_cyl.setShader(self.hologram_shader)
+                        except Exception:
+                            pass
                     ghost_cyl.setPos(gx, gy, gz)
                     ghost_cyl.reparentTo(self.ghosts_root)
 
