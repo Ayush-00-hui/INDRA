@@ -21,7 +21,8 @@ import numpy as np
 
 # Ensure headless pygame
 os.environ["SDL_VIDEODRIVER"] = "dummy"
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, ROOT_DIR)
 
 
 def run_check(name: str, check_fn) -> bool:
@@ -192,6 +193,27 @@ def test_3d_pbr_pipeline():
     return "Panda3D + SimplePBR Bridge Operational"
 
 
+def test_web_app_subsystem():
+    # 1. Dist bundle exists
+    dist_index = os.path.join(ROOT_DIR, "web", "dist", "index.html")
+    assert os.path.exists(dist_index), "web/dist/index.html missing; run npm run build in web/frontend"
+
+    # 2. Replay files present
+    replays_dir = os.path.join(ROOT_DIR, "web", "replays")
+    assert os.path.exists(os.path.join(replays_dir, "robotics_s1_wm.json"))
+    assert os.path.exists(os.path.join(replays_dir, "factory_s1_wm.json"))
+
+    # 3. FastAPI test client health
+    from fastapi.testclient import TestClient
+    from web.server import app
+    client = TestClient(app)
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+    return "web/dist bundled, replays intact, FastAPI operational"
+
+
 def main():
     print("=" * 72)
     print("        NBA ACCREDITATION SYSTEM HEALTH & SMOKE TEST SUITE        ")
@@ -206,6 +228,7 @@ def main():
         ("MPC Planner Vectorization & Latency", test_mpc_planner),
         ("Headless Application Execution", test_headless_main),
         ("Autonomous Driving Module Guard", test_driving_lazy_import),
+        ("Web Application Subsystem & Health", test_web_app_subsystem),
     ]
 
     all_passed = True

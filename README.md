@@ -57,14 +57,32 @@ world-model/
 
 ## 2. Quick Start & Execution Guide
 
+### Launching the Web Application (Browser 3D Showcase)
+The web application provides a browser-based 3D digital twin experience featuring 3 simulations:
+1. **Autonomous Warehouse Robotics** (Live ready, 94–97% success rate)
+2. **Autonomous Highway Driving** (Trajectory planning & lane keeping)
+3. **Factory-Line Digital Twin** (Predictive maintenance & breakdown prevention)
+
+```bash
+# Windows (One-Click Launcher):
+run_web.bat
+
+# Linux / Mac:
+./run_web.sh
+
+# Or start directly with Python:
+python -m web.server --host 127.0.0.1 --port 8000
+```
+Then open `http://127.0.0.1:8000` in any modern browser.  
+*(Note: Supports `--lan` or `--host 0.0.0.0` to display a QR code and URL for multi-device tablet presentation!)*
+
 ### Pre-Flight System Health Verification
-Run the automated smoke test to verify all 7 system components in under 5 seconds:
+Run the automated smoke test to verify all system components and web subsystems in under 5 seconds:
 ```bash
 python scripts/smoke_test.py
 ```
-*(Confirms library dependencies, hardware acceleration, environment contracts, model checkpoints, planner latency <25 ms, headless execution, and module guards).*
 
-### Launching the Evaluator Showcase (`main.py` / `run_demo.bat`)
+### Launching the Pygame Desktop Showcase (`main.py` / `run_demo.bat`)
 ```bash
 # 1. Quick Launch (3D PBR with auto-fallback and split-screen enabled):
 run_demo.bat
