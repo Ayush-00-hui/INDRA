@@ -62,3 +62,33 @@ class BaseEnv(ABC):
     def get_action_size(self) -> int:
         """Return the number of discrete actions available."""
         pass
+
+    def get_render_state(self) -> Dict[str, Any]:
+        """
+        Optional Web Render-State hook (Additive).
+        Returns a serializable dictionary representation for 3D/2D web rendering.
+        Default implementation provides a generic state vector wrapper.
+        """
+        return {
+            "v": 1,
+            "scenario": getattr(self, "scenario_name", "generic"),
+            "step": getattr(self, "step_count", 0),
+            "dt": 1.0 / 30.0,
+            "mode": "baseline",
+            "world": {
+                "bounds": [0, 0, 900, 600],
+                "units": "px",
+                "scale": 1.0,
+            },
+            "entities": [],
+            "goal": None,
+            "plan": None,
+            "metrics": {
+                "reward": 0.0,
+                "episode": 0,
+                "success": False,
+                "collisions": getattr(self, "collision_count", 0),
+            },
+            "events": [],
+            "model_error": None,
+        }
