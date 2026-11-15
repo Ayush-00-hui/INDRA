@@ -136,6 +136,7 @@ class Renderer3D:
         plan_info: Optional[dict] = None,
         last_info: Optional[dict] = None,
         method_title: str = "WORLD MODEL (3D)",
+        draw_hud: bool = True,
     ) -> None:
         """
         Main render entry point called by RobotEnv.render(screen).
@@ -147,7 +148,7 @@ class Renderer3D:
                 fallback.quality = self.quality
                 fallback.show_mind_view = self.show_mind_view
                 fallback.show_hitboxes = self.show_hitboxes
-                fallback.render(env, target_surface, plan_info, last_info, method_title)
+                fallback.render(env, target_surface, plan_info, last_info, method_title, draw_hud=draw_hud)
                 return
 
             # Sync quality with bridge
@@ -156,6 +157,13 @@ class Renderer3D:
 
             # Update 3D scene from environment if scene is attached
             if self.scene is not None:
+                # Isolate this scene's node hierarchy: show this scene, hide all other scene_3d_root nodes
+                self.scene.root.show()
+                if self.bridge.base and self.bridge.base.render:
+                    for child in self.bridge.base.render.getChildren():
+                        if child != self.scene.root and "scene_3d_root" in child.getName():
+                            child.hide()
+
                 self.scene.world.toggle_hitboxes(self.show_hitboxes)
                 self.scene.sync_from_env(env, plan_info, last_info, self.show_mind_view)
                 self.scene.update(0.016)
@@ -169,13 +177,17 @@ class Renderer3D:
                 raise RuntimeError("Failed to readback 3D frame from Panda3D buffer.")
 
             # Overlay 2D Pygame HUD (Pipeline, telemetry, debug boxes if requested)
-            self._render_hud_overlay(env, target_surface, plan_info, last_info, method_title)
+            if draw_hud:
+                self._render_hud_overlay(env, target_surface, plan_info, last_info, method_title)
+            elif self.show_hitboxes:
+                fallback = self._get_fallback_renderer()
+                fallback._render_debug_hitboxes(env, target_surface)
 
         except Exception as e:
             logger.warning("3D rendering exception (%s). Downgrading to modern 2D renderer.", e)
             self._3d_enabled = False
             fallback = self._get_fallback_renderer()
-            fallback.render(env, target_surface, plan_info, last_info, method_title)
+            fallback.render(env, target_surface, plan_info, last_info, method_title, draw_hud=draw_hud)
 
     def _render_hud_overlay(
         self,

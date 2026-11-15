@@ -317,10 +317,13 @@ class Application:
     # MODEL LOADING & ROBOTICS SETUP
     # =========================================================================
     def _load_robot_model(self, scenario: int) -> None:
+        student_path = "models/robot_student.pt"
         ensemble_path = "models/robot_ensemble.pt"
         scen2_path = "models/robot_model_s2.pt"
         default_path = "models/robot_model.pt"
-        if os.path.exists(ensemble_path):
+        if os.path.exists(student_path):
+            model_path = student_path
+        elif os.path.exists(ensemble_path):
             model_path = ensemble_path
         else:
             model_path = scen2_path if (scenario == 2 and os.path.exists(scen2_path)) else default_path
@@ -580,7 +583,7 @@ class Application:
 
             # 1. Render Left Environment (Greedy)
             if self.env_left is not None:
-                self.env_left.render(self.surf_left)
+                self.env_left.render(self.surf_left, draw_hud=False)
                 self._draw_viewport_header(
                     surf=self.surf_left,
                     title="WITHOUT WORLD MODEL (Greedy Baseline)",
@@ -597,7 +600,7 @@ class Application:
 
             # 2. Render Right Environment (With World Model)
             if self.env_right is not None:
-                self.env_right.render(self.surf_right)
+                self.env_right.render(self.surf_right, draw_hud=False)
                 if self.with_world_model and self.plan_info_right:
                     draw_ghost_paths(self.surf_right, self.plan_info_right)
                 self._draw_viewport_header(
@@ -627,7 +630,7 @@ class Application:
             # SINGLE VIEW MODE (900 x 600)
             # -------------------------------------------------------------
             if self.env_right is not None:
-                self.env_right.render(self.screen)
+                self.env_right.render(self.screen, draw_hud=True)
                 if self.with_world_model and self.plan_info_right:
                     draw_ghost_paths(self.screen, self.plan_info_right)
                 if self.show_imagination and self.with_world_model:
@@ -709,20 +712,27 @@ class Application:
         pygame.draw.line(self.screen, (50, 65, 90), (0, 44), (self.split_width, 44), 2)
 
         # Accreditation Title
-        title_txt = "NBA EVALUATOR SHOWCASE: WORLD MODEL PREDICTIVE CONTROL VS REACTIVE GREEDY"
+        if self.split_width >= 1700:
+            title_txt = "NBA EVALUATOR SHOWCASE: WORLD MODEL PREDICTIVE CONTROL VS REACTIVE GREEDY"
+        else:
+            title_txt = "NBA EVALUATOR SHOWCASE: WORLD MODEL (MPC) VS GREEDY"
         t_surf = self.font_bold.render(title_txt, True, (255, 255, 255))
         self.screen.blit(t_surf, (20, 12))
-
-        # Narrative badge in auto-demo
-        if self.demo_mode:
-            act_txt = "ACT I: LEARN & IMAGINE" if self.robot_scenario == 1 else "ACT II: DYNAMIC FORECAST"
-            badge_surf = self.font_bold.render(f"AUTO-DEMO [{act_txt}]", True, (0, 255, 200))
-            self.screen.blit(badge_surf, (self.split_width // 2 - badge_surf.get_width() // 2, 12))
 
         # Seed & Scenario badge
         scen_str = f"Scenario {self.robot_scenario} | Seed: {self.current_seed}"
         scen_surf = self.font_hud.render(scen_str, True, (160, 185, 215))
-        self.screen.blit(scen_surf, (self.split_width - scen_surf.get_width() - 20, 14))
+        scen_x = self.split_width - scen_surf.get_width() - 20
+        self.screen.blit(scen_surf, (scen_x, 14))
+
+        # Narrative badge in auto-demo (only if sufficient gap between title and scenario)
+        if self.demo_mode:
+            act_txt = "ACT I: LEARN & IMAGINE" if self.robot_scenario == 1 else "ACT II: DYNAMIC FORECAST"
+            badge_surf = self.font_bold.render(f"[{act_txt}]", True, (0, 255, 200))
+            badge_w = badge_surf.get_width()
+            center_x = self.split_width // 2 - badge_w // 2
+            if center_x > t_surf.get_width() + 30 and center_x + badge_w < scen_x - 15:
+                self.screen.blit(badge_surf, (center_x, 12))
 
     def _draw_imagination_overlay(self, surf: pygame.Surface) -> None:
         """
@@ -756,20 +766,31 @@ class Application:
         pygame.draw.rect(surf, (20, 28, 40), history_box, border_radius=4)
 
         if len(self.imagination_history) >= 2:
-            min_x = min(p[0] for p in self.imagination_history)
-            max_x = max(p[0] for p in self.imagination_history) + 1e-4
-            min_y = min(p[1] for p in self.imagination_history)
-            max_y = max(p[1] for p in self.imagination_history) + 1e-4
+            all_x = [p[0] for p in self.imagination_history] + [p[2] for p in self.imagination_history]
+            all_y = [p[1] for p in self.imagination_history] + [p[3] for p in self.imagination_history]
+            min_x = min(all_x)
+            max_x = max(all_x)
+            min_y = min(all_y)
+            max_y = max(all_y)
+            range_x = max(10.0, max_x - min_x)
+            range_y = max(10.0, max_y - min_y)
 
+            # Map to box coords with strict interior clamping
+            def to_box(px, py):
+                norm_x = (px - min_x) / range_x
+                norm_y = (py - min_y) / range_y
+                bx = history_box.x + 8 + norm_x * (history_box.width - 16)
+                by = history_box.y + 6 + norm_y * (history_box.height - 12)
+                bx = max(history_box.left + 4, min(history_box.right - 4, bx))
+                by = max(history_box.top + 4, min(history_box.bottom - 4, by))
+                return int(bx), int(by)
+
+            # Render with clipping to history_box
+            old_clip = surf.get_clip()
+            surf.set_clip(history_box)
             for i in range(len(self.imagination_history) - 1):
                 cur_act = self.imagination_history[i]
                 nxt_act = self.imagination_history[i + 1]
-
-                # Map to box coords
-                def to_box(px, py):
-                    bx = history_box.x + 8 + ((px - min_x) / (max_x - min_x)) * (history_box.width - 16)
-                    by = history_box.y + 6 + ((py - min_y) / (max_y - min_y)) * (history_box.height - 12)
-                    return int(bx), int(by)
 
                 # Cyan actual path
                 p1_act = to_box(cur_act[0], cur_act[1])
@@ -779,6 +800,7 @@ class Application:
                 p1_prd = to_box(cur_act[2], cur_act[3])
                 p2_prd = to_box(nxt_act[2], nxt_act[3])
                 pygame.draw.line(surf, (50, 255, 120), p1_prd, p2_prd, 1)
+            surf.set_clip(old_clip)
 
         # Legend
         l_act = self.font_hud.render("- Actual (Cyan)", True, (0, 255, 230))

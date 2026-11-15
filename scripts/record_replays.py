@@ -48,6 +48,7 @@ def generate_all_replays(output_dir: str = "web/replays") -> None:
         # 4. Robotics Scenario 2: Greedy Baseline Pedestrian Collision
         ("robotics_s2_baseline", RobotAdapter(scenario_variant=2, mode="baseline"), 1005, 80),
         # 5. Driving Scenario 1: Lane Keeping
+        ("driving_s1_wm", DrivingAdapter(scenario_variant=1, mode="world_model"), 1001, 100),
         ("driving_s1_baseline", DrivingAdapter(scenario_variant=1, mode="baseline"), 1001, 100),
         # 6. Factory Scenario 1: Line Digital Twin
         ("factory_s1_wm", FactoryAdapter(scenario_variant=1, mode="world_model"), 1001, 80),
