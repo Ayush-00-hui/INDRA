@@ -55,9 +55,24 @@ export class ThreeSimulationScene {
   private obstacleMeshes: Map<string, THREE.Object3D> = new Map();
   private lastFrameTime: number = performance.now();
 
+  // Robot Home Docking & Charging Station
+  public dockingStationGroup: THREE.Group;
+  public dockLeftClamp: THREE.Group | null = null;
+  public dockRightClamp: THREE.Group | null = null;
+  public dockStatusLed: THREE.Mesh | null = null;
+  public dockLight: THREE.PointLight | null = null;
+  public dockCoil: THREE.Mesh | null = null;
+  public isDocked: boolean = true;
+  private clampAngle: number = 0;
+  private targetClampAngle: number = 0;
+  private currentRobotHeading: number = 0;
+  private lastRobotPos = new THREE.Vector3();
+  private pathEdgeLineLeft: THREE.Line | null = null;
+  private pathEdgeLineRight: THREE.Line | null = null;
+
   // Interactive Floor Raycasting & Dynamic Object Placement
-  public static readonly SCALE_FACTOR = 65.0; // Expanded spacious 14m x 9.5m arena
-  public activePlacementTool: "goal" | "crate" | "cabinet" | "workstation" = "goal";
+  public static readonly SCALE_FACTOR = 46.0; // 2x Expanded Arena (255.2 m², 19.6m x 13.0m)
+  public activePlacementTool: "goal" | "crate" | "cabinet" | "workstation" | "barrels" | "barrier" = "goal";
   public onFloorClick?: (px: number, py: number) => void;
   public onPlaceObstacle?: (px: number, py: number, kind: string) => void;
   private pointerDownPos = { x: 0, y: 0, time: 0 };
@@ -75,7 +90,7 @@ export class ThreeSimulationScene {
   private hitboxesRoot: THREE.Group;
 
   // Camera & Kinematics
-  public cameraMode: "overview" | "topdown" | "chase" | "robot_pov" | "orbit" = "overview";
+  public cameraMode: "overview" | "topdown" | "chase" | "robot_pov" | "orbit" | "cinematic" = "overview";
   private targetCamPos = new THREE.Vector3(0, 5.8, 5.8);
   private targetCamLookAt = new THREE.Vector3(0, 0.2, 0);
   private currentCamPos = new THREE.Vector3(0, 5.8, 5.8);
@@ -93,6 +108,7 @@ export class ThreeSimulationScene {
   private frameCount: number = 0;
   public currentFps: number = 60;
   private isDestroyed: boolean = false;
+  private cyberParticles: THREE.Points | null = null;
 
   // GLTF Loader & Model Cache
   private gltfLoader = new GLTFLoader();
@@ -108,10 +124,10 @@ export class ThreeSimulationScene {
     const h = container.clientHeight || 600;
     const aspect = w / h;
 
-    // 1. Overview Camera (Spacious high perspective looking into expanded lab arena)
+    // 1. Overview Camera (Spacious high perspective looking into 2x expanded gigafactory arena)
     this.camera = new THREE.PerspectiveCamera(48, aspect, 0.05, 120);
-    this.camera.position.set(0, 9.4, 9.8);
-    this.camera.lookAt(0, 0.4, 0);
+    this.camera.position.set(0, 14.8, 15.8);
+    this.camera.lookAt(0, 0.5, 0);
     this.camera.layers.enable(0);
     this.camera.layers.enable(1); // Sees both room and robot chassis
 
@@ -154,10 +170,10 @@ export class ThreeSimulationScene {
       this.controls = new OrbitControls(this.camera, this.renderer.domElement);
       this.controls.enableDamping = true;
       this.controls.dampingFactor = 0.08;
-      this.controls.target.set(0, 0.2, 0);
+      this.controls.target.set(0, 0.5, 0);
       this.controls.maxPolarAngle = Math.PI / 2 - 0.04; // Keep camera above floor
-      this.controls.minDistance = 1.0;
-      this.controls.maxDistance = 20.0;
+      this.controls.minDistance = 2.0;
+      this.controls.maxDistance = 45.0;
     } catch (err) {
       console.warn("Three.js WebGL initialization failed:", err);
       this.renderer = null;
@@ -165,17 +181,17 @@ export class ThreeSimulationScene {
     }
 
     // High Dynamic Range PBR Lighting (Key Sunlight + Sky Fill + Ambient)
-    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 1.8);
-    this.sunLight.position.set(4.8, 9.5, 4.2);
+    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 1.85);
+    this.sunLight.position.set(6.5, 14.0, 5.5);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048; // Optimized for razor-sharp shadows at 60 FPS
     this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 35;
-    this.sunLight.shadow.camera.left = -9.0;
-    this.sunLight.shadow.camera.right = 9.0;
-    this.sunLight.shadow.camera.top = 7.0;
-    this.sunLight.shadow.camera.bottom = -7.0;
+    this.sunLight.shadow.camera.far = 45;
+    this.sunLight.shadow.camera.left = -14.0;
+    this.sunLight.shadow.camera.right = 14.0;
+    this.sunLight.shadow.camera.top = 10.0;
+    this.sunLight.shadow.camera.bottom = -10.0;
     this.sunLight.shadow.bias = -0.0003;
     this.scene.add(this.sunLight);
 
@@ -201,17 +217,45 @@ export class ThreeSimulationScene {
     // Build Architectural Environment
     this.buildLabEnvironment();
 
-    // Build Entities: High-Fidelity 3D Humanoid Robot
+    // Ambient Cyber Dust Particles
+    const pCount = 200;
+    const pGeo = new THREE.BufferGeometry();
+    const pPos = new Float32Array(pCount * 3);
+    for (let i = 0; i < pCount * 3; i += 3) {
+      pPos[i] = (Math.random() - 0.5) * 22.0;
+      pPos[i + 1] = Math.random() * 4.5 + 0.2;
+      pPos[i + 2] = (Math.random() - 0.5) * 14.0;
+    }
+    pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+    const pMat = new THREE.PointsMaterial({
+      color: 0x00e5ff,
+      size: 0.040,
+      transparent: true,
+      opacity: 0.5,
+      blending: THREE.AdditiveBlending,
+    });
+    this.cyberParticles = new THREE.Points(pGeo, pMat);
+    this.scene.add(this.cyberParticles);
+
+    // Build Entities: High-Fidelity 3D Humanoid Robot (Upscaled Hero Scale)
     this.humanoidRobot = new HumanoidRobot();
+    this.humanoidRobot.root.scale.set(1.65, 1.65, 1.65);
     this.scene.add(this.humanoidRobot.root);
+
+    // Build Robot Home Docking & Charging Station with Hydraulic Clamping Arms
+    this.dockingStationGroup = this.buildDockingStation();
+    this.dockingStationGroup.position.set(-7.39, 0, 0); // Initial dock position (110.0, 300.0) -> -7.39m
+    this.scene.add(this.dockingStationGroup);
 
     this.robotGroup = new THREE.Group(); // Legacy holder
     this.robotMeshRoot = new THREE.Group();
 
     this.personGroup = this.buildPerson();
+    this.personGroup.scale.set(1.5, 1.5, 1.5);
     this.scene.add(this.personGroup);
 
     this.goalGroup = this.buildGoal();
+    this.goalGroup.scale.set(1.5, 1.5, 1.5);
     this.scene.add(this.goalGroup);
 
     // Initialize Ghost Pool (Pre-allocated 12 holographic meshes)
@@ -280,8 +324,10 @@ export class ThreeSimulationScene {
     if (tool === "crate") color = 0xd97706; // Wood crate amber
     else if (tool === "cabinet") color = 0xef4444; // Red cabinet
     else if (tool === "workstation") color = 0xfacc15; // Yellow workstation
+    else if (tool === "barrels") color = 0x0284c7; // Blue/yellow hazard barrels
+    else if (tool === "barrier") color = 0xfacc15; // Yellow safety barrier
 
-    const geo = new THREE.RingGeometry(0.12, 0.24, 32);
+    const geo = new THREE.RingGeometry(0.18, 0.36, 32);
     const mat = new THREE.MeshBasicMaterial({
       color,
       transparent: true,
@@ -338,6 +384,125 @@ export class ThreeSimulationScene {
     // 2. Realistic 4.2m Industrial Warehouse Architecture (Expanded 15.6m span)
     const { lights } = LabEnvironmentBuilder.buildWarehouseArchitecture(this.scene);
     this.ceilingLights.push(...lights);
+
+    // 3. Populate room with high-tech storage racks, monitoring terminals, and charging hub
+    this.addRoomDecorations();
+  }
+
+  private addRoomDecorations() {
+    // 1. High-Tech Industrial Pallet Storage Racks along North Perimeter
+    const rackMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.35, metalness: 0.6 });
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.4, metalness: 0.5 });
+    const toteMat1 = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
+    const toteMat2 = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 });
+    const crateWoodMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+
+    const createRack = (x: number, z: number, rotY: number = 0) => {
+      const rack = new THREE.Group();
+      for (const ox of [-1.1, 1.1]) {
+        for (const oz of [-0.35, 0.35]) {
+          const col = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.06), rackMat);
+          col.position.set(ox, 1.6, oz);
+          rack.add(col);
+        }
+      }
+      for (const y of [0.75, 1.65, 2.55]) {
+        const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.75), beamMat);
+        shelf.position.set(0, y, 0);
+        rack.add(shelf);
+
+        const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), y === 0.75 ? crateWoodMat : toteMat1);
+        b1.position.set(-0.55, y + 0.25, 0);
+        rack.add(b1);
+
+        const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), y === 1.65 ? crateWoodMat : toteMat2);
+        b2.position.set(0.55, y + 0.25, 0);
+        rack.add(b2);
+      }
+      rack.position.set(x, 0, z);
+      rack.rotation.y = rotY;
+      this.scene.add(rack);
+    };
+
+    createRack(-5.5, -5.8);
+    createRack(0.0, -5.8);
+    createRack(5.5, -5.8);
+    createRack(-9.6, -1.8, Math.PI / 2);
+
+    // 2. High-Tech Monitoring Terminal Station
+    const terminal = new THREE.Group();
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
+    const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.85, 0.85), deskMat);
+    deskMesh.position.set(0, 0.425, 0);
+    terminal.add(deskMesh);
+
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    for (const sx of [-0.45, 0.45]) {
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), deskMat);
+      stand.position.set(sx, 0.97, 0);
+      terminal.add(stand);
+
+      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.02), screenMat);
+      scr.position.set(sx, 1.15, 0);
+      scr.rotation.y = sx < 0 ? 0.15 : -0.15;
+      terminal.add(scr);
+    }
+    terminal.position.set(8.2, 0, 5.2);
+    terminal.rotation.y = -Math.PI * 0.75;
+    this.scene.add(terminal);
+
+    // 3. Autonomous Robot Fast-Charging Dock Hub
+    const charger = new THREE.Group();
+    const chargerBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.5, 0.40), deskMat);
+    chargerBody.position.set(0, 0.75, 0);
+    charger.add(chargerBody);
+
+    const ledBar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 1.0, 0.02),
+      new THREE.MeshBasicMaterial({ color: 0x00ff9d })
+    );
+    ledBar.position.set(0, 0.80, 0.21);
+    charger.add(ledBar);
+    charger.position.set(-8.4, 0, 5.2);
+    charger.rotation.y = Math.PI * 0.75;
+    this.scene.add(charger);
+
+    // 4. Modern Lab Plants in Metallic Planters
+    const createPlant = (x: number, z: number) => {
+      const p = new THREE.Group();
+      const pot = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.22, 0.65, 16),
+        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.7 })
+      );
+      pot.position.y = 0.325;
+      p.add(pot);
+
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+      for (let i = 0; i < 7; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 8), leafMat);
+        const ang = (i / 7) * Math.PI * 2;
+        leaf.scale.set(0.65, 1.5, 0.3);
+        leaf.rotation.set(0.4 * Math.cos(ang), ang, 0.4 * Math.sin(ang));
+        leaf.position.set(0.14 * Math.cos(ang), 0.75, 0.14 * Math.sin(ang));
+        p.add(leaf);
+      }
+      p.position.set(x, 0, z);
+      this.scene.add(p);
+    };
+    createPlant(-9.2, 5.8);
+    createPlant(9.2, 5.8);
+
+    // 5. Ambient Floor Laser Guidelines
+    const guideMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 });
+    const guidePts = [
+      new THREE.Vector3(-9.6, 0.015, -6.3),
+      new THREE.Vector3(9.6, 0.015, -6.3),
+      new THREE.Vector3(9.6, 0.015, 6.3),
+      new THREE.Vector3(-9.6, 0.015, 6.3),
+      new THREE.Vector3(-9.6, 0.015, -6.3),
+    ];
+    const guideLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(guidePts), guideMat);
+    this.scene.add(guideLine);
   }
 
   // =========================================================================
@@ -466,6 +631,178 @@ export class ThreeSimulationScene {
     this.robotMeshRoot.traverse((c) => c.layers.set(1));
 
     return group;
+  }
+
+  // =========================================================================
+  // ROBOT DOCKING & CHARGING STATION (Mechanical Deployment Bay)
+  // =========================================================================
+  private buildDockingStation(): THREE.Group {
+    const group = new THREE.Group();
+
+    // 1. Heavy Industrial Dock Base Plate (1.5m x 1.4m x 0.08m)
+    const basePlateGeo = new THREE.BoxGeometry(1.5, 0.08, 1.4);
+    const basePlateMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.35,
+      metalness: 0.8,
+    });
+    const basePlate = new THREE.Mesh(basePlateGeo, basePlateMat);
+    basePlate.position.y = 0.04;
+    basePlate.receiveShadow = true;
+    group.add(basePlate);
+
+    // Hazard Border Trim around dock plate
+    const trimGeo = new THREE.BoxGeometry(1.54, 0.03, 1.44);
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: 0xfacc15,
+      roughness: 0.4,
+    });
+    const trim = new THREE.Mesh(trimGeo, trimMat);
+    trim.position.y = 0.02;
+    group.add(trim);
+
+    // 2. Dual Foot Channel Guide Rails
+    const railMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.9 });
+    for (const rx of [-0.32, 0.32]) {
+      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.04, 1.1), railMat);
+      rail.position.set(rx, 0.09, 0.05);
+      group.add(rail);
+    }
+
+    // 3. Magnetic Induction Charging Coil Ring on Dock Floor
+    const coilGeo = new THREE.RingGeometry(0.25, 0.44, 32);
+    const coilMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.5,
+      side: THREE.DoubleSide,
+    });
+    this.dockCoil = new THREE.Mesh(coilGeo, coilMat);
+    this.dockCoil.rotation.x = -Math.PI / 2;
+    this.dockCoil.position.y = 0.085;
+    group.add(this.dockCoil);
+
+    // 4. Back Charger Tower Pylon (at z = -0.58)
+    const towerGeo = new THREE.BoxGeometry(0.9, 1.9, 0.3);
+    const towerMat = new THREE.MeshStandardMaterial({
+      color: 0x0f172a,
+      roughness: 0.25,
+      metalness: 0.85,
+    });
+    const tower = new THREE.Mesh(towerGeo, towerMat);
+    tower.position.set(0, 0.95, -0.55);
+    tower.castShadow = true;
+    group.add(tower);
+
+    // Power Conduit Cables running up the tower
+    for (const cx of [-0.25, 0.25]) {
+      const conduit = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.6, 12), railMat);
+      conduit.position.set(cx, 0.9, -0.42);
+      group.add(conduit);
+    }
+
+    // Top Overhead Canopy with Downlight Floodlight
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.12, 0.65), towerMat);
+    canopy.position.set(0, 1.92, -0.32);
+    canopy.castShadow = true;
+    group.add(canopy);
+
+    // Overhead Bay Downlight
+    const baySpot = new THREE.SpotLight(0xfffaed, 2.8, 5.0, Math.PI / 3, 0.5, 1.2);
+    baySpot.position.set(0, 1.88, -0.2);
+    baySpot.target.position.set(0, 0, 0);
+    group.add(baySpot);
+    group.add(baySpot.target);
+
+    // Status LED Panel on Tower Front
+    const ledGeo = new THREE.BoxGeometry(0.55, 0.12, 0.02);
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b, // Amber standby when docked
+      emissive: 0xf59e0b,
+      emissiveIntensity: 1.8,
+    });
+    this.dockStatusLed = new THREE.Mesh(ledGeo, ledMat);
+    this.dockStatusLed.position.set(0, 1.6, -0.39);
+    group.add(this.dockStatusLed);
+
+    // Dock Ground Point Light
+    this.dockLight = new THREE.PointLight(0xf59e0b, 1.8, 3.2, 1.2);
+    this.dockLight.position.set(0, 0.6, 0);
+    group.add(this.dockLight);
+
+    // 5. Dual Articulated Mechanical Clamping Arms
+    const clampArmMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.35,
+      metalness: 0.75,
+    });
+    const clampPadMat = new THREE.MeshStandardMaterial({
+      color: 0xef4444, // Red gripping safety pads
+      roughness: 0.8,
+    });
+
+    // Left Clamp Group
+    this.dockLeftClamp = new THREE.Group();
+    this.dockLeftClamp.position.set(-0.48, 0.85, -0.38);
+
+    const lPivot = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.18, 16), railMat);
+    this.dockLeftClamp.add(lPivot);
+
+    const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.48), clampArmMat);
+    lArm.position.set(0, 0, 0.24);
+    this.dockLeftClamp.add(lArm);
+
+    const lWrist = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.06), clampArmMat);
+    lWrist.position.set(0.12, 0, 0.48);
+    this.dockLeftClamp.add(lWrist);
+
+    const lPad = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.14), clampPadMat);
+    lPad.position.set(0.24, 0, 0.48);
+    this.dockLeftClamp.add(lPad);
+
+    group.add(this.dockLeftClamp);
+
+    // Right Clamp Group
+    this.dockRightClamp = new THREE.Group();
+    this.dockRightClamp.position.set(0.48, 0.85, -0.38);
+
+    const rPivot = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.18, 16), railMat);
+    this.dockRightClamp.add(rPivot);
+
+    const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.48), clampArmMat);
+    rArm.position.set(0, 0, 0.24);
+    this.dockRightClamp.add(rArm);
+
+    const rWrist = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.06, 0.06), clampArmMat);
+    rWrist.position.set(-0.12, 0, 0.48);
+    this.dockRightClamp.add(rWrist);
+
+    const rPad = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.14), clampPadMat);
+    rPad.position.set(-0.24, 0, 0.48);
+    this.dockRightClamp.add(rPad);
+
+    group.add(this.dockRightClamp);
+
+    return group;
+  }
+
+  public setDockStatus(status: "docked" | "released") {
+    this.isDocked = (status === "docked");
+    this.targetClampAngle = this.isDocked ? 0.0 : 1.15;
+
+    if (this.dockStatusLed) {
+      const mat = this.dockStatusLed.material as THREE.MeshStandardMaterial;
+      if (this.isDocked) {
+        mat.color.setHex(0xf59e0b); // Amber standby locked
+        mat.emissive.setHex(0xf59e0b);
+      } else {
+        mat.color.setHex(0x00ff9d); // Emerald green released
+        mat.emissive.setHex(0x00ff9d);
+      }
+    }
+    if (this.dockLight) {
+      this.dockLight.color.setHex(this.isDocked ? 0xf59e0b : 0x00ff9d);
+    }
   }
 
   private buildPerson(): THREE.Group {
@@ -674,36 +1011,74 @@ export class ThreeSimulationScene {
       if (e.kind === "robot") {
         robotX3D = pos.x;
         robotZ3D = pos.z;
-        robotHeading = (e.heading || 0) * (Math.PI / 180);
 
-        // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
-        const currentPosVec = new THREE.Vector3(pos.x, 0, pos.z);
+        // Anchor docking station to robot's initial starting location
+        if (frame.step === 0 || !this.dockingStationGroup.userData.positioned) {
+          this.dockingStationGroup.position.set(pos.x, 0, pos.z);
+          this.dockingStationGroup.userData.positioned = true;
+        }
+
         const dtSec = Math.min(0.1, Math.max(0.001, (now - this.lastFrameTime) / 1000.0));
         this.lastFrameTime = now;
+        const currentPosVec = new THREE.Vector3(pos.x, 0, pos.z);
         const hasCollision = Boolean(e.extra?.collision);
 
+        // Calculate heading to face and move in the same direction of the path it is following
+        let targetHeading = this.currentRobotHeading;
+        let foundPathTangent = false;
+
+        if (frame.plan && frame.plan.best && frame.plan.best.length >= 2) {
+          for (let ptIdx = 1; ptIdx < frame.plan.best.length; ptIdx++) {
+            const next3D = this.to3D(frame.plan.best[ptIdx][0], frame.plan.best[ptIdx][1]);
+            const dX = next3D.x - pos.x;
+            const dZ = next3D.z - pos.z;
+            const dist = Math.hypot(dX, dZ);
+            if (dist > 0.08) {
+              targetHeading = Math.atan2(dX, dZ);
+              foundPathTangent = true;
+              break;
+            }
+          }
+        }
+
+        if (!foundPathTangent) {
+          const moveDx = pos.x - this.lastRobotPos.x;
+          const moveDz = pos.z - this.lastRobotPos.z;
+          if (Math.hypot(moveDx, moveDz) > 0.004) {
+            targetHeading = Math.atan2(moveDx, moveDz);
+          }
+        }
+        this.lastRobotPos.set(pos.x, 0, pos.z);
+
+        // Smooth shortest-arc angular turning
+        let diff = (targetHeading - this.currentRobotHeading) % (Math.PI * 2);
+        if (diff > Math.PI) diff -= Math.PI * 2;
+        if (diff < -Math.PI) diff += Math.PI * 2;
+        this.currentRobotHeading += diff * Math.min(1.0, dtSec * 12.0);
+
+        // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
         this.humanoidRobot.update(
           dtSec,
           currentPosVec,
-          robotHeading,
+          this.currentRobotHeading,
           frame.mode === "world_model" ? "world_model" : "baseline",
           hasCollision
         );
 
-        // Head-Mounted POV Camera: Positioned right at Humanoid's Visor Eye Level (y=1.52m)
-        const fwdX = Math.sin(robotHeading);
-        const fwdZ = -Math.cos(robotHeading);
-        const eyeX = pos.x + fwdX * 0.10;
+        // Head-Mounted POV Camera: oriented in the exact direction of the path
+        const fwdX = Math.sin(this.currentRobotHeading);
+        const fwdZ = Math.cos(this.currentRobotHeading);
+        const eyeX = pos.x + fwdX * 0.12;
         const eyeY = 1.52;
-        const eyeZ = pos.z + fwdZ * 0.10;
+        const eyeZ = pos.z + fwdZ * 0.12;
 
         this.povCamera.position.set(eyeX, eyeY, eyeZ);
-        this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -robotHeading);
-        this.povCamera.quaternion.slerp(this.povTargetQuat, 0.25);
+        this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading);
+        this.povCamera.quaternion.slerp(this.povTargetQuat, 0.35);
 
         // Update Headlight Target
         this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
-        this.povHeadlight.target.position.set(eyeX + fwdX * 3.5, eyeY - 0.3, eyeZ + fwdZ * 3.5);
+        this.povHeadlight.target.position.set(eyeX + fwdX * 4.0, eyeY - 0.2, eyeZ + fwdZ * 4.0);
         this.scene.add(this.povHeadlight.target);
 
       } else if (e.kind === "person") {
@@ -727,30 +1102,33 @@ export class ThreeSimulationScene {
         }
 
       } else {
-        // Obstacles (Unmistakable Workstations, Heavy Wooden Crates, Industrial Tool Cabinets)
+        // Obstacles (Upscaled Heavy Workstations, Shipping Crates, Industrial Tool Cabinets)
         let mesh = this.obstacleMeshes.get(e.id);
-        const ow = (e.w || 80) / 100.0;
-        const oh = (e.h || 80) / 100.0;
+        const scale = 1.45;
+        const ow = ((e.w || 80) / 100.0) * scale;
+        const oh = ((e.h || 80) / 100.0) * scale;
 
         if (!mesh) {
-          if (e.id === "obs_0" || e.kind === "chair") {
-            // Unmistakable heavy industrial testing workstation with steel legs & butcher block top (NO WHEELS)
-            mesh = LabEnvironmentBuilder.createWorkstationObstacle(ow, 0.78, oh);
-          } else if (e.id === "obs_1") {
-            // Authentic Industrial Wooden Shipping Crate with steel corners & straps
-            mesh = LabEnvironmentBuilder.createRealisticCrate(ow, 0.72, oh);
-          } else if (e.id === "obs_2") {
-            // Heavy-Duty Industrial Red Steel Tool Chest / Cabinet
-            mesh = LabEnvironmentBuilder.createToolCabinet(ow, 0.72, oh);
+          if (e.id === "obs_0" || e.kind === "chair" || e.kind === "workstation") {
+            mesh = LabEnvironmentBuilder.createWorkstationObstacle(ow, 0.95, oh);
+          } else if (e.id === "obs_1" || e.kind === "crate") {
+            mesh = LabEnvironmentBuilder.createRealisticCrate(ow, 0.90, oh);
+          } else if (e.id === "obs_2" || e.kind === "cabinet") {
+            mesh = LabEnvironmentBuilder.createToolCabinet(ow, 0.95, oh);
+          } else if (e.kind === "barrels") {
+            mesh = LabEnvironmentBuilder.createBarrelCluster(ow, 0.95, oh);
+          } else if (e.kind === "barrier") {
+            mesh = LabEnvironmentBuilder.createSafetyBarrier(ow, 0.85, oh);
           } else {
             mesh = (i % 2 === 0)
-              ? LabEnvironmentBuilder.createRealisticCrate(ow, 0.72, oh)
-              : LabEnvironmentBuilder.createToolCabinet(ow, 0.72, oh);
+              ? LabEnvironmentBuilder.createRealisticCrate(ow, 0.90, oh)
+              : LabEnvironmentBuilder.createToolCabinet(ow, 0.95, oh);
           }
           this.scene.add(mesh);
           this.obstacleMeshes.set(e.id, mesh);
         }
-        mesh.position.set(pos.x + ow / 2, 0, pos.z + oh / 2);
+        const center3D = this.to3D(e.x + (e.w || 80) / 2, e.y + (e.h || 80) / 2);
+        mesh.position.set(center3D.x, 0, center3D.z);
       }
     }
 
@@ -782,6 +1160,19 @@ export class ThreeSimulationScene {
         const pulseScale = 1.0 + 0.18 * Math.sin(now * 0.006);
         outerPulse.scale.set(pulseScale, pulseScale, 1.0);
       }
+    }
+
+    // Animate Docking Hydraulic Clamps & Status Coil
+    this.clampAngle = THREE.MathUtils.lerp(this.clampAngle, this.targetClampAngle, 0.18);
+    if (this.dockLeftClamp) {
+      this.dockLeftClamp.rotation.y = -this.clampAngle;
+    }
+    if (this.dockRightClamp) {
+      this.dockRightClamp.rotation.y = this.clampAngle;
+    }
+    if (this.dockCoil && this.isDocked) {
+      const pulse = 1.0 + Math.sin(now * 0.005) * 0.08;
+      this.dockCoil.scale.set(pulse, pulse, 1.0);
     }
 
     // Animate click ripples
@@ -844,10 +1235,12 @@ export class ThreeSimulationScene {
       const curve = new THREE.CatmullRomCurve3(rawPoints);
       const smoothPoints = curve.getPoints(Math.min(60, rawPoints.length * 5));
 
-      // Build 0.16m wide quad strip ribbon
-      const ribbonWidth = 0.16;
+      // Build 0.95m wide grand glowing futuristic quad strip highway
+      const ribbonWidth = 0.95;
       const vertices: number[] = [];
       const indices: number[] = [];
+      const leftRailPts: THREE.Vector3[] = [];
+      const rightRailPts: THREE.Vector3[] = [];
 
       for (let i = 0; i < smoothPoints.length; i++) {
         const curr = smoothPoints[i];
@@ -859,8 +1252,16 @@ export class ThreeSimulationScene {
         }
         const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(ribbonWidth * 0.5);
 
-        vertices.push(curr.x + normal.x, 0.015, curr.z + normal.z);
-        vertices.push(curr.x - normal.x, 0.015, curr.z - normal.z);
+        const lx = curr.x + normal.x;
+        const lz = curr.z + normal.z;
+        const rx = curr.x - normal.x;
+        const rz = curr.z - normal.z;
+
+        vertices.push(lx, 0.022, lz);
+        vertices.push(rx, 0.022, rz);
+
+        leftRailPts.push(new THREE.Vector3(lx, 0.025, lz));
+        rightRailPts.push(new THREE.Vector3(rx, 0.025, rz));
 
         if (i < smoothPoints.length - 1) {
           const idx = i * 2;
@@ -874,7 +1275,7 @@ export class ThreeSimulationScene {
         geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
         geom.setIndex(indices);
         const mat = new THREE.MeshBasicMaterial({
-          color: 0x10b981, // Glowing emerald green
+          color: 0x00f0ff, // Glowing Cyber Cyan Laser Guidance Highway
           side: THREE.DoubleSide,
           transparent: true,
           opacity: 0.85,
@@ -892,14 +1293,34 @@ export class ThreeSimulationScene {
         this.chosenRibbonMesh.visible = true;
       }
 
-      // Update Destination Target Ring
+      // Dual Luminous Neon Laser Rails on Left and Right Outer Edges
+      if (!this.pathEdgeLineLeft) {
+        const railMat = new THREE.LineBasicMaterial({
+          color: 0x00ffff,
+          transparent: true,
+          opacity: 0.95,
+        });
+        this.pathEdgeLineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftRailPts), railMat);
+        this.pathEdgeLineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightRailPts), railMat);
+        this.scene.add(this.pathEdgeLineLeft);
+        this.scene.add(this.pathEdgeLineRight);
+      } else {
+        this.pathEdgeLineLeft.geometry.setFromPoints(leftRailPts);
+        this.pathEdgeLineRight.geometry.setFromPoints(rightRailPts);
+        this.pathEdgeLineLeft.visible = true;
+        this.pathEdgeLineRight.visible = true;
+      }
+
+      // Update Destination Target Ring (Enlarged 0.65m outer diameter with inner reticle)
       if (smoothPoints.length > 0) {
         const lastPt = smoothPoints[smoothPoints.length - 1];
         if (!this.destinationRing) {
-          const ringGeo = new THREE.RingGeometry(0.14, 0.18, 20);
+          const ringGeo = new THREE.RingGeometry(0.48, 0.64, 36);
           const ringMat = new THREE.MeshBasicMaterial({
-            color: 0x10b981,
+            color: 0x00f0ff,
             side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.90,
             polygonOffset: true,
             polygonOffsetFactor: -3,
             polygonOffsetUnits: -6,
@@ -908,7 +1329,7 @@ export class ThreeSimulationScene {
           this.destinationRing.rotation.x = -Math.PI / 2;
           this.scene.add(this.destinationRing);
         }
-        this.destinationRing.position.set(lastPt.x, 0.018, lastPt.z);
+        this.destinationRing.position.set(lastPt.x, 0.026, lastPt.z);
         this.destinationRing.visible = true;
       }
 
@@ -928,6 +1349,8 @@ export class ThreeSimulationScene {
     } else {
       if (this.chosenRibbonMesh) this.chosenRibbonMesh.visible = false;
       if (this.destinationRing) this.destinationRing.visible = false;
+      if (this.pathEdgeLineLeft) this.pathEdgeLineLeft.visible = false;
+      if (this.pathEdgeLineRight) this.pathEdgeLineRight.visible = false;
       this.ghostPool.forEach((g) => (g.visible = false));
     }
 
@@ -1003,6 +1426,20 @@ export class ThreeSimulationScene {
       this.camera.position.copy(this.currentCamPos);
       this.camera.lookAt(this.currentCamLookAt);
 
+    } else if (this.cameraMode === "cinematic") {
+      if (this.controls) this.controls.enabled = false;
+      this.orbitAngle += 0.005;
+      const radius = 3.8;
+      const camHeight = 2.1 + Math.sin(this.orbitAngle * 1.5) * 0.35;
+      this.targetCamPos.set(rx + Math.cos(this.orbitAngle) * radius, camHeight, rz + Math.sin(this.orbitAngle) * radius);
+      this.targetCamLookAt.set(rx, 0.75, rz);
+
+      this.currentCamPos.lerp(this.targetCamPos, 0.06);
+      this.currentCamLookAt.lerp(this.targetCamLookAt, 0.06);
+
+      this.camera.position.copy(this.currentCamPos);
+      this.camera.lookAt(this.currentCamLookAt);
+
     } else if (this.cameraMode === "topdown") {
       // Top-Down interactive view
       if (this.controls) {
@@ -1018,18 +1455,24 @@ export class ThreeSimulationScene {
     }
   }
 
-  public setCameraMode(mode: "overview" | "chase" | "topdown" | "robot_pov" | "orbit") {
+  public captureScreenshot(): string {
+    if (!this.renderer) return "";
+    this.renderer.render(this.scene, this.activeCamera);
+    return this.renderer.domElement.toDataURL("image/png");
+  }
+
+  public setCameraMode(mode: "overview" | "chase" | "topdown" | "robot_pov" | "orbit" | "cinematic") {
     this.cameraMode = mode;
     if (this.controls) {
       if (mode === "overview") {
         this.controls.enabled = true;
-        this.controls.target.set(0, 0.2, 0);
-        this.camera.position.set(0, 6.2, 6.4);
-        this.camera.lookAt(0, 0.2, 0);
+        this.controls.target.set(0, 0.5, 0);
+        this.camera.position.set(0, 14.8, 15.8);
+        this.camera.lookAt(0, 0.5, 0);
       } else if (mode === "topdown") {
         this.controls.enabled = true;
         this.controls.target.set(0, 0, 0);
-        this.camera.position.set(0, 8.5, 0.01);
+        this.camera.position.set(0, 17.5, 0.01);
         this.camera.lookAt(0, 0, 0);
       } else {
         this.controls.enabled = false;
@@ -1038,12 +1481,13 @@ export class ThreeSimulationScene {
   }
 
   public cycleCamera(): string {
-    const modes: Array<"overview" | "chase" | "topdown" | "robot_pov" | "orbit"> = [
+    const modes: Array<"overview" | "chase" | "topdown" | "robot_pov" | "orbit" | "cinematic"> = [
       "overview",
       "chase",
       "topdown",
       "robot_pov",
       "orbit",
+      "cinematic",
     ];
     const nextIdx = (modes.indexOf(this.cameraMode) + 1) % modes.length;
     this.setCameraMode(modes[nextIdx]);

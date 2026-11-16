@@ -365,9 +365,9 @@ export class HumanoidRobot {
     this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, 0.25);
     const isWalking = this.smoothedSpeed > 0.02;
 
-    // 2. Position & Heading
+    // 2. Position & Heading: aligns directly with the movement/path tangent
     this.root.position.copy(currentPos);
-    this.root.rotation.y = -headingRad;
+    this.root.rotation.y = headingRad;
 
     // 3. Dynamic Bipedal Walking Stride
     if (isWalking) {

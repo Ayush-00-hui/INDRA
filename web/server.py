@@ -166,7 +166,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
     variant = 1
     mode = "world_model"
     speed = 1.0
-    is_paused = False
+    is_paused = True  # Always start safely docked at charging bay awaiting user Enter command
     current_seed = 1001
 
     adapter_left = None   # for baseline or compare
@@ -261,7 +261,12 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     if needs_reinit:
                         init_adapters()
 
-            if not is_paused:
+            if is_paused:
+                if adapter_left and hasattr(adapter_left, "get_render_state"):
+                    rs = adapter_left.get_render_state()
+                    await websocket.send_text(rs.model_dump_json())
+                await asyncio.sleep(0.08)
+            else:
                 if mode == "compare":
                     # Run step for both in thread executor
                     def step_both():
@@ -277,6 +282,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         await asyncio.sleep(1.0)
                         current_seed += 1
                         init_adapters()
+                        is_paused = True  # Park at dock on next episode awaiting Enter
                 else:
                     # Single mode step
                     def step_single():
@@ -289,6 +295,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         await asyncio.sleep(1.0)
                         current_seed += 1
                         adapter_left.reset(current_seed)
+                        is_paused = True  # Park at dock on next episode awaiting Enter
 
             # Sleep proportional to speed (base 30 Hz -> 33.3ms)
             dt_sleep = max(0.008, (1.0 / 30.0) / speed)

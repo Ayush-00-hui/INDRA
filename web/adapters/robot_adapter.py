@@ -52,7 +52,33 @@ class RobotAdapter:
             except Exception as e:
                 self.model = None
 
+        self.robot_heading: float = 0.0
         self.reset(seed=self.current_seed)
+
+    def _compute_plan(self) -> None:
+        """Compute an instantaneous MPC rollout plan to keep trajectory preview live."""
+        if self.mode == "world_model" and self.model is not None and self.state is not None:
+            try:
+                t0 = time.perf_counter()
+                _, self.last_plan_info = plan(
+                    model=self.model,
+                    state=self.state,
+                    action_size=self.env.get_action_size(),
+                    horizon=14,
+                    n_samples=300,
+                    gamma=0.95,
+                    return_trajectories=True,
+                    last_action=self.last_action
+                )
+                self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+                if self.last_plan_info and "best_trajectory" in self.last_plan_info:
+                    traj = self.last_plan_info["best_trajectory"]
+                    if len(traj) >= 2:
+                        dx = traj[1][0] - traj[0][0]
+                        dy = traj[1][1] - traj[0][1]
+                        self.robot_heading = float(np.degrees(np.arctan2(dx, dy)))
+            except Exception:
+                pass
 
     def reset(self, seed: Optional[int] = None) -> RenderState:
         if seed is not None:
@@ -62,6 +88,7 @@ class RobotAdapter:
         self.last_plan_info = None
         self.plan_latency_ms = 0.0
         self.cum_reward = 0.0
+        self._compute_plan()
         return self.get_render_state()
 
     def set_goal(self, x: float, y: float) -> None:
@@ -69,17 +96,20 @@ class RobotAdapter:
         self.env.goal_x = float(np.clip(x, 40.0, self.env.WIDTH - 40.0))
         self.env.goal_y = float(np.clip(y, 40.0, self.env.HEIGHT - 40.0))
         self.state = self.env._get_state()
+        self._compute_plan()
 
     def add_obstacle(self, x: float, y: float, w: float = 75.0, h: float = 75.0, kind: str = "crate") -> bool:
         """Add custom user-placed obstacle and immediately refresh state observation."""
         res = self.env.place_obstacle(x - w / 2.0, y - h / 2.0, kind=kind, w=w, h=h)
         self.state = self.env._get_state()
+        self._compute_plan()
         return res
 
     def clear_obstacles(self) -> None:
         """Clear all obstacles from environment so user can build layout from scratch."""
         self.env.clear_obstacles()
         self.state = self.env._get_state()
+        self._compute_plan()
 
     def step(self) -> Tuple[RenderState, bool]:
         """Advance one simulation step. Returns (render_state, done)."""
@@ -187,7 +217,7 @@ class RobotAdapter:
             kind="robot",
             x=float(self.env.robot_x),
             y=float(self.env.robot_y),
-            heading=float(getattr(self.env, "robot_heading", 0.0)),
+            heading=float(getattr(self, "robot_heading", 0.0)),
             r=float(self.env.ROBOT_RADIUS),
             extra={
                 "status_led": status_led,

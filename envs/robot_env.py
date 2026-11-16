@@ -197,9 +197,13 @@ class RobotEnv(BaseEnv):
         self.collision_count = 0
         self.episode_count += 1
 
-        # Spawn robot on the left side of the room
-        self.robot_x = float(np.random.uniform(70, 220))
-        self.robot_y = float(np.random.uniform(120, self.HEIGHT - 120))
+        # Always spawn robot at the fixed docking station (left charging bay)
+        if getattr(self, "fixed_dock_start", True):
+            self.robot_x = 110.0
+            self.robot_y = 300.0
+        else:
+            self.robot_x = float(np.random.uniform(70, 220))
+            self.robot_y = float(np.random.uniform(120, self.HEIGHT - 120))
 
         # Spawn goal on the right side of the room
         self.goal_x = float(np.random.uniform(self.WIDTH - 220, self.WIDTH - 70))

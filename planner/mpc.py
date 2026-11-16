@@ -56,6 +56,17 @@ def _build_and_cache_primitives(action_size: int, horizon: int, device: torch.de
     if two_turns:
         prims.append(torch.stack(two_turns))
 
+    # 4. Docking & deceleration maneuvers (action a for k steps, then STAY action 4)
+    if action_size > 4:
+        docking = []
+        for a in range(action_size - 1):
+            for k in range(1, horizon):
+                seq = torch.full((horizon,), 4, device=device, dtype=torch.long)
+                seq[:k] = a
+                docking.append(seq)
+        if docking:
+            prims.append(torch.stack(docking))
+
     cached_tensor = torch.cat(prims, dim=0)
     _PRIMITIVE_CACHE[key] = cached_tensor
     return cached_tensor
@@ -166,6 +177,15 @@ def plan(
         curr_states = s_batch
         discount = 1.0
 
+        # Goal tracking variables
+        has_goal_coords = (s_batch.shape[-1] >= 4)
+        if has_goal_coords:
+            goal_x_px = (s_batch[:, 0] + s_batch[:, 2]) * 450.0 + 450.0
+            goal_y_px = (s_batch[:, 1] + s_batch[:, 3]) * 300.0 + 300.0
+            init_dist = torch.hypot(s_batch[:, 2] * 450.0, s_batch[:, 3] * 300.0)
+            min_dist_along_traj = init_dist.clone()
+            arrival_bonus = torch.zeros(n_samples, device=device, dtype=torch.float32)
+
         # Rollout through imagined future steps (fully batched across samples)
         for t in range(horizon):
             act_t = actions[:, t]
@@ -186,33 +206,38 @@ def plan(
             discount *= gamma
             curr_states = next_states
 
+            if has_goal_coords:
+                step_x_px = curr_states[:, 0] * 450.0 + 450.0
+                step_y_px = curr_states[:, 1] * 300.0 + 300.0
+                step_dist = torch.hypot(step_x_px - goal_x_px, step_y_px - goal_y_px)
+                min_dist_along_traj = torch.minimum(min_dist_along_traj, step_dist)
+
+                # Rewarding reaching the goal (<40 px) along the horizon, discounted by time-to-arrival
+                arrived_step = (step_dist < 40.0) & (arrival_bonus == 0.0)
+                if torch.any(arrived_step):
+                    arrival_bonus[arrived_step] = 45.0 * (gamma ** t)
+
             if return_trajectories:
                 traj_states[t + 1] = curr_states
 
-        # Terminal goal progress heuristic and goal arrival bonus
-        if curr_states.shape[-1] >= 4:
-            init_dist = torch.hypot(s_batch[:, 2] * 450.0, s_batch[:, 3] * 300.0)
+        # Goal progress & precision docking
+        if has_goal_coords:
+            # Reward progress based on the closest approach achieved during the rollout
+            progress = (init_dist - min_dist_along_traj) / 15.0
+            returns += 3.0 * progress
+            returns += arrival_bonus
 
-            # Invariant goal pixel coordinates: norm_goal = norm_robot + rel_goal
-            goal_x_px = (s_batch[:, 0] + s_batch[:, 2]) * 450.0 + 450.0
-            goal_y_px = (s_batch[:, 1] + s_batch[:, 3]) * 300.0 + 300.0
-
-            # Predicted robot pixel position at end of rollout horizon
+            # Proximity fine guidance (< 100px): penalize moving away from goal
             term_x_px = curr_states[:, 0] * 450.0 + 450.0
             term_y_px = curr_states[:, 1] * 300.0 + 300.0
             term_dist = torch.hypot(term_x_px - goal_x_px, term_y_px - goal_y_px)
-
-            # Strong progress gradient pulling the robot toward the goal
-            progress = (init_dist - term_dist) / 15.0
-            returns += 2.50 * progress
-
-            # Goal arrival reward: reaching goal collision radius (< 40 px)
-            reached_mask = (term_dist < 40.0)
-            returns[reached_mask] += 35.0
+            close_mask = (init_dist < 100.0)
+            overshoot_penalty = torch.clamp(term_dist - 40.0, min=0.0) / 20.0
+            returns[close_mask] -= 1.5 * overshoot_penalty[close_mask]
 
             # Penalize idle STAY action (action 4) when goal is not yet reached
             not_at_goal = (init_dist > 40.0)
-            returns[(actions[:, 0] == 4) & not_at_goal] -= 3.50
+            returns[(actions[:, 0] == 4) & not_at_goal] -= 4.0
 
         # Anti-immediate-reversal tie-breaker (prevents 2-state back-and-forth oscillations)
         if last_action is not None and 0 <= last_action < 4:
