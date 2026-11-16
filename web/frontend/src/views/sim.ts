@@ -26,7 +26,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
   // Mission Clock
   const sessionStartTime = Date.now();
-  let setDockingState: (docked: boolean) => void = () => {};
+  let setDockingState: (docked: boolean, sendCmd?: boolean) => void = () => {};
+  let cleanupKeydown: (() => void) | null = null;
 
   const titleMap: Record<string, string> = {
     robotics: "AUTONOMOUS WAREHOUSE ROBOTICS",
@@ -80,7 +81,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       <!-- Floating Docking Bay HUD Banner -->
       <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00f0ff; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 240, 255, 0.35);">
         <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 10px #f59e0b; display: inline-block;"></span>
-        <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT DOCKED AT BAY — PRESS [ENTER] TO LAUNCH</span>
+        <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT DOCKED AT BAY — PRESS [SPACE] TO LAUNCH</span>
       </div>
 
       <!-- Top Mission Control Navigation Header -->
@@ -144,8 +145,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       <!-- Left Heavy Tactical Control Rail -->
       <aside class="glass-panel control-rail">
         <div class="rail-group-title">Robot Docking Bay</div>
-        <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 240, 255, 0.18); border: 2px solid #00f0ff; box-shadow: 0 0 16px rgba(0, 240, 255, 0.4); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press ENTER to release robot from dock">
-          <span id="lbl-dock-launch" style="color: #00f0ff; letter-spacing: 0.5px;">🚀 LAUNCH ROBOT [ENTER]</span>
+        <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 240, 255, 0.18); border: 2px solid #00f0ff; box-shadow: 0 0 16px rgba(0, 240, 255, 0.4); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press SPACE or ENTER to release robot from dock">
+          <span id="lbl-dock-launch" style="color: #00f0ff; letter-spacing: 0.5px;">🚀 LAUNCH ROBOT [SPACE]</span>
         </button>
 
         <div class="rail-group-title">Tactical Strategy</div>
@@ -501,12 +502,15 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       canvasFallback.render(frame);
     }
 
+    // Ground-truth sync of docking and pause state directly from server
+    const serverPaused = frame.metrics?.extra?.is_paused;
+    if (serverPaused !== undefined && serverPaused !== isDocked) {
+      setDockingState(serverPaused, false);
+    }
+
     if (frame.events && frame.events.length > 0) {
       if (frame.events.includes("bonk") || frame.events.includes("collision")) sound.playBonk();
-      if (frame.events.includes("goal")) {
-        sound.playGoal();
-        setTimeout(() => setDockingState(true), 1100);
-      }
+      if (frame.events.includes("goal")) sound.playGoal();
     } else {
       sound.playMove();
     }
@@ -839,36 +843,36 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     const dockHudDot = document.getElementById("dock-hud-dot")!;
     const dockHudText = document.getElementById("dock-hud-text")!;
 
-    setDockingState = (docked: boolean) => {
+    setDockingState = (docked: boolean, sendCmd: boolean = true) => {
       isDocked = docked;
       if (primaryScene) primaryScene.setDockStatus(docked ? "docked" : "released");
       if (docked) {
-        wsClient.sendCommand({ cmd: "pause" });
+        if (sendCmd) wsClient.sendCommand({ cmd: "pause" });
         btnDockLaunch.style.background = "rgba(0, 240, 255, 0.18)";
         btnDockLaunch.style.borderColor = "#00f0ff";
         btnDockLaunch.style.boxShadow = "0 0 16px rgba(0, 240, 255, 0.4)";
-        lblDockLaunch.textContent = "🚀 LAUNCH ROBOT [ENTER]";
+        lblDockLaunch.textContent = "🚀 LAUNCH ROBOT [SPACE]";
         lblDockLaunch.style.color = "#00f0ff";
         if (dockHudDot) {
           dockHudDot.style.background = "#f59e0b";
           dockHudDot.style.boxShadow = "0 0 10px #f59e0b";
         }
         if (dockHudText) {
-          dockHudText.textContent = "ROBOT DOCKED AT BAY — PRESS [ENTER] TO LAUNCH";
+          dockHudText.textContent = "ROBOT DOCKED AT BAY — PRESS [SPACE] TO LAUNCH";
         }
       } else {
-        wsClient.sendCommand({ cmd: "start" });
+        if (sendCmd) wsClient.sendCommand({ cmd: "start" });
         btnDockLaunch.style.background = "rgba(0, 255, 157, 0.22)";
         btnDockLaunch.style.borderColor = "#00ff9d";
         btnDockLaunch.style.boxShadow = "0 0 18px rgba(0, 255, 157, 0.5)";
-        lblDockLaunch.textContent = "⏸️ HOLD / DOCK [ENTER]";
+        lblDockLaunch.textContent = "⏸️ HOLD / PAUSE [SPACE]";
         lblDockLaunch.style.color = "#00ff9d";
         if (dockHudDot) {
           dockHudDot.style.background = "#00ff9d";
           dockHudDot.style.boxShadow = "0 0 10px #00ff9d";
         }
         if (dockHudText) {
-          dockHudText.textContent = "ROBOT DEPLOYED — EXECUTING PATH — [ENTER] TO HOLD";
+          dockHudText.textContent = "ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD";
         }
         sound.playMove();
       }
@@ -939,6 +943,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.playClick();
     };
 
+    // Unfocus buttons immediately on click to prevent Spacebar from activating focused buttons
+    document.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => btn.blur());
+    });
+
     // Keyboard Shortcuts
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
@@ -970,12 +979,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     };
 
     window.addEventListener("keydown", handleKeyDown);
+    cleanupKeydown = () => window.removeEventListener("keydown", handleKeyDown);
   };
 
   setupControls();
 
   // Cleanup on unmount
   return () => {
+    if (cleanupKeydown) cleanupKeydown();
     cancelAnimationFrame(animId);
     wsClient.disconnect();
     replayLoader.stop();

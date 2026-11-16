@@ -96,6 +96,7 @@ class RobotAdapter:
         """Dynamically update goal position and refresh state observation."""
         self.env.goal_x = float(np.clip(x, 40.0, self.env.WIDTH - 40.0))
         self.env.goal_y = float(np.clip(y, 40.0, self.env.HEIGHT - 40.0))
+        self.env.is_custom_layout = True
         self.state = self.env._get_state()
         self._compute_plan()
 
@@ -296,7 +297,7 @@ class RobotAdapter:
         # 5. Metrics
         metrics = Metrics(
             reward=round(self.cum_reward, 2),
-            episode=self.episode_count,
+            episode=self.env.episode_count,
             success=info.get("reached_goal", False),
             collisions=self.env.collision_count,
             step_count=self.env.step_count,

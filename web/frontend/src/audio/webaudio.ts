@@ -72,8 +72,7 @@ class SoundManager {
    */
   public playMove() {
     if (this.isMuted) return;
-    this.initContext();
-    if (!this.ctx || !this.masterGain) return;
+    if (!this.ctx || this.ctx.state !== "running" || !this.masterGain) return;
 
     const now = performance.now();
     // Throttle so sound glides continuously with smooth cadence

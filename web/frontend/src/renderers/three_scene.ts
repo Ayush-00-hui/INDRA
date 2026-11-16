@@ -67,6 +67,8 @@ export class ThreeSimulationScene {
   private targetClampAngle: number = 0;
   private currentRobotHeading: number = 0;
   private lastRobotPos = new THREE.Vector3();
+  private smoothedVx: number = 1.0;
+  private smoothedVz: number = 0.0;
   private pathEdgeLineLeft: THREE.Line | null = null;
   private pathEdgeLineRight: THREE.Line | null = null;
 
@@ -1061,11 +1063,12 @@ export class ThreeSimulationScene {
 
     // Smooth Sub-Frame Kinematic Interpolation for Robot
     if (!this.isFirstStateUpdate) {
-      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 24.0));
+      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 20.0));
       let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
       if (diff > Math.PI) diff -= Math.PI * 2;
       if (diff < -Math.PI) diff += Math.PI * 2;
-      this.currentRobotHeading += diff * Math.min(1.0, dt * 20.0);
+      // Controlled, physically grounded turning speed (no violent 90-degree snapping)
+      this.currentRobotHeading += diff * Math.min(1.0, dt * 8.0);
     }
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1080,7 +1083,7 @@ export class ThreeSimulationScene {
       );
     }
 
-    // Head-Mounted POV Camera: oriented in the exact direction of the path
+    // Head-Mounted POV Camera: oriented in the exact direction of the robot's forward path
     const fwdX = Math.sin(this.currentRobotHeading);
     const fwdZ = Math.cos(this.currentRobotHeading);
     const eyeX = this.currentRobotPos.x + fwdX * 0.12;
@@ -1088,8 +1091,9 @@ export class ThreeSimulationScene {
     const eyeZ = this.currentRobotPos.z + fwdZ * 0.12;
 
     this.povCamera.position.set(eyeX, eyeY, eyeZ);
-    this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading);
-    this.povCamera.quaternion.slerp(this.povTargetQuat, 0.35);
+    // Three.js camera looks down -Z by default, while humanoid faces +Z: rotate by heading + PI
+    this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading + Math.PI);
+    this.povCamera.quaternion.slerp(this.povTargetQuat, 0.25);
 
     // Update Headlight Target
     this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
@@ -1208,28 +1212,41 @@ export class ThreeSimulationScene {
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
 
-        // Calculate targetHeading: when docked, lock East toward arena; when moving, align to motion or plan
+        // Calculate targetHeading:
+        // 1. When docked: lock East (facing into the arena).
+        // 2. When World Model plan is active: look 3-4 steps ahead along the smooth 14-step receding horizon spline!
+        // 3. When baseline/reactive: filter out single-step orthogonal grid stair-stepping with EMA.
         let targetHeading = this.currentRobotHeading;
         if (this.isDocked) {
           targetHeading = Math.PI / 2; // Locked East
+          this.smoothedVx = 1.0;
+          this.smoothedVz = 0.0;
+        } else if (frame.plan && frame.plan.best && frame.plan.best.length >= 3) {
+          // Look 3-4 steps ahead along the smooth Catmull-Rom navigation ribbon
+          const lookaheadIdx = Math.min(3, frame.plan.best.length - 1);
+          const lookahead3D = this.to3D(frame.plan.best[lookaheadIdx][0], frame.plan.best[lookaheadIdx][1]);
+          const dx = lookahead3D.x - pos.x;
+          const dz = lookahead3D.z - pos.z;
+          if (Math.hypot(dx, dz) > 0.06) {
+            targetHeading = Math.atan2(dx, dz);
+            this.smoothedVx = dx;
+            this.smoothedVz = dz;
+          }
         } else {
+          // In baseline mode or when plan is unavailable:
+          // Filter out discrete single-step orthogonal grid stair-stepping with EMA
           const moveDx = pos.x - this.lastRobotPos.x;
           const moveDz = pos.z - this.lastRobotPos.z;
-          if (Math.hypot(moveDx, moveDz) > 0.04) {
-            targetHeading = Math.atan2(moveDx, moveDz);
-          } else if (frame.plan && frame.plan.best && frame.plan.best.length >= 2) {
-            const next3D = this.to3D(frame.plan.best[1][0], frame.plan.best[1][1]);
-            const dX = next3D.x - pos.x;
-            const dZ = next3D.z - pos.z;
-            if (Math.hypot(dX, dZ) > 0.10) {
-              targetHeading = Math.atan2(dX, dZ);
-            }
+          if (Math.hypot(moveDx, moveDz) > 0.02) {
+            this.smoothedVx = THREE.MathUtils.lerp(this.smoothedVx, moveDx, 0.28);
+            this.smoothedVz = THREE.MathUtils.lerp(this.smoothedVz, moveDz, 0.28);
+            targetHeading = Math.atan2(this.smoothedVx, this.smoothedVz);
           }
         }
         this.lastRobotPos.set(pos.x, 0, pos.z);
         this.targetRobotHeading = targetHeading;
 
-        if (this.isFirstStateUpdate || this.currentRobotPos.distanceTo(this.targetRobotPos) > 1.8) {
+        if (this.isFirstStateUpdate || frame.step === 0 || this.currentRobotPos.distanceTo(this.targetRobotPos) > 1.8) {
           this.currentRobotPos.copy(this.targetRobotPos);
           this.currentRobotHeading = this.targetRobotHeading;
           this.isFirstStateUpdate = false;
@@ -1509,14 +1526,14 @@ export class ThreeSimulationScene {
 
     if (this.cameraMode === "chase") {
       if (this.controls) this.controls.enabled = false;
-      // Dynamic third-person camera following behind the humanoid robot
-      const camDist = 2.2;
+      // Dynamic third-person camera following behind the humanoid robot looking forward
+      const camDist = 2.4;
       const camHeight = 1.85;
       const behindX = rx - Math.sin(heading) * camDist;
-      const behindZ = rz + Math.cos(heading) * camDist;
+      const behindZ = rz - Math.cos(heading) * camDist;
 
       this.targetCamPos.set(behindX, camHeight, behindZ);
-      this.targetCamLookAt.set(rx + Math.sin(heading) * 1.2, 1.1, rz - Math.cos(heading) * 1.2);
+      this.targetCamLookAt.set(rx + Math.sin(heading) * 1.5, 1.1, rz + Math.cos(heading) * 1.5);
 
       this.currentCamPos.lerp(this.targetCamPos, 0.08);
       this.currentCamLookAt.lerp(this.targetCamLookAt, 0.08);

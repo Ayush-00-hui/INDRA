@@ -265,6 +265,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
             if is_paused:
                 if adapter_left and hasattr(adapter_left, "get_render_state"):
                     rs = adapter_left.get_render_state()
+                    rs.metrics.extra["is_paused"] = True
                     await websocket.send_text(rs.model_dump_json())
                 await asyncio.sleep(0.08)
             else:
@@ -277,6 +278,8 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         return l_rs, r_rs, (l_done and r_done)
 
                     left_rs, right_rs, both_done = await loop.run_in_executor(executor, step_both)
+                    left_rs.metrics.extra["is_paused"] = False
+                    right_rs.metrics.extra["is_paused"] = False
                     comp_pkt = CompareRenderState(scenario=scenario, left=left_rs, right=right_rs)
                     await websocket.send_text(comp_pkt.model_dump_json())
 
@@ -291,6 +294,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         return adapter_left.step()
 
                     rs, done = await loop.run_in_executor(executor, step_single)
+                    rs.metrics.extra["is_paused"] = False
                     await websocket.send_text(rs.model_dump_json())
 
                     if done:
