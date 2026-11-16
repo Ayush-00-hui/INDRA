@@ -219,6 +219,26 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     is_paused = False
                 elif cmd.cmd == "step":
                     is_paused = True  # Step single frame below
+                elif cmd.cmd == "set_goal":
+                    if cmd.x is not None and cmd.y is not None:
+                        if adapter_left and hasattr(adapter_left, "set_goal"):
+                            adapter_left.set_goal(cmd.x, cmd.y)
+                        if adapter_right and hasattr(adapter_right, "set_goal"):
+                            adapter_right.set_goal(cmd.x, cmd.y)
+                elif cmd.cmd == "add_obstacle":
+                    if cmd.x is not None and cmd.y is not None:
+                        kind = cmd.kind or "crate"
+                        w = float(cmd.w or 75.0)
+                        h = float(cmd.h or 75.0)
+                        if adapter_left and hasattr(adapter_left, "add_obstacle"):
+                            adapter_left.add_obstacle(cmd.x, cmd.y, w, h, kind)
+                        if adapter_right and hasattr(adapter_right, "add_obstacle"):
+                            adapter_right.add_obstacle(cmd.x, cmd.y, w, h, kind)
+                elif cmd.cmd == "clear_obstacles":
+                    if adapter_left and hasattr(adapter_left, "clear_obstacles"):
+                        adapter_left.clear_obstacles()
+                    if adapter_right and hasattr(adapter_right, "clear_obstacles"):
+                        adapter_right.clear_obstacles()
                 elif cmd.cmd == "reset":
                     if cmd.seed is not None:
                         current_seed = cmd.seed

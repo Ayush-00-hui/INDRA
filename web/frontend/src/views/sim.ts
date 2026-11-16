@@ -55,6 +55,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </div>
       </div>
 
+      <!-- Interactive Goal / Object Placement Pill Banner -->
+      <div id="hint-click-goal" class="glass-pill" style="position: absolute; top: 58px; right: 24px; z-index: 10; font-size: 0.76rem; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(0, 229, 255, 0.4); color: #00e5ff; display: flex; align-items: center; gap: 8px; pointer-events: none; box-shadow: 0 4px 16px rgba(0, 229, 255, 0.2);">
+        <span id="hint-icon" style="font-size: 0.95rem;">🎯</span>
+        <span id="hint-text">Click floor to move Goal Dock (or select an object tool below)</span>
+      </div>
+
       <!-- Top Overlay Bar -->
       <header class="top-nav" style="background: rgba(10, 14, 23, 0.75);">
         <div style="display: flex; align-items: center; gap: 16px;">
@@ -132,6 +138,32 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           <span id="lbl-sound">Sound: ON</span>
           <span style="font-family: var(--font-mono); font-size: 0.75rem;">[N]</span>
         </button>
+
+        <!-- Dynamic Object Placement & Arena Sandbox Tools -->
+        <div class="rail-group-title" style="margin-top: 8px;">Place Objects Live</div>
+        <div style="font-size: 0.70rem; color: var(--text-dim); margin-bottom: 6px;">Pick tool, then click arena floor:</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin-bottom: 6px;">
+          <button id="tool-goal" class="rail-btn active" style="padding: 6px 4px; font-size: 0.75rem; justify-content: center;" title="Click floor to move Goal Dock">
+            <span>🎯 Goal</span>
+          </button>
+          <button id="tool-crate" class="rail-btn" style="padding: 6px 4px; font-size: 0.75rem; justify-content: center;" title="Click floor to drop Wooden Shipping Crate">
+            <span>📦 Crate</span>
+          </button>
+          <button id="tool-cabinet" class="rail-btn" style="padding: 6px 4px; font-size: 0.75rem; justify-content: center;" title="Click floor to drop Red Tool Cabinet">
+            <span>🧰 Cabinet</span>
+          </button>
+          <button id="tool-workstation" class="rail-btn" style="padding: 6px 4px; font-size: 0.75rem; justify-content: center;" title="Click floor to drop Workstation Table">
+            <span>🛠️ Table</span>
+          </button>
+        </div>
+        <div style="display: flex; gap: 5px;">
+          <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f87171; border-color: rgba(239, 68, 68, 0.4); padding: 5px 4px; font-size: 0.72rem;" title="Clear all obstacles from arena">
+            <span>✕ Clear All</span>
+          </button>
+          <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center; padding: 5px 4px; font-size: 0.72rem;" title="Randomize obstacle course">
+            <span>🎲 Random</span>
+          </button>
+        </div>
       </aside>
 
       <!-- Right "Brain" Understanding Panel -->
@@ -190,9 +222,20 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <div id="metric-steps" style="font-size: 1.15rem; font-weight: 700;">0 / 200</div>
           </div>
           <div class="glass-panel" style="padding: 8px;">
-            <div style="font-size: 0.68rem; color: var(--text-dim);">1-STEP MAE</div>
-            <div id="metric-mae" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-cyan);">-</div>
+            <div style="font-size: 0.68rem; color: var(--text-dim);">GOAL DISTANCE</div>
+            <div id="metric-goal-dist" style="font-size: 1.15rem; font-weight: 700; color: var(--accent-cyan);">- m</div>
           </div>
+        </div>
+
+        <!-- Real-Time Goal Proximity Sparkline -->
+        <div class="glass-panel" style="margin-top: 8px; padding: 8px 10px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.68rem; color: var(--text-dim); margin-bottom: 4px;">
+            <span style="font-weight: 600; letter-spacing: 0.5px;">DISTANCE TO GOAL</span>
+            <span id="sparkline-dist-val" style="color: var(--accent-cyan); font-family: var(--font-mono); font-weight: 700;">- m</span>
+          </div>
+          <svg id="sparkline-dist" viewBox="0 0 200 36" style="width: 100%; height: 36px; display: block; overflow: visible;">
+            <path id="sparkline-dist-path" fill="none" stroke="#00e5ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M 0 18 L 200 18" />
+          </svg>
         </div>
       </aside>
 
@@ -251,6 +294,23 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   let leftTelemetryEl: HTMLDivElement | null = null;
   let rightTelemetryEl: HTMLDivElement | null = null;
   let winnerBadgeEl: HTMLDivElement | null = null;
+  const distHistory: number[] = [];
+
+  const handleFloorClick = (px: number, py: number) => {
+    if (isLive) {
+      wsClient.sendCommand({ cmd: "set_goal", x: px, y: py });
+      sound.playGoal();
+    }
+  };
+
+  const handlePlaceObstacle = (px: number, py: number, kind: string) => {
+    if (isLive) {
+      const w = kind === "workstation" ? 80.0 : (kind === "cabinet" ? 75.0 : 70.0);
+      const h = kind === "workstation" ? 80.0 : (kind === "cabinet" ? 65.0 : 70.0);
+      wsClient.sendCommand({ cmd: "add_obstacle", x: px, y: py, kind, w, h });
+      sound.playStep();
+    }
+  };
 
   const initPrimaryScene = () => {
     canvasRoot.innerHTML = "";
@@ -261,6 +321,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (!primaryScene.isAvailable()) {
       primaryScene = null;
       canvasFallback = new CanvasFallbackRenderer(canvasRoot);
+    } else {
+      primaryScene.onFloorClick = handleFloorClick;
+      primaryScene.onPlaceObstacle = handlePlaceObstacle;
     }
   };
 
@@ -298,6 +361,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
     secondaryScene = new ThreeSimulationScene(leftContainer);
     primaryScene = new ThreeSimulationScene(rightContainer);
+    if (primaryScene) {
+      primaryScene.onFloorClick = handleFloorClick;
+    }
   };
 
   // Start with Primary Viewport
@@ -378,8 +444,28 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       metricSteps.textContent = `${currentStep} / 200`;
     }
 
-    if (frame.model_error != null) {
-      metricMae.textContent = typeof frame.model_error === "number" ? frame.model_error.toFixed(4) : String(frame.model_error);
+    // Live Goal Proximity & Real-Time Sparkline
+    const metricGoalDist = document.getElementById("metric-goal-dist");
+    const sparklineDistPath = document.getElementById("sparkline-dist-path");
+    const sparklineDistVal = document.getElementById("sparkline-dist-val");
+    if (frame.goal && frame.entities) {
+      const robot = frame.entities.find((e: any) => e.kind === "robot");
+      if (robot && metricGoalDist && sparklineDistPath && sparklineDistVal) {
+        const distPx = Math.hypot(frame.goal.x - robot.x, frame.goal.y - robot.y);
+        const distM = distPx / 100.0;
+        metricGoalDist.textContent = `${distM.toFixed(2)} m`;
+        sparklineDistVal.textContent = `${distM.toFixed(2)} m`;
+        distHistory.push(distM);
+        if (distHistory.length > 25) distHistory.shift();
+
+        const maxD = Math.max(6.0, ...distHistory);
+        const pts = distHistory.map((d, idx) => {
+          const x = (idx / Math.max(distHistory.length - 1, 1)) * 200;
+          const y = 32 - (d / maxD) * 28;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        });
+        sparklineDistPath.setAttribute("d", "M " + pts.join(" L "));
+      }
     }
 
     if (frame.plan) {
@@ -490,6 +576,54 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     } else {
       replayLoader.load(scenarioId, currentVariant, currentMode === "baseline" ? "baseline" : "wm");
     }
+  };
+
+  // Interactive Object Placement Tools
+  const toolGoal = document.getElementById("tool-goal")!;
+  const toolCrate = document.getElementById("tool-crate")!;
+  const toolCabinet = document.getElementById("tool-cabinet")!;
+  const toolWorkstation = document.getElementById("tool-workstation")!;
+  const btnClearObs = document.getElementById("btn-clear-obs")!;
+  const btnRandomObs = document.getElementById("btn-random-obs")!;
+  const hintIcon = document.getElementById("hint-icon")!;
+  const hintText = document.getElementById("hint-text")!;
+
+  const selectPlacementTool = (tool: "goal" | "crate" | "cabinet" | "workstation") => {
+    if (primaryScene) primaryScene.activePlacementTool = tool;
+    toolGoal.classList.toggle("active", tool === "goal");
+    toolCrate.classList.toggle("active", tool === "crate");
+    toolCabinet.classList.toggle("active", tool === "cabinet");
+    toolWorkstation.classList.toggle("active", tool === "workstation");
+
+    if (tool === "goal") {
+      hintIcon.textContent = "🎯";
+      hintText.textContent = "Click floor to relocate Goal Dock live";
+    } else if (tool === "crate") {
+      hintIcon.textContent = "📦";
+      hintText.textContent = "Click floor to drop Wooden Shipping Crate";
+    } else if (tool === "cabinet") {
+      hintIcon.textContent = "🧰";
+      hintText.textContent = "Click floor to drop Red Tool Cabinet";
+    } else if (tool === "workstation") {
+      hintIcon.textContent = "🛠️";
+      hintText.textContent = "Click floor to drop Industrial Workstation Table";
+    }
+  };
+
+  toolGoal.onclick = () => selectPlacementTool("goal");
+  toolCrate.onclick = () => selectPlacementTool("crate");
+  toolCabinet.onclick = () => selectPlacementTool("cabinet");
+  toolWorkstation.onclick = () => selectPlacementTool("workstation");
+
+  btnClearObs.onclick = () => {
+    if (isLive) {
+      wsClient.sendCommand({ cmd: "clear_obstacles" });
+      sound.playStep();
+    }
+  };
+
+  btnRandomObs.onclick = () => {
+    btnReset.click();
   };
 
   // Unified Camera Cycling (Merged C and V)

@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import argparse
+from typing import Dict, List, Tuple, Any, Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -51,7 +52,7 @@ def train_single_member(
 
     optimizer = torch.optim.AdamW(member.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
-    scaler = GradScaler(enabled=(device.type == "cuda"))
+    scaler = torch.amp.GradScaler('cuda', enabled=(device.type == "cuda"))
 
     history = {"train_loss": [], "val_loss": []}
 
@@ -66,11 +67,14 @@ def train_single_member(
             idx = perm[start:end]
 
             optimizer.zero_grad(set_to_none=True)
-            with autocast(enabled=(device.type == "cuda"), dtype=torch.float16):
+            with torch.amp.autocast('cuda', enabled=(device.type == "cuda"), dtype=torch.float16):
                 pred_d, pred_r = member(b_states[idx], b_actions[idx])
                 loss_d = F.mse_loss(pred_d, b_deltas[idx])
-                loss_r = F.mse_loss(pred_r, b_rewards[idx])
-                loss = loss_d + loss_r
+                # Focal obstacle boundary weighting: penalize collision errors heavily
+                coll_mask = (b_rewards[idx] < -0.2).float()
+                weights = 1.0 + 1.5 * coll_mask
+                loss_r = (weights * (pred_r - b_rewards[idx]).pow(2)).mean()
+                loss = loss_d + 0.8 * loss_r
 
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
@@ -87,12 +91,15 @@ def train_single_member(
         # Validation
         member.eval()
         with torch.no_grad():
-            with autocast(enabled=(device.type == "cuda"), dtype=torch.float16):
+            with torch.amp.autocast('cuda', enabled=(device.type == "cuda"), dtype=torch.float16):
                 val_d, val_r = member(val_norm_states, val_actions_oh)
                 v_loss = (F.mse_loss(val_d, val_norm_deltas) + F.mse_loss(val_r, val_norm_rewards)).item()
 
         history["train_loss"].append(avg_train)
         history["val_loss"].append(v_loss)
+
+        if epoch % 5 == 0 or epoch == 1 or epoch == epochs:
+            print(f"    Epoch [{epoch:2d}/{epochs:2d}] | Train: {avg_train:.5f} | Val: {v_loss:.5f}")
 
     return history
 

@@ -1187,7 +1187,7 @@ def main():
     parser.add_argument("--classic", action="store_true", help="Run with original lightweight classic renderer.")
     parser.add_argument("--renderer", type=str, default="auto", choices=["3d", "2d", "classic", "auto"], help="Renderer selection (3d, 2d, classic, auto).")
     parser.add_argument("--tour", action="store_true", help="Start directly in pedagogical guided tour.")
-    parser.add_argument("--quality", type=str, default="high", choices=["low", "med", "high"], help="Graphics quality preset.")
+    parser.add_argument("--quality", type=str, default="high", choices=["low", "med", "high", "ultra"], help="Graphics quality preset.")
     parser.add_argument("--mute", action="store_true", help="Launch with procedural audio muted.")
     args = parser.parse_args()
 

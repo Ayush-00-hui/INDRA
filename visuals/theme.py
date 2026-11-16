@@ -11,11 +11,14 @@ class QualityLevel(IntEnum):
     LOW = 1
     MED = 2
     HIGH = 3
+    ULTRA = 4
 
     @classmethod
     def from_string(cls, name: str) -> "QualityLevel":
         s = str(name).strip().upper()
-        if "LOW" in s:
+        if "ULTRA" in s or "MAX" in s:
+            return cls.ULTRA
+        elif "LOW" in s:
             return cls.LOW
         elif "HIGH" in s:
             return cls.HIGH

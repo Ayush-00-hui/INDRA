@@ -171,7 +171,7 @@ class World3D:
         # 1. Sun Directional Light (Warm key sunlight)
         dlight = DirectionalLight("arena_sun")
         dlight.setColor(Vec4(1.25, 1.20, 1.10, 1.0))
-        dlight.setShadowCaster(True, 2048, 2048)
+        dlight.setShadowCaster(True, 4096, 4096)
         dnp = self.root.attachNewNode(dlight)
         # Angled from West-South-West down onto the floor
         dnp.setHpr(-40, -55, 0)

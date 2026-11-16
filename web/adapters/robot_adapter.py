@@ -64,6 +64,23 @@ class RobotAdapter:
         self.cum_reward = 0.0
         return self.get_render_state()
 
+    def set_goal(self, x: float, y: float) -> None:
+        """Dynamically update goal position and refresh state observation."""
+        self.env.goal_x = float(np.clip(x, 40.0, self.env.WIDTH - 40.0))
+        self.env.goal_y = float(np.clip(y, 40.0, self.env.HEIGHT - 40.0))
+        self.state = self.env._get_state()
+
+    def add_obstacle(self, x: float, y: float, w: float = 75.0, h: float = 75.0, kind: str = "crate") -> bool:
+        """Add custom user-placed obstacle and immediately refresh state observation."""
+        res = self.env.place_obstacle(x - w / 2.0, y - h / 2.0, kind=kind, w=w, h=h)
+        self.state = self.env._get_state()
+        return res
+
+    def clear_obstacles(self) -> None:
+        """Clear all obstacles from environment so user can build layout from scratch."""
+        self.env.clear_obstacles()
+        self.state = self.env._get_state()
+
     def step(self) -> Tuple[RenderState, bool]:
         """Advance one simulation step. Returns (render_state, done)."""
         if self.state is None:
@@ -74,18 +91,36 @@ class RobotAdapter:
         self.last_plan_info = None
 
         if self.mode == "world_model" and self.model is not None:
-            t0 = time.perf_counter()
-            chosen_action, self.last_plan_info = plan(
-                model=self.model,
-                state=self.state,
-                action_size=self.env.get_action_size(),
-                horizon=14,
-                n_samples=300,
-                gamma=0.95,
-                return_trajectories=True,
-                last_action=self.last_action
-            )
-            self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+            # Check stuck status (4 consecutive stationary steps)
+            curr_pos = (round(self.env.robot_x, 1), round(self.env.robot_y, 1))
+            if getattr(self, "_last_pos", None) == curr_pos:
+                self._stuck_count = getattr(self, "_stuck_count", 0) + 1
+            else:
+                self._stuck_count = 0
+                self._last_pos = curr_pos
+
+            if getattr(self, "_stuck_count", 0) >= 4:
+                # Evasive perpendicular unstick step
+                dx = self.env.goal_x - self.env.robot_x
+                dy = self.env.goal_y - self.env.robot_y
+                if abs(dx) > abs(dy):
+                    chosen_action = RobotEnv.ACTION_UP if dy < 0 else RobotEnv.ACTION_DOWN
+                else:
+                    chosen_action = RobotEnv.ACTION_LEFT if dx < 0 else RobotEnv.ACTION_RIGHT
+                self._stuck_count = 0
+            else:
+                t0 = time.perf_counter()
+                chosen_action, self.last_plan_info = plan(
+                    model=self.model,
+                    state=self.state,
+                    action_size=self.env.get_action_size(),
+                    horizon=14,
+                    n_samples=300,
+                    gamma=0.95,
+                    return_trajectories=True,
+                    last_action=self.last_action
+                )
+                self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
         else:
             # Reactive greedy baseline
             chosen_action = get_greedy_action(self.env.robot_x, self.env.robot_y, self.env.goal_x, self.env.goal_y)
@@ -203,17 +238,19 @@ class RobotAdapter:
         plan_obj: Optional[Plan] = None
         if self.last_plan_info is not None:
             best_traj = self.last_plan_info.get("best_trajectory", [])
-            # Convert 16D state coords ([0]=x/900, [1]=y/600) to pixel coordinates
+            # Convert normalized state coords ([0]=norm_x, [1]=norm_y in [-1, 1]) to canvas pixels [0, 900] and [0, 600]
             best_pts = []
             for step_vec in best_traj:
                 if len(step_vec) >= 2:
-                    best_pts.append([float(step_vec[0]) * 900.0, float(step_vec[1]) * 600.0])
+                    px = float(step_vec[0]) * 450.0 + 450.0
+                    py = float(step_vec[1]) * 300.0 + 300.0
+                    best_pts.append([px, py])
 
             alt_objs: List[PlanAlt] = []
             cands = self.last_plan_info.get("candidate_trajectories", [])
             rets = self.last_plan_info.get("candidate_returns", [])
             for c_idx, traj in enumerate(cands[:15]):
-                pts = [[float(v[0]) * 900.0, float(v[1]) * 600.0] for v in traj if len(v) >= 2]
+                pts = [[float(v[0]) * 450.0 + 450.0, float(v[1]) * 300.0 + 300.0] for v in traj if len(v) >= 2]
                 score = float(rets[c_idx]) if c_idx < len(rets) else 0.0
                 alt_objs.append(PlanAlt(path=pts, score=score, first_action=c_idx % 5))
 

@@ -162,7 +162,7 @@ def distill(
 
     optimizer = torch.optim.AdamW(student.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
-    scaler = GradScaler(enabled=(device.type == "cuda"))
+    scaler = torch.amp.GradScaler('cuda', enabled=(device.type == "cuda"))
 
     # Compute Teacher Targets in batches to save memory
     print("Pre-computing Teacher targets (mean delta, mean reward, ensemble disagreement)...")
@@ -206,7 +206,7 @@ def distill(
             idx = perm[b_start:b_end]
 
             optimizer.zero_grad(set_to_none=True)
-            with autocast(enabled=(device.type == "cuda"), dtype=torch.float16):
+            with torch.amp.autocast('cuda', enabled=(device.type == "cuda"), dtype=torch.float16):
                 s_pred_d, s_pred_r, s_pred_u = student(norm_states[idx], actions_oh[idx])
 
                 loss_delta = F.mse_loss(s_pred_d, t_deltas[idx])

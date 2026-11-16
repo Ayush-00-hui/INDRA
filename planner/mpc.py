@@ -189,18 +189,36 @@ def plan(
             if return_trajectories:
                 traj_states[t + 1] = curr_states
 
-        # Terminal goal progress heuristic (breaks limit-cycle ties and accelerates goal arrival)
+        # Terminal goal progress heuristic and goal arrival bonus
         if curr_states.shape[-1] >= 4:
             init_dist = torch.hypot(s_batch[:, 2] * 450.0, s_batch[:, 3] * 300.0)
-            term_dist = torch.hypot(curr_states[:, 2] * 450.0, curr_states[:, 3] * 300.0)
+
+            # Invariant goal pixel coordinates: norm_goal = norm_robot + rel_goal
+            goal_x_px = (s_batch[:, 0] + s_batch[:, 2]) * 450.0 + 450.0
+            goal_y_px = (s_batch[:, 1] + s_batch[:, 3]) * 300.0 + 300.0
+
+            # Predicted robot pixel position at end of rollout horizon
+            term_x_px = curr_states[:, 0] * 450.0 + 450.0
+            term_y_px = curr_states[:, 1] * 300.0 + 300.0
+            term_dist = torch.hypot(term_x_px - goal_x_px, term_y_px - goal_y_px)
+
+            # Strong progress gradient pulling the robot toward the goal
             progress = (init_dist - term_dist) / 15.0
-            returns += 0.20 * progress
+            returns += 2.50 * progress
+
+            # Goal arrival reward: reaching goal collision radius (< 40 px)
+            reached_mask = (term_dist < 40.0)
+            returns[reached_mask] += 35.0
+
+            # Penalize idle STAY action (action 4) when goal is not yet reached
+            not_at_goal = (init_dist > 40.0)
+            returns[(actions[:, 0] == 4) & not_at_goal] -= 3.50
 
         # Anti-immediate-reversal tie-breaker (prevents 2-state back-and-forth oscillations)
         if last_action is not None and 0 <= last_action < 4:
             opposite = {0: 1, 1: 0, 2: 3, 3: 2}.get(last_action, -1)
             if opposite != -1:
-                returns[actions[:, 0] == opposite] -= 0.30
+                returns[actions[:, 0] == opposite] -= 0.60
 
         best_idx = torch.argmax(returns).item()
         best_action = int(actions[best_idx, 0].item())

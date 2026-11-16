@@ -229,12 +229,33 @@ class RobotEnv(BaseEnv):
             if abs(box_x - chair_x) > 100 or abs(box_y - chair_y) > 100:
                 self.obstacles.append(Obstacle(box_x, box_y, box_w, box_h, kind="block"))
 
-        # 3. Scenario 2: Add moving obstacle (a "person" walking across the room)
+        # 3. Dynamic scenarios
         if self.scenario == 2:
             person_x = float(np.random.uniform(300, 600))
             person_y = float(np.random.uniform(100, self.HEIGHT - 100))
             vy = float(np.random.choice([-4.0, 4.0]))
             self.obstacles.append(Obstacle(person_x, person_y, 45.0, 45.0, kind="person", vx=0.0, vy=vy))
+        elif self.scenario == 3:
+            # Scenario 3: Dense Multi-Obstacle Warehouse Maze (4 to 8 randomized obstacles)
+            num_extra = int(np.random.randint(2, 6))
+            kinds = ["crate", "cabinet", "workstation"]
+            for _ in range(num_extra):
+                ow = float(np.random.uniform(55, 95))
+                oh = float(np.random.uniform(55, 95))
+                ox = float(np.random.uniform(160, self.WIDTH - 220))
+                oy = float(np.random.uniform(80, self.HEIGHT - 150))
+                k = str(np.random.choice(kinds))
+                self.obstacles.append(Obstacle(ox, oy, ow, oh, kind=k))
+        elif self.scenario == 4:
+            # Scenario 4: Dynamic warehouse with moving person and dense static clutter
+            person_x = float(np.random.uniform(280, 620))
+            person_y = float(np.random.uniform(100, self.HEIGHT - 100))
+            vy = float(np.random.choice([-5.0, -3.0, 3.0, 5.0]))
+            self.obstacles.append(Obstacle(person_x, person_y, 45.0, 45.0, kind="person", vx=0.0, vy=vy))
+            for _ in range(3):
+                ox = float(np.random.uniform(180, self.WIDTH - 220))
+                oy = float(np.random.uniform(90, self.HEIGHT - 160))
+                self.obstacles.append(Obstacle(ox, oy, 72.0, 72.0, kind="crate"))
 
         return self._get_state()
 
@@ -445,28 +466,42 @@ class RobotEnv(BaseEnv):
             )
             screen.blit(scen_txt, (25, 64))
 
-    def place_obstacle(self, x: float, y: float, kind: str = "chair") -> bool:
+    def place_obstacle(self, x: float, y: float, kind: str = "crate", w: Optional[float] = None, h: Optional[float] = None) -> bool:
         """
-        Interactive Edit Mode (Phase 9): Add custom obstacle to environment.
-        Layout is marked as custom and excluded from formal benchmarks.
+        Interactive Edit Mode: Add custom obstacle to environment.
+        Supports up to 12 dynamic obstacles (crates, cabinets, workstations, blocks).
         """
-        w, h = (80.0, 80.0) if kind == "chair" else (60.0, 60.0)
-        if x < 30.0 or x + w > self.WIDTH - 30.0 or y < 30.0 or y + h > self.HEIGHT - 30.0:
-            return False
+        if w is None or h is None:
+            if kind in ("chair", "workstation"):
+                w, h = 80.0, 80.0
+            elif kind == "cabinet":
+                w, h = 75.0, 65.0
+            else:
+                w, h = 70.0, 70.0
+
+        # Clamp within room borders with margin
+        x = float(np.clip(x, 15.0, self.WIDTH - w - 15.0))
+        y = float(np.clip(y, 15.0, self.HEIGHT - h - 15.0))
 
         cx, cy = x + w * 0.5, y + h * 0.5
-        if math.hypot(cx - self.robot_x, cy - self.robot_y) < (self.ROBOT_RADIUS + 40.0):
+        # Don't place directly on top of the robot or goal
+        if math.hypot(cx - self.robot_x, cy - self.robot_y) < (self.ROBOT_RADIUS + 25.0):
             return False
-        if math.hypot(cx - self.goal_x, cy - self.goal_y) < (self.GOAL_RADIUS + 40.0):
+        if math.hypot(cx - self.goal_x, cy - self.goal_y) < (self.GOAL_RADIUS + 25.0):
             return False
 
-        if len(self.obstacles) >= 4:
-            return False
+        if len(self.obstacles) >= 12:
+            self.obstacles.pop(0)  # Rotate oldest obstacle out to make room
 
         obs = Obstacle(x=x, y=y, width=w, height=h, kind=kind)
         self.obstacles.append(obs)
         self.is_custom_layout = True
         return True
+
+    def clear_obstacles(self) -> None:
+        """Clear all obstacles so user can design custom course from scratch."""
+        self.obstacles = []
+        self.is_custom_layout = True
 
     def set_goal(self, x: float, y: float) -> bool:
         """

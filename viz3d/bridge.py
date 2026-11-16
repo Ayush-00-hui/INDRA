@@ -6,7 +6,7 @@ Manages offscreen buffers, textures, SimplePBR pipeline, and RAM readback.
 import logging
 import numpy as np
 import pygame
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Any
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +100,7 @@ class Panda3DBridge:
     def is_available(self) -> bool:
         return self.initialized and self.base is not None
 
-    def setup_secondary_buffer(self) -> Optional[NodePath]:
+    def setup_secondary_buffer(self) -> Optional[Any]:
         """Create a secondary offscreen buffer and camera for split-screen dual view."""
         if not self.is_available() or self.buf_secondary is not None:
             return self.cam_secondary
@@ -159,6 +159,9 @@ class Panda3DBridge:
         if self._quality == "low":
             self.pbr_pipeline.enable_shadows = False
             self.pbr_pipeline.msaa_samples = 0
+        elif self._quality in ("ultra", "max"):
+            self.pbr_pipeline.enable_shadows = True
+            self.pbr_pipeline.msaa_samples = 8
         elif self._quality == "high":
             self.pbr_pipeline.enable_shadows = True
             self.pbr_pipeline.msaa_samples = 4

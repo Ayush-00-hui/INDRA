@@ -98,23 +98,26 @@ def _worker_collect_chunk(args: Tuple[int, int, int, int]) -> Dict[str, np.ndarr
 
 
 def collect_large_dataset(
-    n_samples_per_scenario: int = 250000,
+    n_samples_per_scenario: int = 300000,
     num_workers: int = 16,
     output_dir: str = "data"
 ) -> None:
     os.makedirs(output_dir, exist_ok=True)
     t0 = time.time()
+    scenarios = [1, 2, 3, 4]
 
     print("=" * 70)
-    print("   MULTIPROCESS LARGE-SCALE DATASET COLLECTION FOR ROBOT WORLD MODEL")
-    print(f"   Target: {n_samples_per_scenario * 2:,} transitions ({n_samples_per_scenario:,} per scenario)")
-    print(f"   Workers: {num_workers} parallel CPU processes | Seed pool: 0-999")
+    print("   MULTIPROCESS DIVERSE DATASET COLLECTION FOR ROBOT WORLD MODEL")
+    print(f"   Target: {n_samples_per_scenario * len(scenarios):,} transitions across {len(scenarios)} scenarios")
+    print(f"   Workers: {num_workers} parallel CPU processes | Scenarios: {scenarios}")
     print("=" * 70)
 
-    for scen in [1, 2]:
+    scenario_arrays = []
+
+    for scen in scenarios:
         print(f"\n>>> Collecting Scenario {scen} ({n_samples_per_scenario:,} samples)...")
         chunk_size = (n_samples_per_scenario + num_workers - 1) // num_workers
-        worker_args = [(w, scen, chunk_size, (w * 53) % 1000) for w in range(num_workers)]
+        worker_args = [(w, scen, chunk_size, (w * 53 + scen * 101) % 1000) for w in range(num_workers)]
 
         with mp.Pool(processes=num_workers) as pool:
             results = pool.map(_worker_collect_chunk, worker_args)
@@ -136,16 +139,29 @@ def collect_large_dataset(
         )
         print(f"Saved {len(all_states):,} transitions to {scen_path}")
         print(f"  Collisions: {total_collisions:,} ({total_collisions / len(all_states) * 100:.1f}%) | Goal Reaches: {total_goals:,}")
+        scenario_arrays.append((all_states, all_actions, all_next_states, all_rewards))
 
-    # Build combined dataset
+    # Build combined master dataset
     print("\n>>> Building combined master dataset 'data/robot_dataset_big.npz'...")
-    d1 = np.load(os.path.join(output_dir, "robot_dataset_big_s1.npz"))
-    d2 = np.load(os.path.join(output_dir, "robot_dataset_big_s2.npz"))
+    comb_states = np.concatenate([s[0] for s in scenario_arrays], axis=0)
+    comb_actions = np.concatenate([s[1] for s in scenario_arrays], axis=0)
+    comb_next = np.concatenate([s[2] for s in scenario_arrays], axis=0)
+    comb_rewards = np.concatenate([s[3] for s in scenario_arrays], axis=0)
 
-    comb_states = np.concatenate([d1["states"], d2["states"]], axis=0)
-    comb_actions = np.concatenate([d1["actions"], d2["actions"]], axis=0)
-    comb_next = np.concatenate([d1["next_states"], d2["next_states"]], axis=0)
-    comb_rewards = np.concatenate([d1["rewards"], d2["rewards"]], axis=0)
+    # Also merge with existing historical transitions if available for maximal coverage
+    historical_path = os.path.join(output_dir, "robot_dataset_big.npz")
+    if os.path.exists(historical_path):
+        try:
+            h_data = np.load(historical_path)
+            h_s = h_data["states"]
+            if len(h_s) > 0 and h_s.shape[1] == comb_states.shape[1]:
+                print(f"  Merging with {len(h_s):,} existing historical transitions...")
+                comb_states = np.concatenate([comb_states, h_data["states"][:500000]], axis=0)
+                comb_actions = np.concatenate([comb_actions, h_data["actions"][:500000]], axis=0)
+                comb_next = np.concatenate([comb_next, h_data["next_states"][:500000]], axis=0)
+                comb_rewards = np.concatenate([comb_rewards, h_data["rewards"][:500000]], axis=0)
+        except Exception as e:
+            print(f"  Note: historical merge skipped ({e})")
 
     # Shuffle combined dataset
     perm = np.random.permutation(len(comb_states))

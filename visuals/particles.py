@@ -5,7 +5,7 @@ Avoids per-frame allocations to maintain 60 FPS on CPU-bound hardware.
 
 import math
 import random
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 import pygame
 from visuals.theme import QualityLevel
 
@@ -39,9 +39,9 @@ class Particle:
 class ParticleSystem:
     """Fixed-capacity object-pooled particle manager."""
 
-    MAX_PARTICLES = 350
+    MAX_PARTICLES = 800
 
-    def __init__(self, quality: QualityLevel = QualityLevel.HIGH, max_particles: int = 350):
+    def __init__(self, quality: QualityLevel = QualityLevel.HIGH, max_particles: int = 800):
         self.quality = quality
         self.max_particles = max_particles
         self.pool: List[Particle] = [Particle() for _ in range(self.max_particles)]
@@ -61,11 +61,15 @@ class ParticleSystem:
                 return p
         return None
 
-    def emit_sparks(self, x: float, y: float, count: int = 15) -> None:
+    def emit_sparks(self, x: float, y: float, count: int = 25) -> None:
         if self.quality == QualityLevel.LOW:
-            count = min(count, 4)
+            count = min(count, 6)
         elif self.quality == QualityLevel.MED:
-            count = min(count, 10)
+            count = min(count, 14)
+        elif self.quality == QualityLevel.HIGH:
+            count = min(count, 28)
+        else:  # ULTRA
+            count = max(count, 45)
 
         colors = [(255, 220, 80), (255, 120, 40), (255, 60, 40), (255, 255, 220)]
         for _ in range(count):
@@ -114,11 +118,15 @@ class ParticleSystem:
             p.fade_alpha = True
             p.kind = "dust"
 
-    def emit_confetti(self, x: float, y: float, count: int = 40) -> None:
+    def emit_confetti(self, x: float, y: float, count: int = 50) -> None:
         if self.quality == QualityLevel.LOW:
-            count = min(count, 12)
+            count = min(count, 15)
         elif self.quality == QualityLevel.MED:
-            count = min(count, 25)
+            count = min(count, 30)
+        elif self.quality == QualityLevel.HIGH:
+            count = min(count, 55)
+        else:  # ULTRA
+            count = max(count, 80)
 
         confetti_colors = [
             (255, 60, 100), (40, 220, 140), (0, 180, 255),

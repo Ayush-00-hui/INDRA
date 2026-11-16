@@ -39,8 +39,9 @@ class LightingEngine:
         dist_from_center = np.sqrt((x - radius) ** 2 + (y - radius) ** 2)
         norm_dist = np.clip(dist_from_center / radius, 0.0, 1.0)
 
-        # Quadratic falloff for smooth soft illumination
-        alpha_arr = (inner_alpha * (1.0 - norm_dist) ** 2).astype(np.uint8)
+        # Hybrid exponential-quadratic falloff for smooth HDR bloom core + soft perimeter
+        falloff = 0.35 * np.exp(-3.5 * norm_dist) + 0.65 * ((1.0 - norm_dist) ** 2)
+        alpha_arr = (inner_alpha * np.clip(falloff, 0.0, 1.0)).astype(np.uint8)
         alpha_arr[norm_dist >= 1.0] = 0
 
         # Premultiply RGB by alpha fraction so additive blending (BLEND_ADD)

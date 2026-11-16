@@ -17,4 +17,9 @@ done
 echo "[*] Target host: $HOST_ARG"
 echo "[*] Starting World Model Web Server..."
 
-python3 -m web.server --host "$HOST_ARG" "$@"
+PYTHON_BIN="python3"
+if [ -f ".venv/bin/python3" ]; then
+    PYTHON_BIN=".venv/bin/python3"
+fi
+
+$PYTHON_BIN -m web.server --host "$HOST_ARG" "$@"

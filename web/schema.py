@@ -86,10 +86,15 @@ class CompareRenderState(BaseModel):
 
 
 class ClientCommand(BaseModel):
-    cmd: str  # "start", "reset", "set", "pause", "step"
+    cmd: str  # "start", "reset", "set", "pause", "step", "set_goal", "add_obstacle", "clear_obstacles"
     seed: Optional[int] = None
     mode: Optional[str] = None  # "world_model", "baseline", "compare"
     speed: Optional[float] = None  # 0.25 to 4.0
     scenario_variant: Optional[int] = None  # 1 or 2
     show_plan: Optional[bool] = None
     mind_view: Optional[bool] = None
+    x: Optional[float] = None
+    y: Optional[float] = None
+    kind: Optional[str] = None   # "crate", "cabinet", "workstation", "chair"
+    w: Optional[float] = None
+    h: Optional[float] = None
