@@ -409,6 +409,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     } else {
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
+      primaryScene.onFpsUpdate = (fps) => {
+        fpsDisplay.textContent = `${fps}.0 FPS`;
+      };
     }
   };
 
@@ -449,6 +452,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (primaryScene) {
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
+      primaryScene.onFpsUpdate = (fps) => {
+        fpsDisplay.textContent = `${fps}.0 FPS`;
+      };
     }
   };
 
@@ -458,27 +464,29 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const replayLoader = new ReplayLoader();
 
   const handleFrame = (data: any) => {
-    if (data.is_compare) {
+    if (data.is_compare || isCompareMode) {
       if (!secondaryScene) initCompareViewports();
 
-      if (secondaryScene && data.left) {
-        secondaryScene.update(data.left);
-        if (leftTelemetryEl && data.left.metrics) {
-          leftTelemetryEl.textContent = `Hits: ${data.left.metrics.collisions} | Steps: ${data.left.step}/200`;
+      if (data.is_compare) {
+        if (secondaryScene && data.left) {
+          secondaryScene.update(data.left);
+          if (leftTelemetryEl && data.left.metrics) {
+            leftTelemetryEl.textContent = `Hits: ${data.left.metrics.collisions} | Steps: ${data.left.step}/200`;
+          }
         }
-      }
 
-      if (primaryScene && data.right) {
-        primaryScene.update(data.right);
-        if (rightTelemetryEl && data.right.metrics) {
-          rightTelemetryEl.textContent = `Hits: ${data.right.metrics.collisions} | Steps: ${data.right.step}/200`;
+        if (primaryScene && data.right) {
+          primaryScene.update(data.right);
+          if (rightTelemetryEl && data.right.metrics) {
+            rightTelemetryEl.textContent = `Hits: ${data.right.metrics.collisions} | Steps: ${data.right.step}/200`;
+          }
+          if (winnerBadgeEl && data.right.metrics?.success) {
+            winnerBadgeEl.style.display = "block";
+          }
         }
-        if (winnerBadgeEl && data.right.metrics?.success) {
-          winnerBadgeEl.style.display = "block";
-        }
-      }
 
-      updateTelemetry(data.right);
+        updateTelemetry(data.right);
+      }
       return;
     }
 
@@ -574,8 +582,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         const range = Math.max(maxRet - minRet, 1.0);
 
         frame.plan.alts.forEach((c: any) => {
-          const actName = actionNames[c.action] || "STAY";
-          const isChosen = c.action === chosenIdx;
+          const actId = c.first_action !== undefined ? c.first_action : c.action;
+          const actName = actionNames[actId] || "STAY";
+          const isChosen = actId === chosenIdx;
           const pct = Math.max(8, Math.min(100, Math.round(((c.return - minRet) / range) * 100)));
           const barColor = isChosen ? "#00ff9d" : c.collides ? "#ff4757" : "#00f0ff";
 
@@ -648,13 +657,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         const nodeGlow = 0.5 + 0.5 * Math.sin(cortexPulse * 1.5 + lIdx + i);
 
         ctx.fillStyle = lIdx === 3 ? "#00ff9d" : lIdx === 0 ? "#ffb703" : "#00f0ff";
-        ctx.shadowBlur = 6 * nodeGlow;
-        ctx.shadowColor = ctx.fillStyle;
-
         ctx.beginPath();
         ctx.arc(l.x, y, 3.2, 0, Math.PI * 2);
         ctx.fill();
-        ctx.shadowBlur = 0;
       }
     });
   };
@@ -710,6 +715,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       currentMode = "world_model";
       isCompareMode = false;
       setActiveModeBtn(btnWm);
+      if (secondaryScene) initPrimaryScene();
       wsClient.sendCommand({ cmd: "set", mode: "world_model" });
       sound.playToolSelect();
       sound.speak("Neural World Model engaged.");
@@ -719,6 +725,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       currentMode = "baseline";
       isCompareMode = false;
       setActiveModeBtn(btnBase);
+      if (secondaryScene) initPrimaryScene();
       wsClient.sendCommand({ cmd: "set", mode: "baseline" });
       sound.playToolSelect();
       sound.speak("Reactive baseline engaged.");
@@ -728,6 +735,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       currentMode = "compare";
       isCompareMode = true;
       setActiveModeBtn(btnComp);
+      if (!secondaryScene) initCompareViewports();
       wsClient.sendCommand({ cmd: "set", mode: "compare" });
       sound.playToolSelect();
       sound.speak("Dual synchronized compare mode active.");

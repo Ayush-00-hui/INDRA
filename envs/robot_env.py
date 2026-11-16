@@ -81,10 +81,11 @@ class RobotEnv(BaseEnv):
         4: (0.0, 0.0),
     }
 
-    def __init__(self, scenario: int = 1, include_obstacle_size: bool = False):
+    def __init__(self, scenario: int = 1, include_obstacle_size: bool = False, fixed_dock_start: bool = False):
         super().__init__()
         self.scenario = scenario
         self.include_obstacle_size = include_obstacle_size
+        self.fixed_dock_start = fixed_dock_start
         self.state_size = 22 if include_obstacle_size else 16
         self.action_size = 5
 
@@ -197,8 +198,8 @@ class RobotEnv(BaseEnv):
         self.collision_count = 0
         self.episode_count += 1
 
-        # Always spawn robot at the fixed docking station (left charging bay)
-        if getattr(self, "fixed_dock_start", True):
+        # Spawn robot: docking station (fixed_dock_start=True) or standard randomized starting zone
+        if getattr(self, "fixed_dock_start", False):
             self.robot_x = 110.0
             self.robot_y = 300.0
         else:

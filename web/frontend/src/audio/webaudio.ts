@@ -178,10 +178,8 @@ class SoundManager {
     (this.analyser as any).getByteTimeDomainData(this.dataArray);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.lineWidth = 2.0;
-    ctx.strokeStyle = this.isMuted ? "rgba(100, 116, 139, 0.3)" : "#00f0ff";
-    ctx.shadowBlur = this.isMuted ? 0 : 6;
-    ctx.shadowColor = "#00f0ff";
+    ctx.lineWidth = 1.8;
+    ctx.strokeStyle = this.isMuted ? "rgba(100, 116, 139, 0.4)" : "#00f0ff";
 
     ctx.beginPath();
     const sliceWidth = canvas.width / this.dataArray.length;
@@ -201,7 +199,6 @@ class SoundManager {
 
     ctx.lineTo(canvas.width, canvas.height / 2);
     ctx.stroke();
-    ctx.shadowBlur = 0;
   }
 }
 

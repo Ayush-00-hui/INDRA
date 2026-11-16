@@ -267,6 +267,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     await websocket.send_text(rs.model_dump_json())
                 await asyncio.sleep(0.08)
             else:
+                t_step_start = time.perf_counter()
                 if mode == "compare":
                     # Run step for both in thread executor
                     def step_both():
@@ -297,9 +298,11 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         adapter_left.reset(current_seed)
                         is_paused = True  # Park at dock on next episode awaiting Enter
 
-            # Sleep proportional to speed (base 30 Hz -> 33.3ms)
-            dt_sleep = max(0.008, (1.0 / 30.0) / speed)
-            await asyncio.sleep(dt_sleep)
+                # Sleep proportional to speed (base 30 Hz -> 33.3ms), subtracting computation time
+                compute_dt = time.perf_counter() - t_step_start
+                target_dt = (1.0 / 30.0) / speed
+                dt_sleep = max(0.002, target_dt - compute_dt)
+                await asyncio.sleep(dt_sleep)
 
     except WebSocketDisconnect:
         logger.info(f"Client disconnected from /ws/{scenario}")

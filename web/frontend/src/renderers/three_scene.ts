@@ -104,11 +104,34 @@ export class ThreeSimulationScene {
   public quality: "low" | "med" | "high" = "high";
   private targetDpr: number = 1.0;
   private currentDpr: number = 1.0;
-  private lastTime: number = performance.now();
-  private frameCount: number = 0;
   public currentFps: number = 60;
   private isDestroyed: boolean = false;
   private cyberParticles: THREE.Points | null = null;
+
+  // Continuous 60+ FPS Render Loop & Decoupled Interpolation
+  private animFrameId: number = 0;
+  private lastRenderTime: number = performance.now();
+  private renderFrameCount: number = 0;
+  private lastFpsTime: number = performance.now();
+  public onFpsUpdate?: (fps: number) => void;
+
+  // Kinematic Targets for Smooth Sub-Frame Motion
+  private targetRobotPos = new THREE.Vector3();
+  private currentRobotPos = new THREE.Vector3();
+  private targetRobotHeading: number = 0;
+  private targetPersonPos = new THREE.Vector3();
+  private currentPersonPos = new THREE.Vector3();
+  private targetPersonHeading: number = 0;
+  private personVy: number = 0;
+  private personVisible: boolean = false;
+  private lastMode: string = "world_model";
+  private hasCollision: boolean = false;
+  private isFirstStateUpdate: boolean = true;
+
+  // Zero-Allocation Object Pool for Candidate Rollouts
+  private candidateLinePool: THREE.Line[] = [];
+  private static readonly MAX_CANDIDATE_LINES = 8;
+  private static readonly MAX_CANDIDATE_PTS = 32;
 
   // GLTF Loader & Model Cache
   private gltfLoader = new GLTFLoader();
@@ -155,7 +178,7 @@ export class ThreeSimulationScene {
         stencil: false,
       });
       this.renderer.setSize(w, h);
-      this.targetDpr = Math.min(window.devicePixelRatio || 1, 2.0);
+      this.targetDpr = Math.min(window.devicePixelRatio || 1, 1.25);
       this.currentDpr = this.targetDpr;
       this.renderer.setPixelRatio(this.currentDpr);
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -184,8 +207,8 @@ export class ThreeSimulationScene {
     this.sunLight = new THREE.DirectionalLight(0xfff7e6, 1.85);
     this.sunLight.position.set(6.5, 14.0, 5.5);
     this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048; // Optimized for razor-sharp shadows at 60 FPS
-    this.sunLight.shadow.mapSize.height = 2048;
+    this.sunLight.shadow.mapSize.width = 1024; // Optimized for razor-sharp shadows at 60 FPS
+    this.sunLight.shadow.mapSize.height = 1024;
     this.sunLight.shadow.camera.near = 0.5;
     this.sunLight.shadow.camera.far = 45;
     this.sunLight.shadow.camera.left = -14.0;
@@ -261,6 +284,9 @@ export class ThreeSimulationScene {
     // Initialize Ghost Pool (Pre-allocated 12 holographic meshes)
     this.initGhostPool(12);
 
+    // Initialize Candidate Line Pool (Zero-allocation trajectory line pool)
+    this.initCandidateLinePool();
+
     // Pre-load external GLB models asynchronously
     this.preloadAuthoredModels();
 
@@ -270,6 +296,9 @@ export class ThreeSimulationScene {
 
     // Initialize Click-to-Move Raycaster on Arena Floor
     this.setupInteractionListeners();
+
+    // Start Decoupled 60+ FPS Native Render Loop
+    this.startRenderLoop();
   }
 
   private setupInteractionListeners() {
@@ -968,8 +997,187 @@ export class ThreeSimulationScene {
     }
   }
 
+  private initCandidateLinePool(count: number = ThreeSimulationScene.MAX_CANDIDATE_LINES) {
+    for (let k = 0; k < count; k++) {
+      const geo = new THREE.BufferGeometry();
+      const posArr = new Float32Array(ThreeSimulationScene.MAX_CANDIDATE_PTS * 3);
+      geo.setAttribute("position", new THREE.BufferAttribute(posArr, 3));
+      geo.setDrawRange(0, 0);
+      const mat = new THREE.LineBasicMaterial({
+        color: 0x06b6d4,
+        transparent: true,
+        opacity: 0.28,
+      });
+      const line = new THREE.Line(geo, mat);
+      line.visible = false;
+      this.candidateLinesGroup.add(line);
+      this.candidateLinePool.push(line);
+    }
+  }
+
   // =========================================================================
-  // STATE UPDATE & FRAME DISPATCH
+  // DECOUPLED 60+ FPS NATIVE RENDER LOOP & CONTINUOUS KINEMATICS
+  // =========================================================================
+  private startRenderLoop() {
+    const loop = (timestamp: number) => {
+      if (this.isDestroyed) return;
+      this.animFrameId = requestAnimationFrame(loop);
+      this.renderFrame(timestamp);
+    };
+    this.animFrameId = requestAnimationFrame(loop);
+  }
+
+  private renderFrame(now: number) {
+    if (!this.renderer || this.isDestroyed) return;
+
+    const dt = Math.min(0.05, Math.max(0.001, (now - this.lastRenderTime) / 1000.0));
+    this.lastRenderTime = now;
+
+    // True Native GPU Rendering FPS Gauge
+    this.renderFrameCount++;
+    if (now - this.lastFpsTime >= 500) {
+      this.currentFps = Math.round((this.renderFrameCount * 1000) / (now - this.lastFpsTime));
+      this.renderFrameCount = 0;
+      this.lastFpsTime = now;
+
+      // Adaptive DPR regulation for high-DPI displays
+      if (this.currentFps < 42 && this.currentDpr > 1.0) {
+        this.currentDpr = 1.0;
+        this.renderer.setPixelRatio(this.currentDpr);
+      } else if (this.currentFps > 58 && this.currentDpr < this.targetDpr) {
+        this.currentDpr = this.targetDpr;
+        this.renderer.setPixelRatio(this.currentDpr);
+      }
+
+      if (this.onFpsUpdate) {
+        this.onFpsUpdate(this.currentFps);
+      }
+    }
+
+    // High-frequency responsive OrbitControls (buttery smooth camera pan/zoom)
+    if (this.controls && this.controls.enabled) {
+      this.controls.update();
+    }
+
+    // Smooth Sub-Frame Kinematic Interpolation for Robot
+    if (!this.isFirstStateUpdate) {
+      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 18.0));
+      let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
+      if (diff > Math.PI) diff -= Math.PI * 2;
+      if (diff < -Math.PI) diff += Math.PI * 2;
+      this.currentRobotHeading += diff * Math.min(1.0, dt * 15.0);
+    }
+
+    // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
+    if (this.humanoidRobot) {
+      this.humanoidRobot.update(
+        dt,
+        this.currentRobotPos,
+        this.currentRobotHeading,
+        this.lastMode === "world_model" ? "world_model" : "baseline",
+        this.hasCollision
+      );
+    }
+
+    // Head-Mounted POV Camera: oriented in the exact direction of the path
+    const fwdX = Math.sin(this.currentRobotHeading);
+    const fwdZ = Math.cos(this.currentRobotHeading);
+    const eyeX = this.currentRobotPos.x + fwdX * 0.12;
+    const eyeY = 1.52;
+    const eyeZ = this.currentRobotPos.z + fwdZ * 0.12;
+
+    this.povCamera.position.set(eyeX, eyeY, eyeZ);
+    this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading);
+    this.povCamera.quaternion.slerp(this.povTargetQuat, 0.35);
+
+    // Update Headlight Target
+    this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
+    this.povHeadlight.target.position.set(eyeX + fwdX * 4.0, eyeY - 0.2, eyeZ + fwdZ * 4.0);
+
+    // Smooth Dynamic Actor Motion (Scenario 2 Person)
+    if (this.personGroup && this.personVisible) {
+      this.currentPersonPos.lerp(this.targetPersonPos, Math.min(1.0, dt * 14.0));
+      const isMoving = Math.abs(this.personVy) > 0.01;
+      const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
+      this.personGroup.position.set(this.currentPersonPos.x, bob, this.currentPersonPos.z);
+      this.personGroup.rotation.y = -this.targetPersonHeading * (Math.PI / 180);
+
+      // Head Glance IK toward robot
+      if (this.personHead) {
+        const dist = Math.hypot(this.currentPersonPos.x - this.currentRobotPos.x, this.currentPersonPos.z - this.currentRobotPos.z);
+        if (dist < 2.5) {
+          const angleToRobot = Math.atan2(this.currentRobotPos.x - this.currentPersonPos.x, this.currentRobotPos.z - this.currentPersonPos.z);
+          this.personHead.rotation.y = angleToRobot - this.personGroup.rotation.y;
+        } else {
+          this.personHead.rotation.y = 0;
+        }
+      }
+    }
+
+    // Goal Pad Animation & Pulse
+    if (this.goalRing) {
+      this.goalRing.scale.setScalar(1.0 + 0.08 * Math.sin(now * 0.005));
+    }
+    if (this.goalDiamond) {
+      this.goalDiamond.rotation.y += 0.025;
+      this.goalDiamond.rotation.x = Math.sin(now * 0.003) * 0.15;
+      this.goalDiamond.position.y = 2.4 + Math.sin(now * 0.004) * 0.08;
+    }
+    const outerPulse = this.goalGroup ? this.goalGroup.getObjectByName("goalOuterPulse") : null;
+    if (outerPulse) {
+      const pulseScale = 1.0 + 0.18 * Math.sin(now * 0.006);
+      outerPulse.scale.set(pulseScale, pulseScale, 1.0);
+    }
+
+    // Animate Docking Hydraulic Clamps & Status Coil
+    this.clampAngle = THREE.MathUtils.lerp(this.clampAngle, this.targetClampAngle, 0.18);
+    if (this.dockLeftClamp) {
+      this.dockLeftClamp.rotation.y = -this.clampAngle;
+    }
+    if (this.dockRightClamp) {
+      this.dockRightClamp.rotation.y = this.clampAngle;
+    }
+    if (this.dockCoil && this.isDocked) {
+      const pulse = 1.0 + Math.sin(now * 0.005) * 0.08;
+      this.dockCoil.scale.set(pulse, pulse, 1.0);
+    }
+
+    // Animate click ripples
+    for (let i = this.clickRipples.length - 1; i >= 0; i--) {
+      const rip = this.clickRipples[i];
+      const age = (now - rip.createdAt) / 550.0;
+      if (age >= 1.0) {
+        this.scene.remove(rip.mesh);
+        rip.mesh.geometry.dispose();
+        (rip.mesh.material as THREE.Material).dispose();
+        this.clickRipples.splice(i, 1);
+      } else {
+        const s = 1.0 + age * 3.5;
+        rip.mesh.scale.set(s, s, 1.0);
+        (rip.mesh.material as THREE.MeshBasicMaterial).opacity = (1.0 - age) * 0.95;
+      }
+    }
+
+    // Animate ambient cyber particles
+    if (this.cyberParticles) {
+      const pPosAttr = this.cyberParticles.geometry.attributes.position as THREE.BufferAttribute;
+      const pArr = pPosAttr.array as Float32Array;
+      for (let i = 1; i < pArr.length; i += 3) {
+        pArr[i] += dt * 0.25;
+        if (pArr[i] > 4.8) pArr[i] = 0.25;
+      }
+      pPosAttr.needsUpdate = true;
+    }
+
+    // Update Camera Motion smoothly on every tick
+    this.updateCamera(now, this.currentRobotPos.x, this.currentRobotPos.z, this.currentRobotHeading);
+
+    // Render Scene at native display refresh rate
+    this.renderer.render(this.scene, this.activeCamera);
+  }
+
+  // =========================================================================
+  // STATE UPDATE & FRAME DISPATCH (CALLED ON WEBSOCKET/REPLAY DATA)
   // =========================================================================
   public update(frame: any) {
     this.updateState(frame);
@@ -978,28 +1186,8 @@ export class ThreeSimulationScene {
   public updateState(frame: any) {
     if (!this.renderer || !frame || this.isDestroyed) return;
 
-    const now = performance.now();
-    this.frameCount++;
-
-    // FPS Meter
-    if (now - this.lastTime >= 500) {
-      this.currentFps = Math.round((this.frameCount * 1000) / (now - this.lastTime));
-      this.frameCount = 0;
-      this.lastTime = now;
-
-      // Adaptive DPR regulation
-      if (this.currentFps < 42 && this.currentDpr > 1.0) {
-        this.currentDpr = 1.0;
-        this.renderer.setPixelRatio(this.currentDpr);
-      } else if (this.currentFps > 58 && this.currentDpr < this.targetDpr) {
-        this.currentDpr = this.targetDpr;
-        this.renderer.setPixelRatio(this.currentDpr);
-      }
-    }
-
     // Synchronize Entities
     const entities = frame.entities || [];
-    let robotX3D = 0, robotZ3D = 0, robotHeading = 0;
     let personFound = false;
     const seenIds = new Set<string>();
 
@@ -1009,21 +1197,17 @@ export class ThreeSimulationScene {
       const pos = this.to3D(e.x, e.y);
 
       if (e.kind === "robot") {
-        robotX3D = pos.x;
-        robotZ3D = pos.z;
-
         // Anchor docking station to robot's initial starting location
         if (frame.step === 0 || !this.dockingStationGroup.userData.positioned) {
           this.dockingStationGroup.position.set(pos.x, 0, pos.z);
           this.dockingStationGroup.userData.positioned = true;
         }
 
-        const dtSec = Math.min(0.1, Math.max(0.001, (now - this.lastFrameTime) / 1000.0));
-        this.lastFrameTime = now;
-        const currentPosVec = new THREE.Vector3(pos.x, 0, pos.z);
-        const hasCollision = Boolean(e.extra?.collision);
+        this.targetRobotPos.set(pos.x, 0, pos.z);
+        this.hasCollision = Boolean(e.extra?.collision);
+        this.lastMode = frame.mode || "world_model";
 
-        // Calculate heading to face and move in the same direction of the path it is following
+        // Calculate targetHeading to face and move in the direction of the plan path
         let targetHeading = this.currentRobotHeading;
         let foundPathTangent = false;
 
@@ -1049,56 +1233,22 @@ export class ThreeSimulationScene {
           }
         }
         this.lastRobotPos.set(pos.x, 0, pos.z);
+        this.targetRobotHeading = targetHeading;
 
-        // Smooth shortest-arc angular turning
-        let diff = (targetHeading - this.currentRobotHeading) % (Math.PI * 2);
-        if (diff > Math.PI) diff -= Math.PI * 2;
-        if (diff < -Math.PI) diff += Math.PI * 2;
-        this.currentRobotHeading += diff * Math.min(1.0, dtSec * 12.0);
-
-        // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
-        this.humanoidRobot.update(
-          dtSec,
-          currentPosVec,
-          this.currentRobotHeading,
-          frame.mode === "world_model" ? "world_model" : "baseline",
-          hasCollision
-        );
-
-        // Head-Mounted POV Camera: oriented in the exact direction of the path
-        const fwdX = Math.sin(this.currentRobotHeading);
-        const fwdZ = Math.cos(this.currentRobotHeading);
-        const eyeX = pos.x + fwdX * 0.12;
-        const eyeY = 1.52;
-        const eyeZ = pos.z + fwdZ * 0.12;
-
-        this.povCamera.position.set(eyeX, eyeY, eyeZ);
-        this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading);
-        this.povCamera.quaternion.slerp(this.povTargetQuat, 0.35);
-
-        // Update Headlight Target
-        this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
-        this.povHeadlight.target.position.set(eyeX + fwdX * 4.0, eyeY - 0.2, eyeZ + fwdZ * 4.0);
-        this.scene.add(this.povHeadlight.target);
+        if (this.isFirstStateUpdate || this.currentRobotPos.distanceTo(this.targetRobotPos) > 1.8) {
+          this.currentRobotPos.copy(this.targetRobotPos);
+          this.currentRobotHeading = this.targetRobotHeading;
+          this.isFirstStateUpdate = false;
+        }
 
       } else if (e.kind === "person") {
         personFound = true;
-        this.personGroup.visible = true;
-        // Natural walk bobbing
-        const isMoving = Math.abs(e.vy || 0) > 0.01;
-        const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
-        this.personGroup.position.set(pos.x, bob, pos.z);
-        this.personGroup.rotation.y = -(e.heading || 0) * (Math.PI / 180);
-
-        // Head Glance IK toward robot
-        if (this.personHead) {
-          const dist = Math.hypot(pos.x - robotX3D, pos.z - robotZ3D);
-          if (dist < 2.0) {
-            const angleToRobot = Math.atan2(robotX3D - pos.x, robotZ3D - pos.z);
-            this.personHead.rotation.y = angleToRobot - this.personGroup.rotation.y;
-          } else {
-            this.personHead.rotation.y = 0;
-          }
+        this.personVisible = true;
+        this.targetPersonPos.set(pos.x, 0, pos.z);
+        this.personVy = e.vy || 0;
+        this.targetPersonHeading = e.heading || 0;
+        if (this.isFirstStateUpdate) {
+          this.currentPersonPos.copy(this.targetPersonPos);
         }
 
       } else {
@@ -1133,7 +1283,8 @@ export class ThreeSimulationScene {
     }
 
     // Hide person completely when not in the frame (e.g. in Scenario 1)
-    this.personGroup.visible = personFound;
+    this.personVisible = personFound;
+    if (this.personGroup) this.personGroup.visible = personFound;
 
     // Clean removed obstacles
     for (const [id, mesh] of this.obstacleMeshes.entries()) {
@@ -1143,52 +1294,10 @@ export class ThreeSimulationScene {
       }
     }
 
-    // Goal Pad Position & Pulse
+    // Goal Pad Position
     if (frame.goal) {
       const gPos = this.to3D(frame.goal.x, frame.goal.y);
       this.goalGroup.position.set(gPos.x, 0, gPos.z);
-      if (this.goalRing) {
-        this.goalRing.scale.setScalar(1.0 + 0.08 * Math.sin(now * 0.005));
-      }
-      if (this.goalDiamond) {
-        this.goalDiamond.rotation.y += 0.025;
-        this.goalDiamond.rotation.x = Math.sin(now * 0.003) * 0.15;
-        this.goalDiamond.position.y = 2.4 + Math.sin(now * 0.004) * 0.08;
-      }
-      const outerPulse = this.goalGroup.getObjectByName("goalOuterPulse");
-      if (outerPulse) {
-        const pulseScale = 1.0 + 0.18 * Math.sin(now * 0.006);
-        outerPulse.scale.set(pulseScale, pulseScale, 1.0);
-      }
-    }
-
-    // Animate Docking Hydraulic Clamps & Status Coil
-    this.clampAngle = THREE.MathUtils.lerp(this.clampAngle, this.targetClampAngle, 0.18);
-    if (this.dockLeftClamp) {
-      this.dockLeftClamp.rotation.y = -this.clampAngle;
-    }
-    if (this.dockRightClamp) {
-      this.dockRightClamp.rotation.y = this.clampAngle;
-    }
-    if (this.dockCoil && this.isDocked) {
-      const pulse = 1.0 + Math.sin(now * 0.005) * 0.08;
-      this.dockCoil.scale.set(pulse, pulse, 1.0);
-    }
-
-    // Animate click ripples
-    for (let i = this.clickRipples.length - 1; i >= 0; i--) {
-      const rip = this.clickRipples[i];
-      const age = (now - rip.createdAt) / 550.0;
-      if (age >= 1.0) {
-        this.scene.remove(rip.mesh);
-        rip.mesh.geometry.dispose();
-        (rip.mesh.material as THREE.Material).dispose();
-        this.clickRipples.splice(i, 1);
-      } else {
-        const s = 1.0 + age * 3.5;
-        rip.mesh.scale.set(s, s, 1.0);
-        (rip.mesh.material as THREE.MeshBasicMaterial).opacity = (1.0 - age) * 0.95;
-      }
     }
 
     // Update Plan Trajectories & Navigation Ribbon
@@ -1203,19 +1312,13 @@ export class ThreeSimulationScene {
         (this.floorMesh.material as THREE.MeshStandardMaterial).color.setHex(0x162038);
       }
     } else {
-      this.scene.background = new THREE.Color("#0a0f1d"); // Deep industrial warehouse atmosphere
+      this.scene.background = new THREE.Color("#0a0f1d");
       this.sunLight.intensity = 1.8;
       this.hemiLight.intensity = 0.75;
       if (this.floorMesh) {
-        (this.floorMesh.material as THREE.MeshStandardMaterial).color.setHex(0xffffff); // Full PBR concrete texture colors
+        (this.floorMesh.material as THREE.MeshStandardMaterial).color.setHex(0xffffff);
       }
     }
-
-    // Update Camera Motion
-    this.updateCamera(now, robotX3D, robotZ3D, robotHeading);
-
-    // Render Scene
-    this.renderer.render(this.scene, this.activeCamera);
   }
 
   // =========================================================================
@@ -1286,10 +1389,14 @@ export class ThreeSimulationScene {
         this.chosenRibbonMesh = new THREE.Mesh(geom, mat);
         this.scene.add(this.chosenRibbonMesh);
       } else {
-        const geom = this.chosenRibbonMesh.geometry;
+        if (this.chosenRibbonMesh.geometry) {
+          this.chosenRibbonMesh.geometry.dispose();
+        }
+        const geom = new THREE.BufferGeometry();
         geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
         geom.setIndex(indices);
         geom.computeVertexNormals();
+        this.chosenRibbonMesh.geometry = geom;
         this.chosenRibbonMesh.visible = true;
       }
 
@@ -1301,12 +1408,14 @@ export class ThreeSimulationScene {
           opacity: 0.95,
         });
         this.pathEdgeLineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftRailPts), railMat);
-        this.pathEdgeLineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightRailPts), railMat);
+        this.pathEdgeLineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightRailPts), railMat.clone());
         this.scene.add(this.pathEdgeLineLeft);
         this.scene.add(this.pathEdgeLineRight);
       } else {
-        this.pathEdgeLineLeft.geometry.setFromPoints(leftRailPts);
-        this.pathEdgeLineRight.geometry.setFromPoints(rightRailPts);
+        if (this.pathEdgeLineLeft.geometry) this.pathEdgeLineLeft.geometry.dispose();
+        if (this.pathEdgeLineRight.geometry) this.pathEdgeLineRight.geometry.dispose();
+        this.pathEdgeLineLeft.geometry = new THREE.BufferGeometry().setFromPoints(leftRailPts);
+        this.pathEdgeLineRight.geometry = new THREE.BufferGeometry().setFromPoints(rightRailPts);
         this.pathEdgeLineLeft.visible = true;
         this.pathEdgeLineRight.visible = true;
       }
@@ -1354,32 +1463,41 @@ export class ThreeSimulationScene {
       this.ghostPool.forEach((g) => (g.visible = false));
     }
 
-    // 2. Render Candidate Alternative Ribbons
-    while (this.candidateLinesGroup.children.length > 0) {
-      this.candidateLinesGroup.remove(this.candidateLinesGroup.children[0]);
-    }
+    // 2. Render Candidate Alternative Ribbons via Pre-Allocated Zero-Allocation Pool
+    if (plan && plan.alts && plan.alts.length > 0) {
+      const topAlts = plan.alts.slice(0, this.candidateLinePool.length);
+      for (let k = 0; k < this.candidateLinePool.length; k++) {
+        const line = this.candidateLinePool[k];
+        if (k < topAlts.length) {
+          const alt = topAlts[k];
+          if (alt.path && alt.path.length >= 2) {
+            const isCollision = alt.score < -5.0 || (alt.predicted_collision_step && alt.predicted_collision_step > 0);
+            const col = isCollision ? 0xef4444 : 0x06b6d4;
+            const opacity = isCollision ? 0.45 : 0.28;
 
-    if (plan.alts && plan.alts.length > 0) {
-      const topAlts = plan.alts.slice(0, 6);
-      topAlts.forEach((alt: any) => {
-        if (!alt.path || alt.path.length < 2) return;
-        const pts: THREE.Vector3[] = alt.path.map((p: number[]) => {
-          const p3d = this.to3D(p[0], p[1]);
-          return new THREE.Vector3(p3d.x, 0.012, p3d.z);
-        });
+            const mat = line.material as THREE.LineBasicMaterial;
+            mat.color.setHex(col);
+            mat.opacity = opacity;
 
-        const isCollision = alt.score < -5.0 || (alt.predicted_collision_step && alt.predicted_collision_step > 0);
-        const col = isCollision ? 0xef4444 : 0x06b6d4; // Red for collision, Teal for safe alternative
-
-        const geom = new THREE.BufferGeometry().setFromPoints(pts);
-        const lineMat = new THREE.LineBasicMaterial({
-          color: col,
-          transparent: true,
-          opacity: isCollision ? 0.45 : 0.28,
-        });
-        const line = new THREE.Line(geom, lineMat);
-        this.candidateLinesGroup.add(line);
-      });
+            const posAttr = line.geometry.attributes.position as THREE.BufferAttribute;
+            const arr = posAttr.array as Float32Array;
+            const ptCount = Math.min(ThreeSimulationScene.MAX_CANDIDATE_PTS, alt.path.length);
+            for (let pIdx = 0; pIdx < ptCount; pIdx++) {
+              const p3d = this.to3D(alt.path[pIdx][0], alt.path[pIdx][1]);
+              arr[pIdx * 3] = p3d.x;
+              arr[pIdx * 3 + 1] = 0.012;
+              arr[pIdx * 3 + 2] = p3d.z;
+            }
+            posAttr.needsUpdate = true;
+            line.geometry.setDrawRange(0, ptCount);
+            line.visible = true;
+            continue;
+          }
+        }
+        line.visible = false;
+      }
+    } else {
+      this.candidateLinePool.forEach((l) => (l.visible = false));
     }
   }
 
@@ -1508,7 +1626,7 @@ export class ThreeSimulationScene {
     } else {
       this.renderer.shadowMap.enabled = true;
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-      this.targetDpr = Math.min(window.devicePixelRatio || 1, 2.0);
+      this.targetDpr = Math.min(window.devicePixelRatio || 1, 1.25);
     }
     this.currentDpr = this.targetDpr;
     this.renderer.setPixelRatio(this.currentDpr);
@@ -1526,14 +1644,26 @@ export class ThreeSimulationScene {
   };
 
   private handleVisibility = () => {
-    // Suspend rendering loops when tab is hidden to save GPU cycles
+    // Suspend or resume rendering loops when tab visibility changes
     if (document.hidden) {
-      if (this.renderer) this.renderer.setAnimationLoop(null);
+      if (this.animFrameId) {
+        cancelAnimationFrame(this.animFrameId);
+        this.animFrameId = 0;
+      }
+    } else {
+      if (!this.animFrameId && !this.isDestroyed) {
+        this.lastRenderTime = performance.now();
+        this.startRenderLoop();
+      }
     }
   };
 
   public destroy() {
     this.isDestroyed = true;
+    if (this.animFrameId) {
+      cancelAnimationFrame(this.animFrameId);
+      this.animFrameId = 0;
+    }
     window.removeEventListener("resize", this.handleResize);
     document.removeEventListener("visibilitychange", this.handleVisibility);
     if (this.controls) {
@@ -1546,6 +1676,24 @@ export class ThreeSimulationScene {
       (rip.mesh.material as THREE.Material).dispose();
     }
     this.clickRipples = [];
+    for (const line of this.candidateLinePool) {
+      this.scene.remove(line);
+      line.geometry.dispose();
+      (line.material as THREE.Material).dispose();
+    }
+    this.candidateLinePool = [];
+    if (this.chosenRibbonMesh) {
+      this.chosenRibbonMesh.geometry.dispose();
+      (this.chosenRibbonMesh.material as THREE.Material).dispose();
+    }
+    if (this.pathEdgeLineLeft) {
+      this.pathEdgeLineLeft.geometry.dispose();
+      (this.pathEdgeLineLeft.material as THREE.Material).dispose();
+    }
+    if (this.pathEdgeLineRight) {
+      this.pathEdgeLineRight.geometry.dispose();
+      (this.pathEdgeLineRight.material as THREE.Material).dispose();
+    }
     if (this.renderer) {
       this.renderer.dispose();
       if (this.renderer.domElement && this.renderer.domElement.parentElement) {
