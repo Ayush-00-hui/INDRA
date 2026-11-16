@@ -28,6 +28,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const sessionStartTime = Date.now();
   let setDockingState: (docked: boolean, sendCmd?: boolean) => void = () => {};
   let cleanupKeydown: (() => void) | null = null;
+  let isDocked: boolean = false;
 
   const titleMap: Record<string, string> = {
     robotics: "AUTONOMOUS WAREHOUSE ROBOTICS",
@@ -79,9 +80,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       </div>
 
       <!-- Floating Docking Bay HUD Banner -->
-      <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00f0ff; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 240, 255, 0.35);">
-        <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 10px #f59e0b; display: inline-block;"></span>
-        <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT DOCKED AT BAY — PRESS [SPACE] TO LAUNCH</span>
+      <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00ff9d; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 255, 157, 0.35);">
+        <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #00ff9d; box-shadow: 0 0 10px #00ff9d; display: inline-block;"></span>
+        <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD</span>
       </div>
 
       <!-- Top Mission Control Navigation Header -->
@@ -145,8 +146,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       <!-- Left Heavy Tactical Control Rail -->
       <aside class="glass-panel control-rail">
         <div class="rail-group-title">Robot Docking Bay</div>
-        <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 240, 255, 0.18); border: 2px solid #00f0ff; box-shadow: 0 0 16px rgba(0, 240, 255, 0.4); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press SPACE or ENTER to release robot from dock">
-          <span id="lbl-dock-launch" style="color: #00f0ff; letter-spacing: 0.5px;">🚀 LAUNCH ROBOT [SPACE]</span>
+        <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 255, 157, 0.22); border: 2px solid #00ff9d; box-shadow: 0 0 18px rgba(0, 255, 157, 0.5); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press SPACE or ENTER to hold/launch robot">
+          <span id="lbl-dock-launch" style="color: #00ff9d; letter-spacing: 0.5px;">⏸️ HOLD / PAUSE [SPACE]</span>
         </button>
 
         <div class="rail-group-title">Tactical Strategy</div>
@@ -672,9 +673,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (status === "connected") {
       badgeConnection.textContent = "● LIVE FEED";
       badgeConnection.className = "badge badge-live";
-      // Hold in docking station initially awaiting user Spacebar release
-      wsClient.sendCommand({ cmd: "pause" });
-      if (primaryScene) primaryScene.setDockStatus("docked");
+      if (primaryScene) primaryScene.setDockStatus("released");
     } else {
       badgeConnection.textContent = "○ REPLAY FALLBACK";
       badgeConnection.className = "badge badge-replay";
@@ -837,7 +836,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     };
 
     // Robot Docking & Deployment Control
-    let isDocked = true;
+    isDocked = false;
     const btnDockLaunch = document.getElementById("btn-dock-launch")!;
     const lblDockLaunch = document.getElementById("lbl-dock-launch")!;
     const dockHudDot = document.getElementById("dock-hud-dot")!;

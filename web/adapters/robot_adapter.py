@@ -61,7 +61,7 @@ class RobotAdapter:
         if self.mode == "world_model" and self.model is not None and self.state is not None:
             try:
                 t0 = time.perf_counter()
-                _, self.last_plan_info = plan(
+                best_act, self.last_plan_info = plan(
                     model=self.model,
                     state=self.state,
                     action_size=self.env.get_action_size(),
@@ -72,6 +72,7 @@ class RobotAdapter:
                     last_action=self.last_action
                 )
                 self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+                self.last_action = best_act
                 if self.last_plan_info and "best_trajectory" in self.last_plan_info:
                     traj = self.last_plan_info["best_trajectory"]
                     if len(traj) >= 2:

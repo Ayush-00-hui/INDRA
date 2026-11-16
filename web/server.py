@@ -167,7 +167,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
     variant = 1
     mode = "world_model"
     speed = 1.0
-    is_paused = True  # Always start safely docked at charging bay awaiting user Enter command
+    is_paused = False  # Start actively running autonomous navigation
     current_seed = 1001
 
     adapter_left = None   # for baseline or compare
@@ -284,10 +284,9 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     await websocket.send_text(comp_pkt.model_dump_json())
 
                     if both_done:
-                        await asyncio.sleep(1.0)
+                        await asyncio.sleep(1.2)
                         current_seed += 1
                         init_adapters()
-                        is_paused = True  # Park at dock on next episode awaiting Enter
                 else:
                     # Single mode step
                     def step_single():
@@ -298,10 +297,9 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     await websocket.send_text(rs.model_dump_json())
 
                     if done:
-                        await asyncio.sleep(1.0)
+                        await asyncio.sleep(1.2)
                         current_seed += 1
                         adapter_left.reset(current_seed)
-                        is_paused = True  # Park at dock on next episode awaiting Enter
 
                 # Sleep proportional to speed (base 30 Hz -> 33.3ms), subtracting computation time
                 compute_dt = time.perf_counter() - t_step_start
