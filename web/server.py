@@ -53,7 +53,7 @@ active_connections = 0
 def create_adapter(scenario: str, variant: int, mode: str):
     """Instantiate adapter for scenario and mode."""
     if scenario == "robotics":
-        return RobotAdapter(scenario_variant=variant, mode=mode)
+        return RobotAdapter(scenario_variant=variant, mode=mode, fixed_dock_start=True)
     elif scenario == "driving":
         return DrivingAdapter(scenario_variant=variant, mode=mode)
     elif scenario == "factory":

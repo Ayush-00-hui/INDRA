@@ -20,10 +20,11 @@ class RobotAdapter:
     Adapter interfacing RobotEnv and WorldModel MPC planner with the web server.
     """
 
-    def __init__(self, scenario_variant: int = 1, mode: str = "world_model", model_path: Optional[str] = None):
+    def __init__(self, scenario_variant: int = 1, mode: str = "world_model", model_path: Optional[str] = None, fixed_dock_start: bool = False):
         self.scenario_variant = scenario_variant
         self.mode = mode  # "world_model" or "baseline"
-        self.env = RobotEnv(scenario=scenario_variant)
+        self.fixed_dock_start = fixed_dock_start
+        self.env = RobotEnv(scenario=scenario_variant, fixed_dock_start=fixed_dock_start)
         self.state: Optional[np.ndarray] = None
         self.last_action: int = RobotEnv.ACTION_STAY
         self.last_plan_info: Optional[Dict[str, Any]] = None
@@ -300,6 +301,7 @@ class RobotAdapter:
             collisions=self.env.collision_count,
             step_count=self.env.step_count,
             extra={
+                "success_count": self.env.success_count,
                 "remaining_steps": self.env.MAX_STEPS - self.env.step_count,
                 "dist_to_goal": round(float(np.hypot(self.env.robot_x - self.env.goal_x, self.env.robot_y - self.env.goal_y)), 1)
             }

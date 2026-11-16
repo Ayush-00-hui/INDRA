@@ -519,15 +519,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (!frame) return;
 
     const currentStep = frame.metrics?.step_count ?? frame.step ?? 0;
-    if (currentStep < lastObservedStep || currentStep >= 200 || frame.metrics?.success) {
-      sessionCompletedEpisodes++;
-      if (frame.metrics?.success) sessionSuccessCount++;
-      const winRatePct = ((sessionSuccessCount / Math.max(sessionCompletedEpisodes, 1)) * 100).toFixed(1);
-      metricWinrate.textContent = `${winRatePct}% (n=${sessionCompletedEpisodes})`;
-    }
-    lastObservedStep = currentStep;
-
     if (frame.metrics) {
+      const epCount = frame.metrics.episode ?? 1;
+      const succCount = frame.metrics.extra?.success_count ?? (frame.metrics.success ? 1 : 0);
+      const winRatePct = ((succCount / Math.max(epCount, 1)) * 100).toFixed(1);
+      metricWinrate.textContent = `${winRatePct}% (n=${epCount})`;
       metricCollisions.textContent = `${frame.metrics.collisions}`;
       metricSteps.textContent = `${currentStep} / 200`;
     }

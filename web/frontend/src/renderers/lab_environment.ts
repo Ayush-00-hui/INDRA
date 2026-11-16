@@ -501,8 +501,8 @@ export class LabEnvironmentBuilder {
     const craneYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.4 });
     const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.95 });
 
-    // 5 Overhead Steel Lattice Box-Trusses spanning ceiling at y = 6.4m
-    for (const zT of [-5.6, -2.8, 0.0, 2.8, 5.6]) {
+    // Overhead Steel Lattice Box-Trusses (Placed along North perimeter to keep camera sightlines unobstructed)
+    for (const zT of [-6.8, -4.8]) {
       const truss = new THREE.Mesh(new THREE.BoxGeometry(23.6, 0.24, 0.24), steelMat);
       truss.position.set(0, 6.5, zT);
       craneGroup.add(truss);
@@ -529,8 +529,8 @@ export class LabEnvironmentBuilder {
       }
     }
 
-    // Double-Girder Bridge Crane (Spanning from -10.5m to 10.5m at z = -1.2m, y = 6.18m)
-    const craneBridgeZ = -1.2;
+    // Double-Girder Bridge Crane (Parked in North maintenance bay at z = -5.8m, y = 6.18m)
+    const craneBridgeZ = -5.8;
     for (const dZ of [-0.35, 0.35]) {
       const girder = new THREE.Mesh(new THREE.BoxGeometry(21.2, 0.42, 0.16), craneYellowMat);
       girder.position.set(0, 6.18, craneBridgeZ + dZ);
