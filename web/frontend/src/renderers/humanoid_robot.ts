@@ -351,7 +351,8 @@ export class HumanoidRobot {
     currentPos: THREE.Vector3,
     headingRad: number,
     mode: "world_model" | "baseline",
-    hasCollision: boolean
+    hasCollision: boolean,
+    isDocked: boolean = false
   ) {
     const now = performance.now();
 
@@ -363,7 +364,7 @@ export class HumanoidRobot {
 
     const instantSpeed = dt > 0 ? distMoved / dt : 0;
     this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, 0.25);
-    const isWalking = this.smoothedSpeed > 0.02;
+    const isWalking = !isDocked && this.smoothedSpeed > 0.04;
 
     // 2. Position & Heading: aligns directly with the movement/path tangent
     this.root.position.copy(currentPos);

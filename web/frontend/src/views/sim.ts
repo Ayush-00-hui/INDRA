@@ -576,16 +576,18 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         let maxRet = -1e9;
         let minRet = 1e9;
         frame.plan.alts.forEach((c: any) => {
-          if (c.return > maxRet) maxRet = c.return;
-          if (c.return < minRet) minRet = c.return;
+          const val = c.score !== undefined ? c.score : (c.return !== undefined ? c.return : 0.0);
+          if (val > maxRet) maxRet = val;
+          if (val < minRet) minRet = val;
         });
         const range = Math.max(maxRet - minRet, 1.0);
 
         frame.plan.alts.forEach((c: any) => {
-          const actId = c.first_action !== undefined ? c.first_action : c.action;
+          const val = c.score !== undefined ? c.score : (c.return !== undefined ? c.return : 0.0);
+          const actId = c.first_action !== undefined ? c.first_action : (c.action !== undefined ? c.action : 4);
           const actName = actionNames[actId] || "STAY";
           const isChosen = actId === chosenIdx;
-          const pct = Math.max(8, Math.min(100, Math.round(((c.return - minRet) / range) * 100)));
+          const pct = Math.max(8, Math.min(100, Math.round(((val - minRet) / range) * 100)));
           const barColor = isChosen ? "#00ff9d" : c.collides ? "#ff4757" : "#00f0ff";
 
           const row = document.createElement("div");
@@ -596,7 +598,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <div class="candidate-bar-bg">
               <div class="candidate-bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
             </div>
-            <span style="width: 48px; text-align: right; color: ${barColor}; font-weight: 700;">${c.return >= 0 ? "+" : ""}${c.return.toFixed(1)}</span>
+            <span style="width: 48px; text-align: right; color: ${barColor}; font-weight: 700;">${val >= 0 ? "+" : ""}${Number(val).toFixed(1)}</span>
           `;
           candidatesContainer.appendChild(row);
         });
@@ -881,7 +883,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     };
 
     if (btnDockLaunch) {
-      btnDockLaunch.onclick = () => toggleDockRelease();
+      btnDockLaunch.onclick = (e) => {
+        e.preventDefault();
+        btnDockLaunch.blur();
+        toggleDockRelease();
+      };
     }
 
     // Reset Layout Button
@@ -943,7 +949,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
       if (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space" || e.key === " ") {
         e.preventDefault();
+        e.stopPropagation();
         toggleDockRelease();
+        return;
       } else if (e.key === "Tab") {
         e.preventDefault();
         btnWm.click();

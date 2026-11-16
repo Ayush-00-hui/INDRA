@@ -5,6 +5,7 @@ Streams live simulation frames to Three.js / Canvas frontends at 30-60 Hz.
 
 import os
 import sys
+import time
 import json
 import asyncio
 import socket

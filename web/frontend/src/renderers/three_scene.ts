@@ -1061,11 +1061,11 @@ export class ThreeSimulationScene {
 
     // Smooth Sub-Frame Kinematic Interpolation for Robot
     if (!this.isFirstStateUpdate) {
-      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 18.0));
+      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 24.0));
       let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
       if (diff > Math.PI) diff -= Math.PI * 2;
       if (diff < -Math.PI) diff += Math.PI * 2;
-      this.currentRobotHeading += diff * Math.min(1.0, dt * 15.0);
+      this.currentRobotHeading += diff * Math.min(1.0, dt * 20.0);
     }
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1075,7 +1075,8 @@ export class ThreeSimulationScene {
         this.currentRobotPos,
         this.currentRobotHeading,
         this.lastMode === "world_model" ? "world_model" : "baseline",
-        this.hasCollision
+        this.hasCollision,
+        this.isDocked
       );
     }
 
@@ -1207,29 +1208,22 @@ export class ThreeSimulationScene {
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
 
-        // Calculate targetHeading to face and move in the direction of the plan path
+        // Calculate targetHeading: when docked, lock East toward arena; when moving, align to motion or plan
         let targetHeading = this.currentRobotHeading;
-        let foundPathTangent = false;
-
-        if (frame.plan && frame.plan.best && frame.plan.best.length >= 2) {
-          for (let ptIdx = 1; ptIdx < frame.plan.best.length; ptIdx++) {
-            const next3D = this.to3D(frame.plan.best[ptIdx][0], frame.plan.best[ptIdx][1]);
-            const dX = next3D.x - pos.x;
-            const dZ = next3D.z - pos.z;
-            const dist = Math.hypot(dX, dZ);
-            if (dist > 0.08) {
-              targetHeading = Math.atan2(dX, dZ);
-              foundPathTangent = true;
-              break;
-            }
-          }
-        }
-
-        if (!foundPathTangent) {
+        if (this.isDocked) {
+          targetHeading = Math.PI / 2; // Locked East
+        } else {
           const moveDx = pos.x - this.lastRobotPos.x;
           const moveDz = pos.z - this.lastRobotPos.z;
-          if (Math.hypot(moveDx, moveDz) > 0.004) {
+          if (Math.hypot(moveDx, moveDz) > 0.04) {
             targetHeading = Math.atan2(moveDx, moveDz);
+          } else if (frame.plan && frame.plan.best && frame.plan.best.length >= 2) {
+            const next3D = this.to3D(frame.plan.best[1][0], frame.plan.best[1][1]);
+            const dX = next3D.x - pos.x;
+            const dZ = next3D.z - pos.z;
+            if (Math.hypot(dX, dZ) > 0.10) {
+              targetHeading = Math.atan2(dX, dZ);
+            }
           }
         }
         this.lastRobotPos.set(pos.x, 0, pos.z);
