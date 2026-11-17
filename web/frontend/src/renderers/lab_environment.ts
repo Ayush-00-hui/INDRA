@@ -1,19 +1,59 @@
 /**
- * Photorealistic Industrial Warehouse & Gigafactory Robotics Test Arena (v7.0-heavy).
- * Procedural PBR architecture, 2x expanded facility (255.2 m²), overhead bridge crane,
- * elevated mezzanine catwalk with glass-enclosed robotics observation control booth,
- * 6-axis articulated industrial robotic arm cell, motorized roller conveyor line,
- * high-voltage electrical substation bank, 55-gal barrel clusters, and safety crash barriers.
+ * Futuristic AI Robotics Research Laboratory (Year 2050).
+ * High-End Cybernetic & Neural Dynamics Research Facility:
+ *  - Obsidian carbon-composite reflective floor with laser-etched hexagonal cyber-tiles & circular telemetry arena.
+ *  - Dark brushed titanium and carbon-fiber modular wall architecture with vertical recessed LED light blades.
+ *  - Central Quantum AI Core Reactor with magnetic containment vessel, spinning dual-axis gyro rings, and pulsing plasma core.
+ *  - Holographic World Simulation Emitter projecting an illuminated 3D rotating wireframe globe with orbital latent vectors.
+ *  - Articulated 6-axis precision robotic arm workcell on high-tech lab workbench with procedural idle scanning kinematics.
+ *  - Autonomous exploration rover diagnostics inspection bay with elevated glass under-glow pedestal.
+ *  - Master research workstation with curved ultrawide panoramic display, dual angled auxiliary screens, and liquid-cooled supercomputer.
+ *  - Wall-mounted panoramic telemetry screens displaying real-time neural network loss, latent space, and LiDAR point clouds.
+ *  - Biophilic hydroponic air-purification columns and illuminated glass display cabinets for robotic actuators.
+ *  - High-tech modular quantum containment pods, cryogenic server racks, and plasma power cells.
  */
 
 import * as THREE from "three";
 
+export interface FuturisticLabHandles {
+  lights: THREE.PointLight[];
+  aiCore?: {
+    outerRing: THREE.Object3D;
+    innerRing: THREE.Object3D;
+    coreOrb: THREE.Mesh;
+    light: THREE.PointLight;
+  };
+  holoEmitter?: {
+    globeGroup: THREE.Group;
+    rings: THREE.Mesh[];
+    beam: THREE.Mesh;
+  };
+  roboticArm?: {
+    baseRot: THREE.Object3D;
+    shoulderRot: THREE.Object3D;
+    elbowRot: THREE.Object3D;
+    wristRot: THREE.Object3D;
+    gripperL: THREE.Object3D;
+    gripperR: THREE.Object3D;
+  };
+  roverInspection?: {
+    mast: THREE.Object3D;
+    scannerHead: THREE.Object3D;
+  };
+  workstation?: {
+    curvedScreen: THREE.Mesh;
+    supercomputerLed?: THREE.Mesh;
+  };
+  telemetryDisplays?: {
+    screens: THREE.Mesh[];
+  };
+}
+
 export class LabEnvironmentBuilder {
   /**
-   * Generates a 2048x2048 PBR industrial concrete floor texture with
-   * aggregate noise, 1m x 1m expansion joint seams, OSHA hazard chevron borders,
-   * center alignment calibration target, staging bay lines, tire scuffs,
-   * and high-contrast gigafactory directional floor stencils.
+   * Generates a 2048x2048 high-gloss obsidian cyber-tile laboratory floor texture.
+   * Features laser-etched hexagonal matrix, circular robotics testing arena,
+   * coordinate axes, calibration degree marks, and crisp sci-fi technical stencils.
    */
   public static createFloorCanvasTexture(): THREE.CanvasTexture {
     const canvas = document.createElement("canvas");
@@ -22,1384 +62,1534 @@ export class LabEnvironmentBuilder {
     const ctx = canvas.getContext("2d");
     if (!ctx) return new THREE.CanvasTexture(canvas);
 
-    // 1. Concrete Base Tone with realistic industrial aggregate mottling
-    const grad = ctx.createRadialGradient(1024, 1024, 150, 1024, 1024, 1300);
-    grad.addColorStop(0, "#d1d5db");   // Center clean polished concrete
-    grad.addColorStop(0.45, "#b5bfc9"); // Mid-tone sealed concrete
-    grad.addColorStop(0.85, "#9ca3af"); // Industrial perimeter tone
-    grad.addColorStop(1, "#8993a4");   // Outer edge shadow concrete
-    ctx.fillStyle = grad;
+    // 1. Deep Midnight Obsidian & Carbon Base Gradient
+    const bgGrad = ctx.createRadialGradient(1024, 1024, 100, 1024, 1024, 1400);
+    bgGrad.addColorStop(0, "#0c1527");    // Center deep navy obsidian
+    bgGrad.addColorStop(0.40, "#080e1b"); // Mid-tone carbon matrix
+    bgGrad.addColorStop(0.75, "#050912"); // Perimeter dark slate
+    bgGrad.addColorStop(1.0, "#020408");  // Outer edge shadow
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, 2048, 2048);
 
-    // Fine concrete aggregate noise & subtle surface flecks
+    // Fine metallic carbon micro-grain noise
     const imgData = ctx.getImageData(0, 0, 2048, 2048);
     const data = imgData.data;
     for (let i = 0; i < data.length; i += 4) {
-      const n = (Math.random() - 0.5) * 18;
+      const n = (Math.random() - 0.5) * 14;
       data[i] = Math.min(255, Math.max(0, data[i] + n));
-      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
-      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n * 1.2));
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n * 1.5));
     }
     ctx.putImageData(imgData, 0, 0);
 
-    // 2. 1m x 1m Expansion Joint Grooves (Saw-cut control joints with dark sealant)
-    // 20 intervals across X (19.6m), 13 intervals across Y (13.0m)
-    ctx.strokeStyle = "rgba(51, 65, 85, 0.50)";
-    ctx.lineWidth = 4;
-    const stepX = 2048 / 20;
-    for (let x = 0; x <= 2048; x += stepX) {
+    // 2. High-Tech Hexagonal Cyber-Tile Grid
+    ctx.save();
+    ctx.strokeStyle = "rgba(14, 165, 233, 0.07)";
+    ctx.lineWidth = 1.5;
+    const hexRadius = 48;
+    const hexH = hexRadius * Math.sqrt(3);
+    for (let y = -hexH; y < 2048 + hexH; y += hexH) {
+      let row = 0;
+      for (let x = -hexRadius; x < 2048 + hexRadius; x += hexRadius * 1.5) {
+        const cy = y + (row % 2 === 0 ? 0 : hexH / 2);
+        this.drawHexagon(ctx, x, cy, hexRadius * 0.94);
+        row++;
+      }
+    }
+    ctx.restore();
+
+    // 3. Central Robotics Testing Arena (The "Neural Test Field")
+    const cx = 1024;
+    const cy = 1024;
+    ctx.save();
+
+    // Concentric Arena Distance Rings (Scales representing 1m, 2m, 3m, 4m, 5m)
+    const ringRadii = [180, 360, 540, 720, 880];
+    for (let i = 0; i < ringRadii.length; i++) {
+      const r = ringRadii[i];
       ctx.beginPath();
-      ctx.moveTo(x, 0);
-      ctx.lineTo(x, 2048);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = i === 2 ? "rgba(0, 240, 255, 0.40)" : "rgba(56, 189, 248, 0.16)";
+      ctx.lineWidth = i === 2 ? 3 : 1.5;
+      if (i % 2 === 1) ctx.setLineDash([12, 10]);
+      else ctx.setLineDash([]);
       ctx.stroke();
     }
-    const stepY = 2048 / 13;
-    for (let y = 0; y <= 2048; y += stepY) {
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(2048, y);
-      ctx.stroke();
-    }
-
-    // 3. Realistic Rubber Tire / Wheel Scuff Marks near high-traffic paths
-    ctx.save();
-    ctx.strokeStyle = "rgba(30, 41, 59, 0.14)";
-    ctx.lineWidth = 26;
-    ctx.lineCap = "round";
-    // Turning arc from center toward charging dock
-    ctx.beginPath();
-    ctx.arc(1200, 1024, 280, Math.PI * 0.8, Math.PI * 1.4);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(840, 960, 200, Math.PI * 0.1, Math.PI * 0.7);
-    ctx.stroke();
-    // Reversing scuffs near charging dock
-    ctx.lineWidth = 14;
-    ctx.beginPath();
-    ctx.moveTo(1500, 980);
-    ctx.lineTo(1680, 980);
-    ctx.moveTo(1500, 1040);
-    ctx.lineTo(1680, 1040);
-    ctx.stroke();
-    ctx.restore();
-
-    // 4. OSHA Safety Border: 45-degree diagonal Yellow & Black Hazard Stripes
-    const borderThickness = 64;
-    ctx.save();
-    this.drawHazardStripes(ctx, 0, 0, 2048, borderThickness);
-    this.drawHazardStripes(ctx, 0, 2048 - borderThickness, 2048, borderThickness);
-    this.drawHazardStripes(ctx, 0, 0, borderThickness, 2048);
-    this.drawHazardStripes(ctx, 2048 - borderThickness, 0, borderThickness, 2048);
-    ctx.restore();
-
-    // Inner crisp yellow boundary line
-    ctx.strokeStyle = "#facc15";
-    ctx.lineWidth = 7;
-    ctx.strokeRect(borderThickness + 8, borderThickness + 8, 2048 - (borderThickness + 8) * 2, 2048 - (borderThickness + 8) * 2);
-
-    // Corner alignment brackets
-    this.drawCornerBrackets(ctx, borderThickness + 24);
-
-    // 5. Center Registration Target & Millimeter Calibration Crosshairs
-    ctx.save();
-    ctx.strokeStyle = "rgba(14, 165, 233, 0.85)"; // Cyan calibration ring
-    ctx.lineWidth = 5;
-    ctx.beginPath();
-    ctx.arc(1024, 1024, 180, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.strokeStyle = "rgba(14, 165, 233, 0.45)";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.arc(1024, 1024, 280, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Crosshairs
-    ctx.beginPath();
-    ctx.moveTo(1024 - 340, 1024);
-    ctx.lineTo(1024 + 340, 1024);
-    ctx.moveTo(1024, 1024 - 340);
-    ctx.lineTo(1024, 1024 + 340);
-    ctx.stroke();
-
-    // Cardinal direction ticks & labels
-    ctx.fillStyle = "rgba(14, 165, 233, 0.90)";
-    ctx.font = "bold 26px monospace";
-    ctx.textAlign = "center";
-    ctx.fillText("N [0°]", 1024, 1024 - 295);
-    ctx.fillText("S [180°]", 1024, 1024 + 320);
-    ctx.fillText("W [-90°]", 1024 - 290, 1032);
-    ctx.fillText("E [+90°]", 1024 + 290, 1032);
-    ctx.font = "20px monospace";
-    ctx.fillText("HUMANOID NAV DATUM (0.0, 0.0) • 255.2 M² ARENA", 1024, 1024 + 48);
-    ctx.restore();
-
-    // 6. Staging & Charging Bay Markings (Docking Bay Area)
-    ctx.save();
-    ctx.strokeStyle = "#eab308";
-    ctx.lineWidth = 6;
-    ctx.setLineDash([24, 14]);
-    ctx.strokeRect(1480, 680, 480, 680);
     ctx.setLineDash([]);
 
-    // Charging bay diagonal chevron guide arrows
-    this.drawFloorArrow(ctx, 1560, 1024, 120, 0);
-    this.drawFloorArrow(ctx, 1680, 1024, 120, 0);
+    // Degree Ticks around the 720px Arena Ring (Every 15 degrees)
+    for (let deg = 0; deg < 360; deg += 15) {
+      const rad = (deg * Math.PI) / 180;
+      const isMajor = deg % 45 === 0;
+      const rInner = isMajor ? 700 : 710;
+      const rOuter = 730;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(rad) * rInner, cy + Math.sin(rad) * rInner);
+      ctx.lineTo(cx + Math.cos(rad) * rOuter, cy + Math.sin(rad) * rOuter);
+      ctx.strokeStyle = isMajor ? "rgba(0, 240, 255, 0.75)" : "rgba(14, 165, 233, 0.35)";
+      ctx.lineWidth = isMajor ? 3 : 1.5;
+      ctx.stroke();
 
-    ctx.fillStyle = "#ca8a04";
-    ctx.font = "bold 28px monospace";
+      if (isMajor) {
+        ctx.fillStyle = "rgba(0, 240, 255, 0.70)";
+        ctx.font = "bold 16px 'Courier New', monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const labelR = 752;
+        ctx.fillText(`${deg}°`, cx + Math.cos(rad) * labelR, cy + Math.sin(rad) * labelR);
+      }
+    }
+
+    // Coordinate Axes (+X, -X, +Z, -Z)
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.25)";
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 8]);
+    ctx.beginPath();
+    ctx.moveTo(cx - 900, cy);
+    ctx.lineTo(cx + 900, cy);
+    ctx.moveTo(cx, cy - 900);
+    ctx.lineTo(cx, cy + 900);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Central Alignment Crosshair & Diamond Hub
+    ctx.strokeStyle = "rgba(0, 255, 157, 0.65)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(cx - 30, cy - 30, 60, 60);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // 4. Perimeter Navigational Light Guidelines & Sleek Bevel Border
+    const pad = 72;
+    // Outer electric cyan perimeter conduit
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.60)";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(pad, pad, 2048 - pad * 2, 2048 - pad * 2);
+
+    // Secondary subtle violet guide channel
+    ctx.strokeStyle = "rgba(168, 85, 247, 0.40)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(pad + 18, pad + 18, 2048 - (pad + 18) * 2, 2048 - (pad + 18) * 2);
+
+    // Corner Alignment Tech Brackets
+    this.drawCornerTechBrackets(ctx, pad + 8, 80);
+
+    // 5. Stenciled Sci-Fi Typography & Markings
+    ctx.fillStyle = "rgba(0, 240, 255, 0.85)";
+    ctx.font = "900 24px 'Courier New', monospace";
     ctx.textAlign = "left";
-    ctx.fillText("[ CHARGING BAY 01 ]", 1510, 740);
-    ctx.font = "22px monospace";
-    ctx.fillText("AMR AUTO-COUPLING STATION", 1510, 780);
-    ctx.fillText("48V WIRELESS INDUCTION DOCK", 1510, 815);
-    ctx.fillText("KEEP CLEAR OF VEHICLE DOCK", 1510, 1320);
-    ctx.restore();
+    ctx.fillText("FACILITY SECTOR 04 // NEURAL DYNAMICS LAB", pad + 24, pad + 48);
 
-    // 7. Gigafactory Test Arena Zone Stencils
-    ctx.save();
-    ctx.fillStyle = "rgba(51, 65, 85, 0.85)";
-    ctx.font = "bold 34px sans-serif";
+    ctx.fillStyle = "rgba(148, 163, 184, 0.60)";
+    ctx.font = "600 16px 'Courier New', monospace";
+    ctx.fillText("WORLD MODEL TEST FIELD // RECEDING HORIZON MPC [N=300, H=14]", pad + 24, pad + 76);
+
+    ctx.textAlign = "right";
+    ctx.fillStyle = "rgba(168, 85, 247, 0.85)";
+    ctx.font = "900 22px 'Courier New', monospace";
+    ctx.fillText("QUANTUM CORE ONLINE ● LATENT FORESIGHT", 2048 - pad - 24, pad + 48);
+
+    ctx.fillStyle = "rgba(148, 163, 184, 0.55)";
+    ctx.font = "600 15px 'Courier New', monospace";
+    ctx.fillText("STAND CLEAR: AUTONOMOUS KINEMATICS ACTIVE", 2048 - pad - 24, pad + 74);
+
+    // South Edge Status Readout
+    ctx.textAlign = "center";
+    ctx.fillStyle = "rgba(0, 255, 157, 0.70)";
+    ctx.font = "700 18px 'Courier New', monospace";
+    ctx.fillText("▲ DOCKING INGRESS LANE — AUTONOMOUS AMR CHARGING PORT ▲", cx, 2048 - pad - 28);
+
+    // Docking Bay Stencils (West Area)
     ctx.textAlign = "left";
-    ctx.fillText("GIGAFACTORY TESTBED CELL 01 • AUTONOMOUS OMNIDIRECTIONAL ROBOTICS", 110, 140);
+    ctx.fillStyle = "rgba(0, 255, 157, 0.55)";
+    ctx.fillText("BAY 01: FAST RECHARGE", pad + 32, 2048 - pad - 28);
 
-    ctx.font = "22px monospace";
-    ctx.fillText("FACILITY: GIGA-ROBOTICS-HQ | TOTAL ARENA: 255.2 M² | SPEED LIMIT: 1.5 M/S | 48V AMR", 110, 180);
-    ctx.fillText("SAFETY INTERLOCK ACTIVE • EMERGENCY STOP MONITORED • OVERHEAD CRANE ZONE", 110, 1960);
     ctx.restore();
-
-    // Additional traffic pathway arrows
-    this.drawFloorArrow(ctx, 550, 1024, 130, 0);
-    this.drawFloorArrow(ctx, 1024, 550, 130, -Math.PI / 2);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.wrapS = THREE.ClampToEdgeWrapping;
     texture.wrapT = THREE.ClampToEdgeWrapping;
-    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
     return texture;
   }
 
   /**
-   * Roughness map: Polished concrete is glossy, borders are rougher.
+   * Generates a 2048x2048 specular roughness map for the laboratory floor.
+   * Delivers high-gloss mirror reflections on polished tiles with textured seams.
    */
   public static createFloorRoughnessTexture(): THREE.CanvasTexture {
     const canvas = document.createElement("canvas");
-    canvas.width = 1024;
-    canvas.height = 1024;
+    canvas.width = 2048;
+    canvas.height = 2048;
     const ctx = canvas.getContext("2d");
     if (!ctx) return new THREE.CanvasTexture(canvas);
 
-    ctx.fillStyle = "#484848";
-    ctx.fillRect(0, 0, 1024, 1024);
+    // Mirror polished base (darker = more reflective specular)
+    ctx.fillStyle = "#202530"; // ~0.15 roughness for gorgeous sci-fi floor reflections
+    ctx.fillRect(0, 0, 2048, 2048);
 
-    ctx.fillStyle = "#adadad";
-    const b = 32;
-    ctx.fillRect(0, 0, 1024, b);
-    ctx.fillRect(0, 1024 - b, 1024, b);
-    ctx.fillRect(0, 0, b, 1024);
-    ctx.fillRect(1024 - b, 0, b, 1024);
+    // Hex seams roughness
+    ctx.strokeStyle = "#606878";
+    ctx.lineWidth = 2;
+    const hexRadius = 48;
+    const hexH = hexRadius * Math.sqrt(3);
+    for (let y = -hexH; y < 2048 + hexH; y += hexH) {
+      let row = 0;
+      for (let x = -hexRadius; x < 2048 + hexRadius; x += hexRadius * 1.5) {
+        const cy = y + (row % 2 === 0 ? 0 : hexH / 2);
+        this.drawHexagon(ctx, x, cy, hexRadius * 0.94);
+        row++;
+      }
+    }
 
-    ctx.strokeStyle = "#999999";
-    ctx.lineWidth = 8;
-    ctx.strokeRect(740, 340, 240, 340);
+    // Laser-etched lines (matte roughness)
+    ctx.strokeStyle = "#808898";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(72, 72, 2048 - 144, 2048 - 144);
+    ctx.strokeRect(90, 90, 2048 - 180, 2048 - 180);
 
-    return new THREE.CanvasTexture(canvas);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.ClampToEdgeWrapping;
+    texture.wrapT = THREE.ClampToEdgeWrapping;
+    return texture;
   }
 
-  private static drawHazardStripes(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number
-  ) {
-    ctx.save();
+  private static drawHexagon(ctx: CanvasRenderingContext2D, x: number, y: number, r: number) {
     ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const hx = x + r * Math.cos(angle);
+      const hy = y + r * Math.sin(angle);
+      if (i === 0) ctx.moveTo(hx, hy);
+      else ctx.lineTo(hx, hy);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
 
-    ctx.fillStyle = "#eab308";
-    ctx.fillRect(x, y, w, h);
-
-    ctx.fillStyle = "#1e293b";
-    const stripeWidth = 52;
-    for (let i = -2048; i < 4096; i += stripeWidth * 2) {
+  private static drawCornerTechBrackets(ctx: CanvasRenderingContext2D, offset: number, len: number) {
+    const corners = [
+      [offset, offset, 1, 1],
+      [2048 - offset, offset, -1, 1],
+      [offset, 2048 - offset, 1, -1],
+      [2048 - offset, 2048 - offset, -1, -1],
+    ];
+    ctx.save();
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.90)";
+    ctx.lineWidth = 4;
+    for (const [x, y, dx, dy] of corners) {
       ctx.beginPath();
-      ctx.moveTo(i, y);
-      ctx.lineTo(i + stripeWidth, y);
-      ctx.lineTo(i + stripeWidth + h, y + h);
-      ctx.lineTo(i + h, y + h);
-      ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(x, y + dy * len);
+      ctx.lineTo(x, y);
+      ctx.lineTo(x + dx * len, y);
+      ctx.stroke();
     }
     ctx.restore();
   }
 
-  private static drawCornerBrackets(ctx: CanvasRenderingContext2D, offset: number) {
-    const size = 64;
-    const thickness = 8;
-    ctx.fillStyle = "#facc15";
-
-    // Top-Left
-    ctx.fillRect(offset, offset, size, thickness);
-    ctx.fillRect(offset, offset, thickness, size);
-    // Top-Right
-    ctx.fillRect(2048 - offset - size, offset, size, thickness);
-    ctx.fillRect(2048 - offset - thickness, offset, thickness, size);
-    // Bottom-Left
-    ctx.fillRect(offset, 2048 - offset - thickness, size, thickness);
-    ctx.fillRect(offset, 2048 - offset - size, thickness, size);
-    // Bottom-Right
-    ctx.fillRect(2048 - offset - size, 2048 - offset - thickness, size, thickness);
-    ctx.fillRect(2048 - offset - thickness, 2048 - offset - size, thickness, size);
-  }
-
-  private static drawFloorArrow(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    len: number,
-    angle: number
-  ) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.fillStyle = "rgba(14, 165, 233, 0.45)";
-    ctx.beginPath();
-    ctx.moveTo(0, -16);
-    ctx.lineTo(len - 40, -16);
-    ctx.lineTo(len - 40, -36);
-    ctx.lineTo(len, 0);
-    ctx.lineTo(len - 40, 36);
-    ctx.lineTo(len - 40, 16);
-    ctx.lineTo(0, 16);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-  }
-
   /**
-   * Builds the photorealistic 2x expanded industrial warehouse architecture (255.2 m² Arena):
-   * Overhead bridge crane system with hoist and runway tracks, elevated mezzanine catwalk with
-   * glass observation control booth, 6-axis industrial robot arm cell, motorized roller conveyor line,
-   * high-voltage electrical substation, heavy storage racks, and industrial luminaires.
+   * Builds the entire futuristic AI Robotics Laboratory:
+   * Architecture, Quantum AI Core Reactor, Holographic Simulation Emitter,
+   * 6-Axis Articulated Robotic Arm Workcell, Autonomous Exploration Rover,
+   * Master Research Workstation, Wall Telemetry Displays, and Multi-Layer Lighting.
    */
-  public static buildWarehouseArchitecture(scene: THREE.Scene): {
-    lights: THREE.PointLight[];
-  } {
+  public static buildWarehouseArchitecture(scene: THREE.Scene): FuturisticLabHandles {
     const lights: THREE.PointLight[] = [];
 
-    // Shared Materials
-    const outerFloorMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      roughness: 0.88,
-      metalness: 0.15,
-    });
-    const lowerWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.75,
-      metalness: 0.20,
-    });
-    const upperWallMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.65,
-      metalness: 0.30,
-    });
-    const steelMat = new THREE.MeshStandardMaterial({
-      color: 0x0f172a,
-      roughness: 0.35,
+    // Core Materials Palette
+    const darkMetalMat = new THREE.MeshStandardMaterial({
+      color: 0x090e18,
+      roughness: 0.28,
       metalness: 0.85,
     });
-    const yellowGuardMat = new THREE.MeshStandardMaterial({
-      color: 0xfacc15,
-      roughness: 0.35,
-      metalness: 0.25,
+    const titaniumMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.22,
+      metalness: 0.92,
     });
-    const rackOrangeMat = new THREE.MeshStandardMaterial({
-      color: 0xea580c,
-      roughness: 0.45,
-      metalness: 0.4,
+    const carbonMat = new THREE.MeshStandardMaterial({
+      color: 0x0b111e,
+      roughness: 0.40,
+      metalness: 0.60,
     });
-    const rackBlueMat = new THREE.MeshStandardMaterial({
-      color: 0x1d4ed8,
-      roughness: 0.4,
-      metalness: 0.5,
+    const cyanLedMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+    });
+    const violetLedMat = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+    });
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0x0f172a,
+      roughness: 0.08,
+      metalness: 0.15,
+      transmission: 0.88,
+      thickness: 0.45,
+      transparent: true,
+      opacity: 0.82,
     });
 
     const wallHeight = 6.8;
 
-    // 0. Massive Extended Foundation Floor (48m x 36m hall floor)
+    // 0. Extended Foundation Floor (48m x 36m outer hall)
     const outerFloorGeo = new THREE.PlaneGeometry(48.0, 36.0);
-    const outerFloor = new THREE.Mesh(outerFloorGeo, outerFloorMat);
+    const outerFloor = new THREE.Mesh(outerFloorGeo, darkMetalMat);
     outerFloor.rotation.x = -Math.PI / 2;
     outerFloor.position.set(0, -0.005, 0);
     outerFloor.receiveShadow = true;
     scene.add(outerFloor);
 
-    // 1. Four Industrial Yellow Safety Bollards at Expanded Arena Corners (±9.9m x ±6.6m)
-    const bollardPositions: [number, number][] = [
-      [-9.9, -6.6],
-      [9.9, -6.6],
-      [-9.9, 6.6],
-      [9.9, 6.6],
-    ];
-    for (const [bx, bz] of bollardPositions) {
-      this.createSafetyBollard(scene, bx, bz, yellowGuardMat, steelMat);
+    // 1. Sci-Fi Walls with Modular Panels & Vertical LED Blades
+    // North Wall (Back - 24m span, height 6.8m at z = -7.3m)
+    const backWallGroup = new THREE.Group();
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(24.0, wallHeight, 0.25), darkMetalMat);
+    backWall.position.set(0, wallHeight / 2, -7.3);
+    backWall.receiveShadow = true;
+    backWallGroup.add(backWall);
+
+    // Vertical Cyan & Violet LED Light Blades along North Wall
+    const bladePositionsX = [-9.6, -7.2, -4.8, -2.4, 2.4, 4.8, 7.2, 9.6];
+    for (let i = 0; i < bladePositionsX.length; i++) {
+      const bx = bladePositionsX[i];
+      const isCyan = i % 2 === 0;
+      const blade = new THREE.Mesh(
+        new THREE.BoxGeometry(0.06, wallHeight - 0.6, 0.04),
+        isCyan ? cyanLedMat : violetLedMat
+      );
+      blade.position.set(bx, wallHeight / 2, -7.16);
+      backWallGroup.add(blade);
     }
 
-    // 2. North Wall (Back - Spacious 24.0m span, height 6.8m at z = -7.3m)
-    const backLower = new THREE.Mesh(new THREE.BoxGeometry(24.0, 1.4, 0.22), lowerWallMat);
-    backLower.position.set(0, 0.7, -7.3);
-    backLower.receiveShadow = true;
-    scene.add(backLower);
+    // Horizontal Illuminated Data Conduits across North Wall
+    for (const cy of [1.6, 3.8, 5.6]) {
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 23.8, 12), titaniumMat);
+      pipe.rotation.z = Math.PI / 2;
+      pipe.position.set(0, cy, -7.16);
+      backWallGroup.add(pipe);
 
-    const backUpper = new THREE.Mesh(new THREE.BoxGeometry(24.0, wallHeight - 1.4, 0.22), upperWallMat);
-    backUpper.position.set(0, 1.4 + (wallHeight - 1.4) / 2, -7.3);
-    backUpper.receiveShadow = true;
-    scene.add(backUpper);
+      const glowStripe = new THREE.Mesh(new THREE.BoxGeometry(23.6, 0.015, 0.02), cyanLedMat);
+      glowStripe.position.set(0, cy + 0.035, -7.15);
+      backWallGroup.add(glowStripe);
+    }
+    scene.add(backWallGroup);
 
-    // Industrial Conduits along North Wall
-    const conduitMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.9 });
-    const conduit1 = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 23.6, 12), conduitMat);
-    conduit1.rotation.z = Math.PI / 2;
-    conduit1.position.set(0, 1.6, -7.18);
-    scene.add(conduit1);
+    // West Wall (Left - 16.0m depth at x = -10.8m)
+    const westWallGroup = new THREE.Group();
+    const westWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, wallHeight, 16.0), darkMetalMat);
+    westWall.position.set(-10.8, wallHeight / 2, 0);
+    westWall.receiveShadow = true;
+    westWallGroup.add(westWall);
 
-    const conduit2 = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 23.6, 12), conduitMat);
-    conduit2.rotation.z = Math.PI / 2;
-    conduit2.position.set(0, 3.4, -7.18);
-    scene.add(conduit2);
+    for (const bz of [-6.0, -3.0, 0.0, 3.0, 6.0]) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.04, wallHeight - 0.6, 0.06), cyanLedMat);
+      blade.position.set(-10.66, wallHeight / 2, bz);
+      westWallGroup.add(blade);
+    }
+    scene.add(westWallGroup);
 
-    // 3. West Wall (Left - 16.0m depth at x = -10.8m)
-    const leftLower = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.4, 16.0), lowerWallMat);
-    leftLower.position.set(-10.8, 0.7, 0);
-    leftLower.receiveShadow = true;
-    scene.add(leftLower);
+    // East Wall (Right - 16.0m depth at x = 10.8m)
+    const eastWallGroup = new THREE.Group();
+    const eastWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, wallHeight, 16.0), darkMetalMat);
+    eastWall.position.set(10.8, wallHeight / 2, 0);
+    eastWall.receiveShadow = true;
+    eastWallGroup.add(eastWall);
 
-    const leftUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, wallHeight - 1.4, 16.0), upperWallMat);
-    leftUpper.position.set(-10.8, 1.4 + (wallHeight - 1.4) / 2, 0);
-    leftUpper.receiveShadow = true;
-    scene.add(leftUpper);
+    for (const bz of [-6.0, -3.0, 0.0, 3.0, 6.0]) {
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(0.04, wallHeight - 0.6, 0.06), violetLedMat);
+      blade.position.set(10.66, wallHeight / 2, bz);
+      eastWallGroup.add(blade);
+    }
+    scene.add(eastWallGroup);
 
-    // 4. East Wall (Right - 16.0m depth at x = 10.8m)
-    const rightLower = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.4, 16.0), lowerWallMat);
-    rightLower.position.set(10.8, 0.7, 0);
-    rightLower.receiveShadow = true;
-    scene.add(rightLower);
-
-    const rightUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, wallHeight - 1.4, 16.0), upperWallMat);
-    rightUpper.position.set(10.8, 1.4 + (wallHeight - 1.4) / 2, 0);
-    rightUpper.receiveShadow = true;
-    scene.add(rightUpper);
-
-    // South Low Curb (Leaves camera sightline open at z = +7.1m)
-    const southCurb = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.24, 0.16), lowerWallMat);
-    southCurb.position.set(0, 0.12, 7.1);
+    // South Perimeter Low Curb (Leaves camera sightline open)
+    const southCurb = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.22, 0.22), titaniumMat);
+    southCurb.position.set(0, 0.11, 7.1);
     scene.add(southCurb);
+    const southLed = new THREE.Mesh(new THREE.BoxGeometry(23.6, 0.03, 0.04), cyanLedMat);
+    southLed.position.set(0, 0.22, 7.02);
+    scene.add(southLed);
 
-    // 5. Heavy Structural Steel Columns (I-beams) with Yellow Impact Wraps
-    const colPositions: [number, number][] = [
-      [-10.7, -7.2],
-      [-5.3, -7.2],
-      [0.0, -7.2],
-      [5.3, -7.2],
-      [10.7, -7.2],
-      [-10.7, 0.0],
-      [10.7, 0.0],
-      [-10.7, 7.0],
-      [10.7, 7.0],
-    ];
+    // 2. High-Tech Structural Spaceframe Trusses along Ceiling
+    this.createCeilingArchitecture(scene, titaniumMat, cyanLedMat);
 
-    for (const [cx, cz] of colPositions) {
-      const col = new THREE.Mesh(new THREE.BoxGeometry(0.28, wallHeight, 0.28), steelMat);
-      col.position.set(cx, wallHeight / 2, cz);
-      col.receiveShadow = true;
-      scene.add(col);
+    // 3. Elevated Glass Observation Control Mezzanine along East Perimeter
+    this.createObservationMezzanine(scene, darkMetalMat, titaniumMat, glassMat, cyanLedMat);
 
-      const guard = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.95, 16), yellowGuardMat);
-      guard.position.set(cx, 0.475, cz);
-      scene.add(guard);
-    }
+    // 4. SIGNATURE FEATURE 1: Central Quantum AI Core Reactor
+    const aiCoreHandles = this.createQuantumAICore(scene);
+    if (aiCoreHandles.light) lights.push(aiCoreHandles.light);
 
-    // 6. Heavy 3D Overhead Bridge Crane System (Spanning the facility at y = 6.4m)
-    this.createOverheadCraneSystem(scene);
+    // 5. SIGNATURE FEATURE 2: Holographic World Simulation Emitter
+    const holoHandles = this.createHolographicWorldEmitter(scene);
 
-    // 7. Elevated Mezzanine Catwalk & Observation Control Booth along East Wall
-    this.createMezzanineCatwalkAndControlRoom(scene);
+    // 6. SIGNATURE FEATURE 3: Precision Articulated 6-Axis Robotic Arm Workcell
+    const roboticArmHandles = this.createPrecisionRoboticArmCell(scene, -8.4, -3.8);
 
-    // 8. 6-Axis Articulated Industrial Robotic Arm Cell in Northwest Perimeter
-    this.createRoboticArmCell(scene, -8.6, -4.8);
+    // 7. SIGNATURE FEATURE 4: Autonomous Exploration Rover Inspection Bay
+    const roverHandles = this.createAutonomousRoverInspectionBay(scene, 8.4, -3.8);
 
-    // 9. Motorized Industrial Roller Conveyor Line along North Perimeter
-    this.createRollerConveyorLine(scene, -6.0, 6.0, -6.1, 0.70);
+    // 8. SIGNATURE FEATURE 5: Master Research Workstation & Supercomputer
+    const workstationHandles = this.createMasterWorkstation(scene, 8.0, 4.2);
 
-    // 10. High-Voltage Electrical Substation Bank near Docking Bay
-    this.createElectricalSubstation(scene, -8.8, 1.8);
+    // 9. SIGNATURE FEATURE 6: Wall-Mounted Panoramic Telemetry Displays
+    const telemetryScreens = this.createWallTelemetryDisplays(scene);
 
-    // 11. Suspended High-Bay Pendant Lights (8 Luminaires across 25m room)
-    const lightCoords: [number, number][] = [
-      [-7.0, -4.2],
-      [-2.3, -4.2],
-      [2.3, -4.2],
-      [7.0, -4.2],
-      [-7.0, 2.0],
-      [-2.3, 2.0],
-      [2.3, 2.0],
-      [7.0, 2.0],
-    ];
+    // 10. Biophilic Hydroponic Plant Columns & Component Glass Cases
+    this.createBiophilicColumns(scene);
+    this.createGlassDisplayCabinets(scene, titaniumMat, glassMat);
 
-    for (const [lx, lz] of lightCoords) {
-      const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.65, 8), steelMat);
-      cord.position.set(lx, wallHeight - 0.32, lz);
-      scene.add(cord);
+    // 11. Recessed Ceiling Spotlights (High efficiency, focused illumination)
+    this.createRecessedCeilingLights(scene, lights);
 
-      const hood = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.44, 0.28, 18, 1, true), steelMat);
-      hood.position.set(lx, wallHeight - 0.62, lz);
-      scene.add(hood);
-
-      const lens = new THREE.Mesh(
-        new THREE.CircleGeometry(0.42, 18),
-        new THREE.MeshBasicMaterial({ color: 0xfffaed, side: THREE.DoubleSide })
-      );
-      lens.rotation.x = Math.PI / 2;
-      lens.position.set(lx, wallHeight - 0.76, lz);
-      scene.add(lens);
-      // High-efficiency lighting: glowing emissive lamp lens without expensive multi-pass
-      // dynamic PointLight shader loops, keeping frame rate rock-solid at 60+ FPS.
-    }
-
-    // 12. Heavy-Duty Pallet Racks behind North Perimeter
-    for (const rx of [-6.2, -2.1, 2.1, 6.2]) {
-      this.buildPalletRack(scene, rx, -6.95, rackOrangeMat, rackBlueMat);
-    }
-
-    // 13. Biophilic Planters at South Perimeter
-    this.createBiophilicPlanters(scene);
-
-    // 14. Wall Safety Signs
-    this.createWallSafetySign(scene, -4.2, 2.8, -7.18, "caution");
-    this.createWallSafetySign(scene, 4.2, 2.8, -7.18, "notice");
-    this.createEmergencyStopStation(scene, 0, 1.8, -7.18);
-
-    return { lights };
+    return {
+      lights,
+      aiCore: aiCoreHandles,
+      holoEmitter: holoHandles,
+      roboticArm: roboticArmHandles,
+      roverInspection: roverHandles,
+      workstation: workstationHandles,
+      telemetryDisplays: { screens: telemetryScreens },
+    };
   }
 
   /**
-   * 1. Heavy 3D Overhead Bridge Crane System:
-   * Runway tracks along East/West walls, double-girder bridge crane spanning 21m,
-   * motorized hoist trolley with wound steel cable and forged industrial crane hook.
+   * Architectural Ceiling Spaceframe Trusses and Lighting Coves
    */
-  public static createOverheadCraneSystem(scene: THREE.Scene) {
-    const craneGroup = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.85 });
-    const craneYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.4 });
-    const cableMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.95 });
+  private static createCeilingArchitecture(
+    scene: THREE.Scene,
+    titaniumMat: THREE.Material,
+    cyanLedMat: THREE.Material
+  ) {
+    const trussGroup = new THREE.Group();
+    // 4 Spaceframe structural trusses spanning X at y = 6.4m
+    for (const tz of [-4.5, -1.5, 1.5, 4.5]) {
+      const mainBeam = new THREE.Mesh(new THREE.BoxGeometry(23.6, 0.18, 0.18), titaniumMat);
+      mainBeam.position.set(0, 6.4, tz);
+      trussGroup.add(mainBeam);
 
-    // Overhead Steel Lattice Box-Trusses (Placed along North perimeter to keep camera sightlines unobstructed)
-    for (const zT of [-6.8, -4.8]) {
-      const truss = new THREE.Mesh(new THREE.BoxGeometry(23.6, 0.24, 0.24), steelMat);
-      truss.position.set(0, 6.5, zT);
-      craneGroup.add(truss);
+      const underGlow = new THREE.Mesh(new THREE.BoxGeometry(23.2, 0.02, 0.04), cyanLedMat);
+      underGlow.position.set(0, 6.30, tz);
+      trussGroup.add(underGlow);
 
-      // Diagonal cross-brace struts
-      for (let xS = -10.0; xS <= 10.0; xS += 2.5) {
-        const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.45, 8), steelMat);
-        strut.position.set(xS, 6.62, zT);
-        craneGroup.add(strut);
+      // Diagonal cross-bracing struts
+      for (let tx = -10.0; tx <= 10.0; tx += 2.5) {
+        const strut = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.65, 8), titaniumMat);
+        strut.position.set(tx, 6.65, tz);
+        trussGroup.add(strut);
       }
     }
-
-    // Runway Rails along West (x = -10.6m) and East (x = 10.6m) at y = 6.0m
-    for (const rx of [-10.6, 10.6]) {
-      const rail = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.28, 15.6), steelMat);
-      rail.position.set(rx, 6.0, 0);
-      craneGroup.add(rail);
-
-      // End bumpers
-      for (const rz of [-7.6, 7.6]) {
-        const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.35), craneYellowMat);
-        bumper.position.set(rx, 6.0, rz);
-        craneGroup.add(bumper);
-      }
-    }
-
-    // Double-Girder Bridge Crane (Parked in North maintenance bay at z = -5.8m, y = 6.18m)
-    const craneBridgeZ = -5.8;
-    for (const dZ of [-0.35, 0.35]) {
-      const girder = new THREE.Mesh(new THREE.BoxGeometry(21.2, 0.42, 0.16), craneYellowMat);
-      girder.position.set(0, 6.18, craneBridgeZ + dZ);
-      craneGroup.add(girder);
-    }
-
-    // End trucks resting on runway rails
-    for (const ex of [-10.5, 10.5]) {
-      const truck = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 1.2), steelMat);
-      truck.position.set(ex, 6.18, craneBridgeZ);
-      craneGroup.add(truck);
-    }
-
-    // Hoist Trolley Unit resting on bridge girders at x = 1.4m
-    const trolleyX = 1.4;
-    const trolley = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.32, 1.1), steelMat);
-    trolley.position.set(trolleyX, 6.42, craneBridgeZ);
-    craneGroup.add(trolley);
-
-    // Motor Drum & Cable Spool
-    const drum = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.75, 16), cableMat);
-    drum.rotation.z = Math.PI / 2;
-    drum.position.set(trolleyX, 6.62, craneBridgeZ);
-    craneGroup.add(drum);
-
-    // Steel Hoist Cables dangling down to y = 4.0m
-    for (const cX of [-0.2, 0.2]) {
-      const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 2.3, 8), cableMat);
-      cable.position.set(trolleyX + cX, 5.25, craneBridgeZ);
-      craneGroup.add(cable);
-    }
-
-    // Heavy Forged Industrial Steel Crane Hook
-    const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.28), craneYellowMat);
-    hookBlock.position.set(trolleyX, 4.0, craneBridgeZ);
-    craneGroup.add(hookBlock);
-
-    const hookCurve = new THREE.Mesh(
-      new THREE.TorusGeometry(0.16, 0.045, 12, 24, Math.PI * 1.3),
-      steelMat
-    );
-    hookCurve.rotation.z = Math.PI * 0.85;
-    hookCurve.position.set(trolleyX, 3.75, craneBridgeZ);
-    craneGroup.add(hookCurve);
-
-    // Flashing Amber Warning Beacons at bridge girder ends
-    for (const bx of [-10.0, 10.0]) {
-      const beacon = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.06, 0.12, 12),
-        new THREE.MeshBasicMaterial({ color: 0xf59e0b })
-      );
-      beacon.position.set(bx, 6.45, craneBridgeZ);
-      craneGroup.add(beacon);
-    }
-
-    scene.add(craneGroup);
+    scene.add(trussGroup);
   }
 
   /**
-   * 2. Elevated Mezzanine Catwalk & Observation Control Booth along East Wall:
-   * Open-grate steel deck at y = 2.8m, bright yellow safety railings, stairs,
-   * and glass-enclosed robotics engineering observation room with glowing telemetry dashboards.
+   * Elevated Soundproof Glass Observation Control Mezzanine
    */
-  public static createMezzanineCatwalkAndControlRoom(scene: THREE.Scene) {
+  private static createObservationMezzanine(
+    scene: THREE.Scene,
+    darkMetalMat: THREE.Material,
+    titaniumMat: THREE.Material,
+    glassMat: THREE.Material,
+    cyanLedMat: THREE.Material
+  ) {
     const mezzGroup = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.8 });
-    const grateMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.7 });
-    const railingMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35, metalness: 0.3 });
-    const glassMat = new THREE.MeshStandardMaterial({
-      color: 0x38bdf8,
-      roughness: 0.1,
-      metalness: 0.9,
-      transparent: true,
-      opacity: 0.45,
-    });
+    mezzGroup.position.set(9.6, 3.4, 0);
 
-    const mezzX = 10.0;
-    const mezzY = 2.8;
+    // Mezzanine Platform Floor (2.2m wide, 14m long)
+    const floor = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.25, 14.0), darkMetalMat);
+    mezzGroup.add(floor);
 
-    // Catwalk Deck (Spans z = -6.0m to +6.0m, width 1.4m)
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.08, 12.0), grateMat);
-    deck.position.set(mezzX, mezzY, 0);
-    deck.receiveShadow = true;
-    mezzGroup.add(deck);
+    // Edge Safety Fascia with glowing cyan strip
+    const fascia = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 14.0), titaniumMat);
+    fascia.position.set(-1.05, 0.05, 0);
+    mezzGroup.add(fascia);
 
-    // Support Pillars from ground (y = 0 to 2.8m)
-    for (const pZ of [-5.5, -2.5, 0.5, 3.5, 5.5]) {
-      const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.16, mezzY, 0.16), steelMat);
-      pillar.position.set(mezzX - 0.65, mezzY / 2, pZ);
-      mezzGroup.add(pillar);
-    }
+    const ledStrip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, 13.8), cyanLedMat);
+    ledStrip.position.set(-1.12, 0.05, 0);
+    mezzGroup.add(ledStrip);
 
-    // Yellow Safety Railings along the front edge (x = mezzX - 0.7m)
-    const railX = mezzX - 0.7;
-    // Top handrail
-    const topRail = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 12.0, 10), railingMat);
-    topRail.rotation.x = Math.PI / 2;
-    topRail.position.set(railX, mezzY + 1.05, 0);
-    mezzGroup.add(topRail);
+    // Panoramic Soundproof Tinted Glass Enclosure
+    const glassWall = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.6, 13.8), glassMat);
+    glassWall.position.set(-1.05, 1.45, 0);
+    mezzGroup.add(glassWall);
 
-    // Mid rail
-    const midRail = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 12.0, 10), railingMat);
-    midRail.rotation.x = Math.PI / 2;
-    midRail.position.set(railX, mezzY + 0.55, 0);
-    mezzGroup.add(midRail);
+    // Interior Observation Console Glow
+    const consoleGlow = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 0.1, 12.0),
+      new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+    );
+    consoleGlow.position.set(0.2, 0.8, 0);
+    mezzGroup.add(consoleGlow);
 
-    // Kickplate
-    const kickPlate = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.15, 12.0), railingMat);
-    kickPlate.position.set(railX, mezzY + 0.08, 0);
-    mezzGroup.add(kickPlate);
-
-    // Stanchions every 1.5m
-    for (let sZ = -5.8; sZ <= 5.8; sZ += 1.45) {
-      const stanchion = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 1.05, 10), railingMat);
-      stanchion.position.set(railX, mezzY + 0.525, sZ);
-      mezzGroup.add(stanchion);
-    }
-
-    // Access Stairs from ground at South end (z = 4.2m to 6.2m)
-    const nSteps = 10;
-    const stepRise = mezzY / nSteps;
-    const stepRun = 2.0 / nSteps;
-    for (let i = 0; i < nSteps; i++) {
-      const step = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.04, stepRun), steelMat);
-      step.position.set(mezzX, stepRise * (i + 0.5), 6.2 - stepRun * i);
-      mezzGroup.add(step);
-    }
-
-    // Robotics Observation Control Room (Enclosed Glass Booth, z = -2.2m to 2.2m, x = 10.1m)
-    const boothGroup = new THREE.Group();
-    boothGroup.position.set(mezzX, mezzY + 0.04, 0);
-
-    // Dark architectural structural frame
-    const boothFrameMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
-    const boothCeiling = new THREE.Mesh(new THREE.BoxGeometry(1.35, 0.08, 4.4), boothFrameMat);
-    boothCeiling.position.set(0, 2.4, 0);
-    boothGroup.add(boothCeiling);
-
-    // Large Front Observation Glass Window overlooking the test arena
-    const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(0.04, 2.0, 4.2), glassMat);
-    frontGlass.position.set(-0.65, 1.2, 0);
-    boothGroup.add(frontGlass);
-
-    // Thin window mullions
-    for (const mZ of [-1.4, 0.0, 1.4]) {
-      const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 0.05), boothFrameMat);
-      mullion.position.set(-0.65, 1.2, mZ);
-      boothGroup.add(mullion);
-    }
-
-    // Multi-screen Glowing Telemetry Walls inside Control Booth
-    const cyanScreenMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
-    const amberScreenMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
-    const greenScreenMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
-
-    for (let i = 0; i < 4; i++) {
-      const screenMat = i % 3 === 0 ? cyanScreenMat : i % 3 === 1 ? greenScreenMat : amberScreenMat;
-      const mon = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.45, 0.8), screenMat);
-      mon.position.set(0.4, 1.35, -1.5 + i * 1.0);
-      mon.rotation.y = -0.15;
-      boothGroup.add(mon);
-    }
-
-    // Control Room Interior Ambient Glow Light
-    const boothLight = new THREE.PointLight(0x00f0ff, 1.5, 6.0, 1.5);
-    boothLight.position.set(-0.1, 1.8, 0);
-    boothGroup.add(boothLight);
-
-    mezzGroup.add(boothGroup);
     scene.add(mezzGroup);
   }
 
   /**
-   * 3. 6-Axis Articulated Industrial Robotic Arm Cell:
-   * Heavy concrete plinth, rotating base, articulated joint links, pneumatic gripper,
-   * yellow perimeter safety fence with wire mesh, and flashing beacon.
+   * SIGNATURE FEATURE 1: Central Quantum AI Core Reactor
+   * Multi-tiered hexagonal base, glass magnetic containment cylinder,
+   * rotating dual quantum gyro rings, and dynamic pulsing plasma core.
    */
-  public static createRoboticArmCell(scene: THREE.Scene, x: number, z: number) {
+  private static createQuantumAICore(scene: THREE.Scene) {
+    const coreGroup = new THREE.Group();
+    coreGroup.position.set(0, 0, -6.8);
+
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.25, metalness: 0.95 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.15, metalness: 0.98 });
+    const cyanEnergy = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const violetEnergy = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+
+    // 1. Hexagonal Tiered Dais Base
+    const base1 = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.8, 0.25, 6), darkMetal);
+    base1.position.y = 0.125;
+    base1.receiveShadow = true;
+    coreGroup.add(base1);
+
+    const baseRing = new THREE.Mesh(new THREE.TorusGeometry(1.65, 0.03, 8, 32), cyanEnergy);
+    baseRing.rotation.x = Math.PI / 2;
+    baseRing.position.y = 0.25;
+    coreGroup.add(baseRing);
+
+    const base2 = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.4, 0.30, 6), chrome);
+    base2.position.y = 0.40;
+    coreGroup.add(base2);
+
+    // 2. Four Vertical Magnetic Containment Pylons
+    for (let i = 0; i < 4; i++) {
+      const angle = (i * Math.PI) / 2 + Math.PI / 4;
+      const px = Math.cos(angle) * 1.15;
+      const pz = Math.sin(angle) * 1.15;
+      const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.18, 3.2, 0.18), darkMetal);
+      pylon.position.set(px, 2.05, pz);
+      coreGroup.add(pylon);
+
+      const pylonGlow = new THREE.Mesh(new THREE.BoxGeometry(0.04, 3.0, 0.04), cyanEnergy);
+      pylonGlow.position.set(px * 0.92, 2.05, pz * 0.92);
+      coreGroup.add(pylonGlow);
+    }
+
+    // 3. Cylindrical Magnetic Containment Glass Vessel
+    const glassMat = new THREE.MeshPhysicalMaterial({
+      color: 0x00e5ff,
+      roughness: 0.05,
+      metalness: 0.10,
+      transmission: 0.92,
+      thickness: 0.40,
+      transparent: true,
+      opacity: 0.75,
+    });
+    const vessel = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 0.95, 2.9, 32, 1, true), glassMat);
+    vessel.position.y = 2.05;
+    coreGroup.add(vessel);
+
+    // Top Containment Cap Manifold
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.2, 0.35, 6), darkMetal);
+    cap.position.y = 3.65;
+    coreGroup.add(cap);
+
+    // 4. Dual-Axis Spinning Quantum Gyro Rings
+    const outerRing = new THREE.Mesh(new THREE.TorusGeometry(0.72, 0.04, 12, 48), chrome);
+    outerRing.position.set(0, 2.05, 0);
+    coreGroup.add(outerRing);
+
+    const innerRing = new THREE.Mesh(new THREE.TorusGeometry(0.52, 0.035, 12, 48), violetEnergy);
+    innerRing.position.set(0, 2.05, 0);
+    coreGroup.add(innerRing);
+
+    // 5. Central Pulsing Plasma Energy Core Orb
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 2.4,
+      roughness: 0.1,
+    });
+    const coreOrb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 32, 32), coreMat);
+    coreOrb.position.set(0, 2.05, 0);
+    coreGroup.add(coreOrb);
+
+    // Dynamic AI Core PointLight with Breathing Pulse
+    const coreLight = new THREE.PointLight(0x00f0ff, 2.8, 8.5, 1.4);
+    coreLight.position.set(0, 2.05, 0);
+    coreGroup.add(coreLight);
+
+    // Vertical Upward Laser Containment Column
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.30,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.0, 16), beamMat);
+    beam.position.set(0, 4.5, 0);
+    coreGroup.add(beam);
+
+    scene.add(coreGroup);
+
+    return {
+      outerRing,
+      innerRing,
+      coreOrb,
+      light: coreLight,
+    };
+  }
+
+  /**
+   * SIGNATURE FEATURE 2: Holographic World Simulation Display Emitter
+   * Pedestal projector emitting a 3D rotating wireframe globe with orbital latent vectors.
+   */
+  private static createHolographicWorldEmitter(scene: THREE.Scene) {
+    const holoGroup = new THREE.Group();
+    holoGroup.position.set(-4.6, 0, -5.8);
+
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
+    const cyanHolo = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const violetHolo = new THREE.MeshBasicMaterial({
+      color: 0xa855f7,
+      transparent: true,
+      opacity: 0.70,
+    });
+
+    // 1. Sleek Projector Pedestal
+    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.65, 0.90, 24), darkMetal);
+    base.position.y = 0.45;
+    holoGroup.add(base);
+
+    const projectorLens = new THREE.Mesh(
+      new THREE.CircleGeometry(0.48, 24),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, side: THREE.DoubleSide })
+    );
+    projectorLens.rotation.x = -Math.PI / 2;
+    projectorLens.position.y = 0.905;
+    holoGroup.add(projectorLens);
+
+    // 2. Upward Semi-Transparent Projection Light Cone
+    const coneMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.18,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.95, 1.4, 24, 1, true), coneMat);
+    cone.position.y = 1.60;
+    holoGroup.add(cone);
+
+    // 3. Floating 3D Wireframe Globe & Latent Space Rings
+    const globeGroup = new THREE.Group();
+    globeGroup.position.y = 2.10;
+
+    const globe = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42, 2), cyanHolo);
+    globeGroup.add(globe);
+
+    // Core point in globe
+    const corePoint = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
+    globeGroup.add(corePoint);
+
+    // Orbiting Satellite Nodes / Trajectory Vectors
+    for (let i = 0; i < 4; i++) {
+      const angle = (i * Math.PI) / 2;
+      const node = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 12), violetHolo);
+      node.position.set(Math.cos(angle) * 0.62, Math.sin(angle * 2) * 0.15, Math.sin(angle) * 0.62);
+      globeGroup.add(node);
+    }
+
+    const rings: THREE.Mesh[] = [];
+    const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.68, 0.015, 8, 36), cyanHolo);
+    ring1.rotation.x = Math.PI / 3;
+    globeGroup.add(ring1);
+    rings.push(ring1);
+
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.80, 0.012, 8, 36), violetHolo);
+    ring2.rotation.y = Math.PI / 4;
+    globeGroup.add(ring2);
+    rings.push(ring2);
+
+    holoGroup.add(globeGroup);
+    scene.add(holoGroup);
+
+    return {
+      globeGroup,
+      rings,
+      beam: cone,
+    };
+  }
+
+  /**
+   * SIGNATURE FEATURE 3: Precision Articulated 6-Axis Robotic Arm Workcell
+   * Futuristic laboratory bench, articulated robotic arm with animated joints,
+   * digital oscilloscope, circuit boards, and diagnostic instruments.
+   */
+  private static createPrecisionRoboticArmCell(scene: THREE.Scene, x: number, z: number) {
     const cellGroup = new THREE.Group();
     cellGroup.position.set(x, 0, z);
 
-    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.9, metalness: 0.1 });
-    const orangeMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.35, metalness: 0.5 });
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
-    const fenceMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.4, metalness: 0.3 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
+    const whiteCeramic = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.20, metalness: 0.40 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
-    // Concrete Plinth (1.8m x 1.8m x 0.30m)
-    const plinth = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.30, 1.8), concreteMat);
-    plinth.position.y = 0.15;
-    plinth.receiveShadow = true;
-    cellGroup.add(plinth);
+    // 1. High-Tech Laboratory Workbench (2.4m x 1.1m, height 0.95m)
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.10, 1.1), darkMetal);
+    tableTop.position.set(0, 0.90, 0);
+    cellGroup.add(tableTop);
 
-    // Yellow anchor baseplate
-    const anchor = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.05, 0.85), fenceMat);
-    anchor.position.y = 0.325;
-    cellGroup.add(anchor);
+    // Glowing edge trim
+    const tableTrim = new THREE.Mesh(new THREE.BoxGeometry(2.44, 0.02, 1.14), cyanLed);
+    tableTrim.position.set(0, 0.86, 0);
+    cellGroup.add(tableTrim);
 
-    // Robot Arm Axis 1: Rotary Turret Base
-    const baseCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.40, 20), steelMat);
-    baseCyl.position.y = 0.525;
-    cellGroup.add(baseCyl);
-
-    // Axis 2: Lower Arm Shoulder & Boom (Angled forward)
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), steelMat);
-    shoulder.position.y = 0.82;
-    cellGroup.add(shoulder);
-
-    const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.95, 0.22), orangeMat);
-    lowerArm.position.set(0.18, 1.25, -0.15);
-    lowerArm.rotation.x = -0.35;
-    lowerArm.rotation.z = 0.25;
-    cellGroup.add(lowerArm);
-
-    // Axis 3: Elbow Articulation & Forearm
-    const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), steelMat);
-    elbow.position.set(0.32, 1.68, -0.32);
-    cellGroup.add(elbow);
-
-    const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.85, 16), orangeMat);
-    forearm.rotation.z = Math.PI / 3;
-    forearm.rotation.y = 0.4;
-    forearm.position.set(0.68, 1.55, -0.22);
-    cellGroup.add(forearm);
-
-    // Axis 5/6: Wrist & Pneumatic Gripper End-Effector
-    const wrist = new THREE.Mesh(new THREE.SphereGeometry(0.10, 14, 14), steelMat);
-    wrist.position.set(1.08, 1.35, -0.12);
-    cellGroup.add(wrist);
-
-    // Two pneumatic gripper fingers holding a workpiece
-    for (const fY of [-0.08, 0.08]) {
-      const finger = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.04, 0.04), steelMat);
-      finger.position.set(1.22, 1.35 + fY, -0.12);
-      cellGroup.add(finger);
+    for (const lx of [-1.1, 1.1]) {
+      for (const lz of [-0.48, 0.48]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.85, 0.10), darkMetal);
+        leg.position.set(lx, 0.425, lz);
+        cellGroup.add(leg);
+      }
     }
-    const workpiece = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06, 0.06, 0.14, 16),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, metalness: 0.9 })
+
+    // 2. Articulated 6-Axis Robotic Arm
+    const armRoot = new THREE.Group();
+    armRoot.position.set(-0.35, 0.95, 0);
+
+    // Arm Base (Axis 1 - Yaw rotation)
+    const baseMount = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 0.14, 24), darkMetal);
+    baseMount.position.y = 0.07;
+    armRoot.add(baseMount);
+
+    const baseRot = new THREE.Group();
+    baseRot.position.y = 0.14;
+    armRoot.add(baseRot);
+
+    const turret = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.16, 0.20, 24), whiteCeramic);
+    turret.position.y = 0.10;
+    baseRot.add(turret);
+
+    // Shoulder (Axis 2 - Pitch)
+    const shoulderRot = new THREE.Group();
+    shoulderRot.position.set(0, 0.20, 0);
+    baseRot.add(shoulderRot);
+
+    const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.12), whiteCeramic);
+    lowerArm.position.set(0, 0.275, 0);
+    shoulderRot.add(lowerArm);
+
+    // Elbow (Axis 3 - Pitch)
+    const elbowRot = new THREE.Group();
+    elbowRot.position.set(0, 0.55, 0);
+    shoulderRot.add(elbowRot);
+
+    const forearm = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.48, 0.10), whiteCeramic);
+    forearm.position.set(0, 0.24, 0);
+    elbowRot.add(forearm);
+
+    // Wrist (Axis 4/5/6)
+    const wristRot = new THREE.Group();
+    wristRot.position.set(0, 0.48, 0);
+    elbowRot.add(wristRot);
+
+    const wristMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.12, 16), darkMetal);
+    wristMesh.position.y = 0.06;
+    wristRot.add(wristMesh);
+
+    // Parallel Gripper Fingers
+    const gripperL = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.10, 0.03), darkMetal);
+    gripperL.position.set(-0.03, 0.15, 0);
+    wristRot.add(gripperL);
+
+    const gripperR = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.10, 0.03), darkMetal);
+    gripperR.position.set(0.03, 0.15, 0);
+    wristRot.add(gripperR);
+
+    cellGroup.add(armRoot);
+
+    // 3. Benchtop Scientific Equipment
+    // Digital Oscilloscope
+    const osc = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.26, 0.22), darkMetal);
+    osc.position.set(0.65, 1.08, -0.25);
+    cellGroup.add(osc);
+
+    const oscTex = this.createOscilloscopeTexture();
+    const oscScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.30, 0.18),
+      new THREE.MeshBasicMaterial({ map: oscTex })
     );
-    workpiece.position.set(1.25, 1.35, -0.12);
-    cellGroup.add(workpiece);
+    oscScreen.position.set(0.65, 1.08, -0.138);
+    cellGroup.add(oscScreen);
 
-    // Yellow Safety Perimeter Cage (2.6m x 2.6m)
-    const cageW = 2.6;
-    const cageH = 1.6;
-    for (const [px, pz] of [
-      [-cageW / 2, -cageW / 2],
-      [cageW / 2, -cageW / 2],
-      [-cageW / 2, cageW / 2],
-      [cageW / 2, cageW / 2],
-    ]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, cageH, 12), fenceMat);
-      post.position.set(px, cageH / 2, pz);
-      cellGroup.add(post);
-    }
-    // Perimeter safety rails
-    for (const rY of [0.15, cageH * 0.5, cageH]) {
-      const rail1 = new THREE.Mesh(new THREE.BoxGeometry(cageW, 0.03, 0.03), fenceMat);
-      rail1.position.set(0, rY, -cageW / 2);
-      cellGroup.add(rail1);
-
-      const rail2 = new THREE.Mesh(new THREE.BoxGeometry(cageW, 0.03, 0.03), fenceMat);
-      rail2.position.set(0, rY, cageW / 2);
-      cellGroup.add(rail2);
-
-      const rail3 = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, cageW), fenceMat);
-      rail3.position.set(-cageW / 2, rY, 0);
-      cellGroup.add(rail3);
-    }
-
-    // Flashing Amber Safety Tower Beacon
-    const beaconPost = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.5, 8), steelMat);
-    beaconPost.position.set(cageW / 2, cageH + 0.25, cageW / 2);
-    cellGroup.add(beaconPost);
-
-    const beaconLight = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.05, 0.05, 0.12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xf59e0b })
+    // Electronic Circuit Board with Micro-SMDs
+    const pcb = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.02, 0.28),
+      new THREE.MeshStandardMaterial({ color: 0x064e3b, roughness: 0.4 })
     );
-    beaconLight.position.set(cageW / 2, cageH + 0.56, cageW / 2);
-    cellGroup.add(beaconLight);
+    pcb.position.set(0.35, 0.96, 0.12);
+    cellGroup.add(pcb);
 
     scene.add(cellGroup);
+
+    return {
+      baseRot,
+      shoulderRot,
+      elbowRot,
+      wristRot,
+      gripperL,
+      gripperR,
+    };
   }
 
   /**
-   * 4. Motorized Industrial Roller Conveyor Line:
-   * Heavy steel channel frame, rotating rollers, cardboard packages, and blue KLT plastic totes.
+   * SIGNATURE FEATURE 4: Autonomous Exploration Rover Inspection Bay
+   * Elevated glass inspection dais with under-glow, robotic rover chassis,
+   * rocker-bogie suspension, stereo sensor mast, and telemetry console.
    */
-  public static createRollerConveyorLine(
-    scene: THREE.Scene,
-    xStart: number,
-    xEnd: number,
-    z: number,
-    y: number
-  ) {
-    const convGroup = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.8 });
-    const rollerMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.95 });
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.85, metalness: 0.05 });
-    const toteBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.2 });
+  private static createAutonomousRoverInspectionBay(scene: THREE.Scene, x: number, z: number) {
+    const bayGroup = new THREE.Group();
+    bayGroup.position.set(x, 0, z);
 
-    const span = Math.abs(xEnd - xStart);
-    const midX = (xStart + xEnd) / 2;
-    const width = 0.85;
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.15, metalness: 0.95 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
-    // Side frame channels
-    for (const dZ of [-width / 2, width / 2]) {
-      const channel = new THREE.Mesh(new THREE.BoxGeometry(span, 0.12, 0.05), steelMat);
-      channel.position.set(midX, y, z + dZ);
-      convGroup.add(channel);
-    }
+    // 1. Elevated Glass Under-Glow Inspection Dais (2.2m x 1.6m, height 0.18m)
+    const daisBase = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 1.6), darkMetal);
+    daisBase.position.y = 0.075;
+    bayGroup.add(daisBase);
 
-    // Support legs every 2.4m
-    for (let lx = xStart + 0.4; lx <= xEnd - 0.4; lx += 2.4) {
-      for (const dZ of [-width / 2, width / 2]) {
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.06, y, 0.06), steelMat);
-        leg.position.set(lx, y / 2, z + dZ);
-        convGroup.add(leg);
-      }
-      // Cross brace
-      const brace = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, width), steelMat);
-      brace.position.set(lx, y * 0.35, z);
-      convGroup.add(brace);
-    }
+    const daisGlow = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.02, 1.5), cyanLed);
+    daisGlow.position.y = 0.16;
+    bayGroup.add(daisGlow);
 
-    // Metallic Cylindrical Rollers every 0.28m
-    const rollerR = 0.038;
-    for (let rx = xStart + 0.15; rx <= xEnd - 0.15; rx += 0.28) {
-      const roller = new THREE.Mesh(new THREE.CylinderGeometry(rollerR, rollerR, width - 0.06, 12), rollerMat);
-      roller.rotation.x = Math.PI / 2;
-      roller.position.set(rx, y + 0.02, z);
-      convGroup.add(roller);
-    }
+    const daisGlass = new THREE.Mesh(
+      new THREE.BoxGeometry(2.16, 0.04, 1.56),
+      new THREE.MeshPhysicalMaterial({ transmission: 0.85, roughness: 0.05, thickness: 0.2 })
+    );
+    daisGlass.position.y = 0.19;
+    bayGroup.add(daisGlass);
 
-    // Cargo Boxes & Totes on the conveyor
-    const cargoPositions = [
-      { x: xStart + 1.2, isTote: false },
-      { x: xStart + 3.4, isTote: true },
-      { x: xStart + 5.8, isTote: false },
-      { x: xStart + 8.2, isTote: true },
-      { x: xStart + 10.5, isTote: false },
-    ];
+    // 2. High-Tech Autonomous Rover Model
+    const roverRoot = new THREE.Group();
+    roverRoot.position.set(0, 0.21, 0);
 
-    for (const c of cargoPositions) {
-      if (c.x < xEnd) {
-        if (c.isTote) {
-          const tote = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.28, 0.55), toteBlueMat);
-          tote.position.set(c.x, y + 0.04 + 0.14, z);
-          convGroup.add(tote);
-        } else {
-          const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), boxMat);
-          box.position.set(c.x, y + 0.04 + 0.225, z);
-          convGroup.add(box);
-        }
+    // Rover Chassis Body
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.28, 0.65), darkMetal);
+    chassis.position.y = 0.28;
+    roverRoot.add(chassis);
+
+    // Solar Panel Arrays on top
+    const solarMat = new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.1, metalness: 0.8 });
+    const solar = new THREE.Mesh(new THREE.BoxGeometry(0.78, 0.02, 0.58), solarMat);
+    solar.position.y = 0.43;
+    roverRoot.add(solar);
+
+    // 6 Rover Wheels
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.8, metalness: 0.2 });
+    for (const wx of [-0.42, 0.0, 0.42]) {
+      for (const wz of [-0.38, 0.38]) {
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.08, 18), wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wx, 0.11, wz);
+        roverRoot.add(wheel);
       }
     }
 
-    // Electric Drive Motor Unit at start
-    const motor = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.35, 0.35), steelMat);
-    motor.position.set(xStart - 0.2, y - 0.1, z);
-    convGroup.add(motor);
+    // Sensor Mast (Axis 1)
+    const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.42, 12), chrome);
+    mast.position.set(0.32, 0.64, 0);
+    roverRoot.add(mast);
 
-    scene.add(convGroup);
+    // Rotating Stereo Camera & LiDAR Scanner Head
+    const scannerHead = new THREE.Group();
+    scannerHead.position.set(0.32, 0.85, 0);
+
+    const headBar = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.06, 0.18), darkMetal);
+    scannerHead.add(headBar);
+
+    for (const cz of [-0.06, 0.06]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.022, 12, 12), cyanLed);
+      eye.position.set(0.07, 0, cz);
+      scannerHead.add(eye);
+    }
+    roverRoot.add(scannerHead);
+
+    bayGroup.add(roverRoot);
+    scene.add(bayGroup);
+
+    return {
+      mast,
+      scannerHead,
+    };
   }
 
   /**
-   * 5. High-Voltage Electrical Substation & Transformer Unit:
-   * Placed adjacent to robot charging dock with vertical radiator cooling fins,
-   * ceramic bushings, high-voltage warning lightning decals, and status LEDs.
+   * SIGNATURE FEATURE 5: Master Research Workstation & Supercomputer
+   * Massive curved ultrawide panoramic monitor, secondary displays, floating holographic UI,
+   * mechanical keyboard, and liquid-cooled neural supercomputer tower.
    */
-  public static createElectricalSubstation(scene: THREE.Scene, x: number, z: number) {
-    const subGroup = new THREE.Group();
-    subGroup.position.set(x, 0, z);
+  private static createMasterWorkstation(scene: THREE.Scene, x: number, z: number) {
+    const wsGroup = new THREE.Group();
+    wsGroup.position.set(x, 0, z);
+    wsGroup.rotation.y = -Math.PI * 0.72; // Angles toward arena center
 
-    const cabinetMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.7 });
-    const finMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.3, metalness: 0.85 });
-    const insulatorMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.2, metalness: 0.3 }); // Ceramic maroon
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.3, metalness: 0.9 });
+    const chrome = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.15, metalness: 0.95 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const violetLed = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
 
-    // Transformer Main Body (1.4m x 1.8m x 1.1m)
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 1.1), cabinetMat);
-    body.position.y = 0.9;
-    body.receiveShadow = true;
-    subGroup.add(body);
+    // 1. Curved Carbon-Fiber Research Desk (2.2m x 0.95m, height 0.85m)
+    const desk = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.08, 0.95), darkMetal);
+    desk.position.set(0, 0.80, 0);
+    wsGroup.add(desk);
 
-    // Vertical Cooling Radiator Fins along both sides
-    for (const dZ of [-0.58, 0.58]) {
-      for (let fx = -0.55; fx <= 0.55; fx += 0.12) {
-        const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 1.5, 0.18), finMat);
-        fin.position.set(fx, 0.9, dZ);
-        subGroup.add(fin);
+    const deskGlow = new THREE.Mesh(new THREE.BoxGeometry(2.24, 0.02, 0.99), cyanLed);
+    deskGlow.position.set(0, 0.77, 0);
+    wsGroup.add(deskGlow);
+
+    for (const lx of [-0.98, 0.98]) {
+      for (const lz of [-0.38, 0.38]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.76, 0.08), darkMetal);
+        leg.position.set(lx, 0.38, lz);
+        wsGroup.add(leg);
       }
     }
 
-    // High-Voltage Ceramic Insulator Bushings on Roof
-    for (const bx of [-0.35, 0.0, 0.35]) {
-      const bushing = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, 0.38, 14), insulatorMat);
-      bushing.position.set(bx, 1.99, 0);
-      subGroup.add(bushing);
+    // 2. Massive Curved Ultrawide Display (Radius curved cylinder segment)
+    const curvedScreenGeo = new THREE.CylinderGeometry(1.8, 1.8, 0.65, 32, 1, true, -0.38, 0.76);
+    const curvedScreenTex = this.createCurvedScreenTexture();
+    const curvedScreenMat = new THREE.MeshBasicMaterial({
+      map: curvedScreenTex,
+      side: THREE.DoubleSide,
+    });
+    const curvedScreen = new THREE.Mesh(curvedScreenGeo, curvedScreenMat);
+    curvedScreen.position.set(0, 1.25, -0.25);
+    wsGroup.add(curvedScreen);
 
-      const cap = new THREE.Mesh(
-        new THREE.SphereGeometry(0.05, 12, 12),
-        new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 })
+    // Monitor Stand
+    const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.45, 12), chrome);
+    stand.position.set(0, 1.025, -0.25);
+    wsGroup.add(stand);
+
+    // Dual Angled Secondary Displays
+    for (const sx of [-0.92, 0.92]) {
+      const auxStand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.35, 8), chrome);
+      auxStand.position.set(sx, 1.00, -0.22);
+      wsGroup.add(auxStand);
+
+      const auxScr = new THREE.Mesh(
+        new THREE.BoxGeometry(0.42, 0.58, 0.02),
+        new THREE.MeshBasicMaterial({ color: sx < 0 ? 0x38bdf8 : 0xa855f7 })
       );
-      cap.position.set(bx, 2.2, 0);
-      subGroup.add(cap);
+      auxScr.position.set(sx, 1.25, -0.20);
+      auxScr.rotation.y = sx < 0 ? 0.32 : -0.32;
+      wsGroup.add(auxScr);
     }
 
-    // High-Voltage Danger Decal Plate
-    const decalPlate = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.28, 0.02), yellowMat);
-    decalPlate.position.set(0, 1.25, 0.56);
-    subGroup.add(decalPlate);
+    // 3. Floating Holographic UI Panels (Semi-transparent glowing planes)
+    const holoPlaneMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.35,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const holo1 = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.25), holoPlaneMat);
+    holo1.position.set(-0.45, 1.08, 0.15);
+    holo1.rotation.x = -0.35;
+    wsGroup.add(holo1);
 
-    // Status Pilot Lamps (Green normal, Red trip)
-    const greenLed = new THREE.Mesh(
-      new THREE.SphereGeometry(0.025, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0x10b981 })
+    const holo2 = new THREE.Mesh(new THREE.PlaneGeometry(0.35, 0.25), holoPlaneMat);
+    holo2.position.set(0.45, 1.08, 0.15);
+    holo2.rotation.x = -0.35;
+    wsGroup.add(holo2);
+
+    // 4. Mechanical Keyboard with Illuminated Keycaps
+    const kbBase = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.02, 0.16), darkMetal);
+    kbBase.position.set(0, 0.85, 0.18);
+    wsGroup.add(kbBase);
+
+    const kbGlow = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.015, 0.14), cyanLed);
+    kbGlow.position.set(0, 0.865, 0.18);
+    wsGroup.add(kbGlow);
+
+    // 5. Neural Supercomputer Tower (Liquid cooling tubes & glowing GPUs)
+    const pcTower = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.65, 0.58), darkMetal);
+    pcTower.position.set(-0.95, 0.35, 0.05);
+    wsGroup.add(pcTower);
+
+    const supercomputerLed = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.58, 0.50), cyanLed);
+    supercomputerLed.position.set(-0.76, 0.35, 0.05);
+    wsGroup.add(supercomputerLed);
+
+    // 6. Futuristic Ergonomic Pilot Chair
+    const chairBase = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.08, 16), chrome);
+    chairBase.position.set(0, 0.12, 0.72);
+    wsGroup.add(chairBase);
+
+    const chairSeat = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.10, 0.52), darkMetal);
+    chairSeat.position.set(0, 0.48, 0.72);
+    wsGroup.add(chairSeat);
+
+    const chairBack = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.75, 0.08), darkMetal);
+    chairBack.position.set(0, 0.88, 0.94);
+    chairBack.rotation.x = -0.10;
+    wsGroup.add(chairBack);
+
+    scene.add(wsGroup);
+
+    return {
+      curvedScreen,
+      supercomputerLed,
+    };
+  }
+
+  /**
+   * SIGNATURE FEATURE 6: Wall-Mounted Panoramic Telemetry Displays
+   */
+  private static createWallTelemetryDisplays(scene: THREE.Scene): THREE.Mesh[] {
+    const screens: THREE.Mesh[] = [];
+
+    // Screen 1 (North Wall Left at x = -4.8m, y = 3.4m, z = -7.15m): Neural Dynamics Graph
+    const neuralTex = this.createWallScreenTexture("neural");
+    const scr1 = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 1.8),
+      new THREE.MeshBasicMaterial({ map: neuralTex, side: THREE.DoubleSide })
     );
-    greenLed.position.set(-0.25, 1.6, 0.56);
-    subGroup.add(greenLed);
+    scr1.position.set(-4.8, 3.4, -7.15);
+    scene.add(scr1);
+    screens.push(scr1);
 
-    const redLed = new THREE.Mesh(
-      new THREE.SphereGeometry(0.025, 12, 12),
-      new THREE.MeshBasicMaterial({ color: 0xef4444 })
+    // Bezel border
+    const bezelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
+    const bezel1 = new THREE.Mesh(new THREE.BoxGeometry(3.7, 1.9, 0.04), bezelMat);
+    bezel1.position.set(-4.8, 3.4, -7.18);
+    scene.add(bezel1);
+
+    // Screen 2 (North Wall Right at x = 4.8m, y = 3.4m, z = -7.15m): Receding Horizon Fan
+    const trajTex = this.createWallScreenTexture("trajectories");
+    const scr2 = new THREE.Mesh(
+      new THREE.PlaneGeometry(3.6, 1.8),
+      new THREE.MeshBasicMaterial({ map: trajTex, side: THREE.DoubleSide })
     );
-    redLed.position.set(-0.15, 1.6, 0.56);
-    subGroup.add(redLed);
+    scr2.position.set(4.8, 3.4, -7.15);
+    scene.add(scr2);
+    screens.push(scr2);
 
-    scene.add(subGroup);
+    const bezel2 = new THREE.Mesh(new THREE.BoxGeometry(3.7, 1.9, 0.04), bezelMat);
+    bezel2.position.set(4.8, 3.4, -7.18);
+    scene.add(bezel2);
+
+    return screens;
   }
 
-  /**
-   * 6. Authored Heavy Industrial 55-Gallon Steel Drum / Barrel Cluster on Spill Pallet:
-   * Used as both facility dressing and as interactive placeable obstacle (tool-barrels).
-   */
-  public static createBarrelCluster(w: number = 0.85, h: number = 0.95, d: number = 0.85): THREE.Group {
-    const group = new THREE.Group();
-
-    // Heavy Polyethylene Spill Containment Pallet (Safety Yellow)
-    const palletMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.1 });
-    const grateMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.7 });
-    const yellowDrumMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.35, metalness: 0.4 });
-    const blueDrumMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5 });
-    const blackDrumMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.40, metalness: 0.7 });
-
-    const pallet = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), palletMat);
-    pallet.position.y = 0.06;
-    pallet.receiveShadow = true;
-    group.add(pallet);
-
-    const topGrate = new THREE.Mesh(new THREE.BoxGeometry(w - 0.06, 0.02, d - 0.06), grateMat);
-    topGrate.position.y = 0.13;
-    group.add(topGrate);
-
-    // 3 x 55-Gallon Steel Barrels clustered on the pallet
-    const drumR = 0.18;
-    const drumH = 0.82;
-    const drumConfigs = [
-      { x: -0.16, z: -0.16, mat: yellowDrumMat },
-      { x: 0.18, z: -0.12, mat: blueDrumMat },
-      { x: 0.0, z: 0.18, mat: blackDrumMat },
-    ];
-
-    for (const dc of drumConfigs) {
-      const drumGroup = new THREE.Group();
-      drumGroup.position.set(dc.x, 0.14, dc.z);
-
-      // Main cylinder
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR, drumH, 20), dc.mat);
-      cyl.position.y = drumH / 2;
-      cyl.receiveShadow = true;
-      drumGroup.add(cyl);
-
-      // Reinforcing chime ribs (2 swaged rings)
-      const ribMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.8 });
-      for (const ry of [drumH * 0.35, drumH * 0.68]) {
-        const rib = new THREE.Mesh(new THREE.TorusGeometry(drumR + 0.008, 0.012, 8, 20), ribMat);
-        rib.rotation.x = Math.PI / 2;
-        rib.position.y = ry;
-        drumGroup.add(rib);
-      }
-
-      // Top Bung Plug
-      const bung = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), ribMat);
-      bung.position.set(0.08, drumH + 0.01, 0);
-      drumGroup.add(bung);
-
-      group.add(drumGroup);
-    }
-
-    return group;
-  }
-
-  /**
-   * 7. Authored Heavy Industrial Safety Crash Barrier:
-   * Heavy yellow steel pipe railing with black hazard slashes and bolt-down baseplates (tool-barrier).
-   */
-  public static createSafetyBarrier(w: number = 1.1, h: number = 0.85, d: number = 0.45): THREE.Group {
-    const group = new THREE.Group();
-
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35, metalness: 0.3 });
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.85 });
-
-    // 2 Vertical Upright Posts
-    const postR = 0.045;
-    const postH = h;
-    for (const sx of [-w / 2 + 0.1, w / 2 - 0.1]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, postH, 16), yellowMat);
-      post.position.set(sx, postH / 2, 0);
-      group.add(post);
-
-      // Heavy Floor Base Plate
-      const basePlate = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.24), steelMat);
-      basePlate.position.set(sx, 0.0125, 0);
-      basePlate.receiveShadow = true;
-      group.add(basePlate);
-    }
-
-    // Top and Bottom Horizontal Heavy Rails
-    for (const ry of [h - 0.08, h * 0.45]) {
-      const rail = new THREE.Mesh(new THREE.CylinderGeometry(postR * 0.9, postR * 0.9, w, 16), yellowMat);
-      rail.rotation.z = Math.PI / 2;
-      rail.position.set(0, ry, 0);
-      group.add(rail);
-
-      // Reflective black hazard band around center of rail
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(postR * 0.92, postR * 0.92, w * 0.25, 16), steelMat);
-      band.rotation.z = Math.PI / 2;
-      band.position.set(0, ry, 0);
-      group.add(band);
-    }
-
-    return group;
-  }
-
-  /**
-   * 8. Biophilic Stainless Steel Planter Pods with Lush Foliage:
-   * Contemporary architectural accent pods placed at perimeter corners.
-   */
-  public static createBiophilicPlanters(scene: THREE.Scene) {
-    const planterMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.2, metalness: 0.9 });
-    const soilMat = new THREE.MeshStandardMaterial({ color: 0x271e16, roughness: 0.9 });
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5, metalness: 0.1 });
-
-    const planterCoords: [number, number][] = [
-      [-9.8, 6.2],
-      [9.8, 6.2],
-    ];
-
-    for (const [px, pz] of planterCoords) {
-      const pGroup = new THREE.Group();
-      pGroup.position.set(px, 0, pz);
-
-      // Brushed stainless cylinder pot
-      const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.35, 0.85, 20), planterMat);
-      pot.position.y = 0.425;
-      pot.receiveShadow = true;
-      pGroup.add(pot);
-
-      // Soil bed
-      const soil = new THREE.Mesh(new THREE.CircleGeometry(0.40, 18), soilMat);
-      soil.rotation.x = -Math.PI / 2;
-      soil.position.y = 0.84;
-      pGroup.add(soil);
-
-      // Multiple broad tropical leaves
-      for (let i = 0; i < 9; i++) {
-        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8), leafMat);
-        const ang = (i / 9) * Math.PI * 2;
-        leaf.scale.set(0.65, 1.6, 0.22);
-        leaf.rotation.set(0.45 * Math.cos(ang), ang, 0.45 * Math.sin(ang));
-        leaf.position.set(0.18 * Math.cos(ang), 1.05 + Math.sin(i) * 0.12, 0.18 * Math.sin(ang));
-        pGroup.add(leaf);
-      }
-
-      scene.add(pGroup);
-    }
-  }
-
-  private static createSafetyBollard(
-    scene: THREE.Scene,
-    x: number,
-    z: number,
-    yellowMat: THREE.Material,
-    blackMat: THREE.Material
-  ) {
-    const group = new THREE.Group();
-    group.position.set(x, 0, z);
-
-    const postGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.95, 16);
-    const post = new THREE.Mesh(postGeo, yellowMat);
-    post.position.y = 0.95 / 2;
-    group.add(post);
-
-    const capGeo = new THREE.SphereGeometry(0.11, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
-    const cap = new THREE.Mesh(capGeo, yellowMat);
-    cap.position.y = 0.95;
-    group.add(cap);
-
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
-    const s1 = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.112, 0.08, 16), stripeMat);
-    s1.position.y = 0.72;
-    group.add(s1);
-
-    const s2 = new THREE.Mesh(new THREE.CylinderGeometry(0.112, 0.112, 0.08, 16), stripeMat);
-    s2.position.y = 0.52;
-    group.add(s2);
-
-    scene.add(group);
-  }
-
-  private static createEmergencyStopStation(scene: THREE.Scene, x: number, y: number, z: number) {
-    const group = new THREE.Group();
-    group.position.set(x, y, z);
-
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
-    const box = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.12), boxMat);
-    group.add(box);
-
-    const btnMat = new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.2, emissive: 0xef4444, emissiveIntensity: 0.3 });
-    const btn = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.045, 0.06, 16), btnMat);
-    btn.rotation.x = Math.PI / 2;
-    btn.position.set(0, 0, 0.07);
-    group.add(btn);
-
-    scene.add(group);
-  }
-
-  private static buildPalletRack(
-    scene: THREE.Scene,
-    x: number,
-    z: number,
-    orangeMat: THREE.Material,
-    blueMat: THREE.Material
-  ) {
-    const rackGroup = new THREE.Group();
-    rackGroup.position.set(x, 0, z);
-
-    const w = 3.2;
-    const d = 0.75;
-    const h = 3.6;
-
-    for (const [px, pz] of [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]]) {
-      const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, h, 0.09), blueMat);
-      post.position.set(px, h / 2, pz);
-      rackGroup.add(post);
-    }
-
-    for (const tierY of [1.1, 2.2, 3.3]) {
-      const frontBeam = new THREE.Mesh(new THREE.BoxGeometry(w, 0.11, 0.05), orangeMat);
-      frontBeam.position.set(0, tierY, d / 2);
-      rackGroup.add(frontBeam);
-
-      const backBeam = new THREE.Mesh(new THREE.BoxGeometry(w, 0.11, 0.05), orangeMat);
-      backBeam.position.set(0, tierY, -d / 2);
-      rackGroup.add(backBeam);
-
-      const pallet = this.createWoodenPallet(1.1, 0.14, 0.65);
-      pallet.position.set(0, tierY + 0.07, 0);
-      rackGroup.add(pallet);
-
-      const boxMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
-      const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.50, 0.55), boxMat);
-      b1.position.set(-0.35, tierY + 0.38, 0);
-      rackGroup.add(b1);
-
-      const blueBinMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.2 });
-      const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.40, 0.55), blueBinMat);
-      b2.position.set(0.35, tierY + 0.33, 0);
-      rackGroup.add(b2);
-    }
-
-    scene.add(rackGroup);
-  }
-
-  private static createWoodenPallet(w: number, h: number, d: number): THREE.Group {
-    const group = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0xc4a482, roughness: 0.85 });
-
-    for (let i = -w / 2 + 0.08; i <= w / 2 - 0.08; i += 0.18) {
-      const board = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, d), woodMat);
-      board.position.set(i, h - 0.0125, 0);
-      group.add(board);
-    }
-    for (const sx of [-w / 2 + 0.06, 0, w / 2 - 0.06]) {
-      const str = new THREE.Mesh(new THREE.BoxGeometry(0.09, h - 0.04, d), woodMat);
-      str.position.set(sx, (h - 0.04) / 2 + 0.02, 0);
-      group.add(str);
-    }
-    return group;
-  }
-
-  private static createWallSafetySign(
-    scene: THREE.Scene,
-    x: number,
-    y: number,
-    z: number,
-    type: "caution" | "notice"
-  ) {
+  public static createWallScreenTexture(type: "neural" | "trajectories"): THREE.CanvasTexture {
     const canvas = document.createElement("canvas");
-    canvas.width = 512;
-    canvas.height = 256;
+    canvas.width = 1024;
+    canvas.height = 512;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!ctx) return new THREE.CanvasTexture(canvas);
+
+    ctx.fillStyle = "#050a14";
+    ctx.fillRect(0, 0, 1024, 512);
+
+    // Grid lines
+    ctx.strokeStyle = "rgba(14, 165, 233, 0.12)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= 1024; x += 32) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 512);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= 512; y += 32) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(1024, y);
+      ctx.stroke();
+    }
+
+    // Outer cyber border
+    ctx.strokeStyle = type === "neural" ? "#00f0ff" : "#a855f7";
+    ctx.lineWidth = 4;
+    ctx.strokeRect(8, 8, 1008, 496);
+
+    // Header bar
+    ctx.fillStyle = type === "neural" ? "rgba(0, 240, 255, 0.20)" : "rgba(168, 85, 247, 0.20)";
+    ctx.fillRect(8, 8, 1008, 48);
 
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, 0, 512, 256);
-    ctx.lineWidth = 14;
-    ctx.strokeStyle = type === "caution" ? "#eab308" : "#2563eb";
-    ctx.strokeRect(7, 7, 498, 242);
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText(
+      type === "neural"
+        ? "▶ NEURAL DYNAMICS TELEMETRY // RESIDUAL MLP (288,884 PARAMS)"
+        : "▶ RECEDING HORIZON MPC // VECTORIZED TRAJECTORIES (N=300, H=14)",
+      24,
+      40
+    );
 
-    ctx.fillStyle = type === "caution" ? "#eab308" : "#2563eb";
-    ctx.fillRect(14, 14, 484, 68);
+    if (type === "neural") {
+      // Draw loss curve graph
+      ctx.strokeStyle = "#38bdf8";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(40, 90, 520, 360);
 
-    ctx.fillStyle = type === "caution" ? "#000000" : "#ffffff";
-    ctx.font = "bold 38px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(type === "caution" ? "⚠ CAUTION" : "NOTICE", 256, 62);
+      // Graph grid lines
+      ctx.strokeStyle = "rgba(56, 189, 248, 0.20)";
+      for (let gy = 150; gy < 450; gy += 60) {
+        ctx.beginPath();
+        ctx.moveTo(40, gy);
+        ctx.lineTo(560, gy);
+        ctx.stroke();
+      }
 
-    ctx.fillStyle = "#1e293b";
-    ctx.font = "bold 26px sans-serif";
-    if (type === "caution") {
-      ctx.fillText("AUTONOMOUS MOBILE ROBOT", 256, 130);
-      ctx.fillText("TESTING IN PROGRESS", 256, 168);
-      ctx.font = "20px monospace";
-      ctx.fillText("STAY CLEAR OF VEHICLE PATHWAY", 256, 212);
+      // Smooth decaying loss curve
+      ctx.strokeStyle = "#00ff9d";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(50, 420);
+      for (let i = 0; i <= 50; i++) {
+        const lx = 50 + i * 10;
+        const ly = 120 + 290 * Math.exp(-i / 12.0) + Math.sin(i * 0.8) * 6;
+        ctx.lineTo(lx, ly);
+      }
+      ctx.stroke();
+
+      ctx.fillStyle = "#00ff9d";
+      ctx.font = "14px 'Courier New', monospace";
+      ctx.fillText("VALIDATION MAE: 0.0058 m (CONVERGED)", 60, 120);
+
+      // Right Stats Panel
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = "bold 16px 'Courier New', monospace";
+      ctx.fillText("NETWORK SPECIFICATION:", 600, 110);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "14px 'Courier New', monospace";
+      const stats = [
+        "ARCH: 3x Residual Blocks with Skip",
+        "STATE DIM: 10-D Normalized Vector",
+        "ACTION SPACE: Discrete [Up, Down, L, R]",
+        "INFERENCE LATENCY: 4.2 ms / tick",
+        "DEVICE: NVIDIA RTX 5070 Laptop GPU",
+        "PRECISION: FP32 Tensor Cores",
+        "UNCERTAINTY: Epistemic Deep Ensemble",
+        "STATUS: ONLINE (NOMINAL 60 FPS)",
+      ];
+      stats.forEach((st, idx) => {
+        ctx.fillText(`• ${st}`, 600, 145 + idx * 32);
+      });
     } else {
-      ctx.fillText("EYE PROTECTION REQUIRED", 256, 130);
-      ctx.fillText("IN THIS TESTING AREA", 256, 168);
-      ctx.font = "20px monospace";
-      ctx.fillText("RESTRICTED ACCESS ONLY", 256, 212);
+      // Draw Trajectory Fan Radar
+      const rcx = 280;
+      const rcy = 270;
+      ctx.strokeStyle = "rgba(168, 85, 247, 0.35)";
+      ctx.lineWidth = 1.5;
+      for (let r = 40; r <= 180; r += 45) {
+        ctx.beginPath();
+        ctx.arc(rcx, rcy, r, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Candidate Rollout paths fan
+      for (let a = -1.2; a <= 1.2; a += 0.15) {
+        ctx.strokeStyle = "rgba(56, 189, 248, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(rcx, rcy);
+        const endX = rcx + Math.sin(a) * 160 + (Math.random() - 0.5) * 20;
+        const endY = rcy - Math.cos(a) * 160;
+        ctx.quadraticCurveTo(rcx + Math.sin(a) * 80, rcy - 90, endX, endY);
+        ctx.stroke();
+      }
+
+      // Best path in glowing emerald
+      ctx.strokeStyle = "#00ff9d";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(rcx, rcy);
+      ctx.quadraticCurveTo(rcx + 20, rcy - 90, rcx + 40, rcy - 165);
+      ctx.stroke();
+
+      ctx.fillStyle = "#00ff9d";
+      ctx.font = "bold 15px 'Courier New', monospace";
+      ctx.fillText("SELECTED OPTIMAL PATH (J* = +142.8)", 60, 480);
+
+      // Right Side Stats
+      ctx.fillStyle = "#c084fc";
+      ctx.font = "bold 16px 'Courier New', monospace";
+      ctx.fillText("PLANNING HORIZON DYNAMICS:", 580, 110);
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "14px 'Courier New', monospace";
+      const mpcStats = [
+        "CANDIDATES: 300 Trajectories / Step",
+        "HORIZON: H = 14 Forward Steps",
+        "DISCOUNT: Gamma = 0.95",
+        "OPTIMAL ACTION: a_0* Dispatched",
+        "COLLISION PENALTY: Cost = -100.0",
+        "UNCERTAINTY PENALTY: Beta = 0.5",
+        "PROGRESS REWARD: +10.0 to Goal",
+        "SOLVER: Batched Vectorized PyTorch",
+      ];
+      mpcStats.forEach((st, idx) => {
+        ctx.fillText(`▶ ${st}`, 580, 145 + idx * 32);
+      });
     }
 
     const tex = new THREE.CanvasTexture(canvas);
-    const signGeo = new THREE.PlaneGeometry(1.6, 0.8);
-    const signMat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
-    const signMesh = new THREE.Mesh(signGeo, signMat);
-    signMesh.position.set(x, y, z);
-    scene.add(signMesh);
+    return tex;
+  }
+
+  public static createCurvedScreenTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 384;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return new THREE.CanvasTexture(canvas);
+
+    ctx.fillStyle = "#030712";
+    ctx.fillRect(0, 0, 1024, 384);
+
+    // Left pane: Python Terminal Log
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, 490, 364);
+
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("MISSION_CONTROL_TERMINAL // PYTHON 3.14", 25, 34);
+
+    ctx.fillStyle = "#94a3b8";
+    ctx.font = "12px 'Courier New', monospace";
+    const logs = [
+      "[SYS] WorldModel runtime initialized on CUDA device:0",
+      "[MPC] Loaded weights: models/robot_student.pt (288,884 params)",
+      "[ENV] RobotEnv scenario=1 seed=1001 arena=13.85x9.23m",
+      "[PLAN] Step 38: 300 rollouts evaluated in 4.18 ms",
+      "[ACT] Action 3 (RIGHT) dispatched to AMR chassis",
+      "[PRED] Predicted pos (370, 464) | Actual (370, 464)",
+      "[MAE] 1-Step state MAE = 0.0016 m (Precision OK)",
+      "[STATUS] Trajectory nominal, 0 collisions, goal dist: 4.8m",
+    ];
+    logs.forEach((log, i) => {
+      ctx.fillText(log, 25, 65 + i * 22);
+    });
+
+    // Right pane: 3D LiDAR & Kinematics Gauge
+    ctx.strokeStyle = "rgba(168, 85, 247, 0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(515, 10, 495, 364);
+
+    ctx.fillStyle = "#c084fc";
+    ctx.font = "bold 14px 'Courier New', monospace";
+    ctx.fillText("KINEMATICS & SENSORY TELEMETRY", 530, 34);
+
+    // Speedometer arc
+    ctx.strokeStyle = "rgba(0, 255, 157, 0.7)";
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.arc(660, 140, 55, Math.PI * 0.8, Math.PI * 1.8);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("0.85", 660, 140);
+    ctx.font = "11px 'Courier New', monospace";
+    ctx.fillStyle = "#94a3b8";
+    ctx.fillText("M / S", 660, 160);
+
+    // Multi-horizon prediction bar chart
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 12px 'Courier New', monospace";
+    ctx.fillText("HORIZON DRIFT ERROR (m):", 530, 230);
+
+    const horizons = [
+      { h: "H=1", err: 0.03, col: "#00ff9d" },
+      { h: "H=3", err: 0.07, col: "#38bdf8" },
+      { h: "H=5", err: 0.12, col: "#00f0ff" },
+      { h: "H=10", err: 0.20, col: "#a855f7" },
+      { h: "H=14", err: 0.26, col: "#f59e0b" },
+    ];
+    horizons.forEach((item, idx) => {
+      ctx.fillStyle = "#cbd5e1";
+      ctx.font = "11px 'Courier New', monospace";
+      ctx.fillText(item.h, 530, 260 + idx * 22);
+
+      ctx.fillStyle = item.col;
+      const barW = item.err * 600;
+      ctx.fillRect(575, 250 + idx * 22, barW, 12);
+
+      ctx.fillStyle = "#94a3b8";
+      ctx.fillText(`${item.err}m`, 585 + barW, 260 + idx * 22);
+    });
+
+    const tex = new THREE.CanvasTexture(canvas);
+    return tex;
+  }
+
+  public static createOscilloscopeTexture(): THREE.CanvasTexture {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return new THREE.CanvasTexture(canvas);
+
+    ctx.fillStyle = "#022c22";
+    ctx.fillRect(0, 0, 256, 128);
+
+    // Grid
+    ctx.strokeStyle = "rgba(16, 185, 129, 0.25)";
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= 256; x += 16) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 128);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= 128; y += 16) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(256, y);
+      ctx.stroke();
+    }
+
+    // Sine waveform
+    ctx.strokeStyle = "#10b981";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (let x = 0; x < 256; x++) {
+      const y = 64 + Math.sin(x * 0.08) * 36 + Math.sin(x * 0.2) * 8;
+      if (x === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = "#34d399";
+    ctx.font = "bold 10px monospace";
+    ctx.fillText("CH1: 2.50V  100kHz", 10, 18);
+
+    return new THREE.CanvasTexture(canvas);
   }
 
   /**
-   * Heavy industrial robotics test workstation desk.
+   * Biophilic Hydroponic Plant Columns (Clean sci-fi greenery)
+   */
+  private static createBiophilicColumns(scene: THREE.Scene) {
+    const glassMat = new THREE.MeshPhysicalMaterial({ transmission: 0.9, roughness: 0.1, thickness: 0.2 });
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.4 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3 });
+
+    for (const [px, pz] of [[-10.4, 5.2], [-10.4, -5.2]]) {
+      const colGroup = new THREE.Group();
+      colGroup.position.set(px, 0, pz);
+
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.45, 0.35, 24), darkMetal);
+      base.position.y = 0.175;
+      colGroup.add(base);
+
+      const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 3.2, 24, 1, true), glassMat);
+      tube.position.y = 1.95;
+      colGroup.add(tube);
+
+      // Spiral foliage inside column
+      for (let i = 0; i < 18; i++) {
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), leafMat);
+        const y = 0.5 + i * 0.14;
+        const angle = i * 0.7;
+        leaf.position.set(Math.cos(angle) * 0.18, y, Math.sin(angle) * 0.18);
+        colGroup.add(leaf);
+      }
+
+      scene.add(colGroup);
+    }
+  }
+
+  /**
+   * Glass Display Cabinets Containing Quantum Chips & Robotics Actuators
+   */
+  private static createGlassDisplayCabinets(
+    scene: THREE.Scene,
+    titaniumMat: THREE.Material,
+    glassMat: THREE.Material
+  ) {
+    for (const [cx, cz] of [[10.4, -2.5], [10.4, 2.5]]) {
+      const cab = new THREE.Group();
+      cab.position.set(cx, 0, cz);
+
+      const base = new THREE.Mesh(new THREE.BoxGeometry(0.75, 0.65, 1.2), titaniumMat);
+      base.position.y = 0.325;
+      cab.add(base);
+
+      const glass = new THREE.Mesh(new THREE.BoxGeometry(0.70, 1.4, 1.15), glassMat);
+      glass.position.y = 1.35;
+      cab.add(glass);
+
+      // Glowing component pedestal inside
+      const ped = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.15, 0.15, 0.4, 16),
+        new THREE.MeshBasicMaterial({ color: 0x00f0ff })
+      );
+      ped.position.y = 0.85;
+      cab.add(ped);
+
+      scene.add(cab);
+    }
+  }
+
+  /**
+   * Recessed Ceiling Spotlight Pods
+   */
+  private static createRecessedCeilingLights(scene: THREE.Scene, lights: THREE.PointLight[]) {
+    const lightCoords: [number, number, number][] = [
+      [-7.0, -3.8, 0x00f0ff],
+      [0.0, -6.8, 0x00f0ff],
+      [7.0, -3.8, 0xa855f7],
+      [-5.0, 2.0, 0x38bdf8],
+      [5.0, 2.0, 0x00f0ff],
+    ];
+
+    for (const [lx, lz, col] of lightCoords) {
+      const light = new THREE.PointLight(col, 1.8, 7.5, 1.6);
+      light.position.set(lx, 6.2, lz);
+      scene.add(light);
+      lights.push(light);
+
+      // Emissive fixture lens
+      const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.25, 16),
+        new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide })
+      );
+      lens.rotation.x = Math.PI / 2;
+      lens.position.set(lx, 6.38, lz);
+      scene.add(lens);
+    }
+  }
+
+  // =========================================================================
+  // HIGH-TECH LABORATORY OBSTACLES (Conforms to existing simulation signatures)
+  // =========================================================================
+
+  /**
+   * High-Tech Holographic Assembly Workstation (Replaces generic workstation)
    */
   public static createWorkstationObstacle(w: number, h: number, d: number): THREE.Group {
     const group = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.75 });
-    const topWoodMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.55, metalness: 0.05 });
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
-    const footMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
+    const darkMetal = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.25, metalness: 0.9 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
-    const topThickness = 0.06;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(w, topThickness, d), topWoodMat);
-    top.position.y = h - topThickness / 2;
-    top.castShadow = true;
-    top.receiveShadow = true;
-    group.add(top);
+    const bench = new THREE.Mesh(new THREE.BoxGeometry(w, h * 0.12, d), darkMetal);
+    bench.position.y = h * 0.88;
+    bench.castShadow = true;
+    bench.receiveShadow = true;
+    group.add(bench);
 
-    const hazardTrim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.025, 0.015), yellowMat);
-    hazardTrim.position.set(0, h - topThickness / 2, d / 2 + 0.008);
-    group.add(hazardTrim);
+    const trim = new THREE.Mesh(new THREE.BoxGeometry(w * 1.02, 0.02, d * 1.02), cyanLed);
+    trim.position.y = h * 0.82;
+    group.add(trim);
 
-    const legW = 0.05;
-    const legH = h - topThickness;
-    const footH = 0.02;
-
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const lx = sx * (w / 2 - legW / 2);
-        const lz = sz * (d / 2 - legW / 2);
-
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(legW, legH, legW), steelMat);
-        leg.position.set(lx, legH / 2, lz);
+    // Legs
+    for (const lx of [-w / 2 + 0.06, w / 2 - 0.06]) {
+      for (const lz of [-d / 2 + 0.06, d / 2 - 0.06]) {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, h * 0.88, 0.08), darkMetal);
+        leg.position.set(lx, (h * 0.88) / 2, lz);
         leg.castShadow = true;
         group.add(leg);
-
-        const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.045, footH, 12), footMat);
-        foot.position.set(lx, footH / 2, lz);
-        group.add(foot);
       }
     }
 
-    const shelfY = h * 0.32;
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(w - legW * 1.5, 0.03, d - legW * 1.5), steelMat);
-    shelf.position.y = shelfY;
-    shelf.castShadow = true;
-    group.add(shelf);
-
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.3 });
-    const instBox = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.14, d * 0.6), boxMat);
-    instBox.position.set(0, shelfY + 0.085, 0);
-    instBox.castShadow = true;
-    group.add(instBox);
+    // Holographic Schematic floating above
+    const holo = new THREE.Mesh(
+      new THREE.PlaneGeometry(w * 0.65, 0.28),
+      new THREE.MeshBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.45, side: THREE.DoubleSide })
+    );
+    holo.position.set(0, h + 0.15, 0);
+    holo.rotation.x = -0.3;
+    group.add(holo);
 
     return group;
   }
 
   /**
-   * Heavy industrial wooden cargo shipping crate.
+   * Quantum Composite Containment Pod (Replaces wooden crate)
    */
   public static createRealisticCrate(w: number, h: number, d: number): THREE.Group {
     const group = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7b56, roughness: 0.78, metalness: 0.05 });
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.8 });
+    const podMat = new THREE.MeshStandardMaterial({ color: 0x0b1324, roughness: 0.35, metalness: 0.85 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
-    const core = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), woodMat);
-    core.position.y = h / 2;
-    core.castShadow = true;
-    core.receiveShadow = true;
-    group.add(core);
-
-    const cornerSize = Math.min(w, h, d) * 0.18;
-    for (const sx of [-1, 1]) {
-      for (const sy of [0, 1]) {
-        for (const sz of [-1, 1]) {
-          const corner = new THREE.Mesh(
-            new THREE.BoxGeometry(cornerSize, cornerSize * 0.8, cornerSize),
-            metalMat
-          );
-          corner.position.set(
-            sx * (w / 2 - cornerSize / 2),
-            sy * (h - cornerSize * 0.8 / 2) + (1 - sy) * (cornerSize * 0.8 / 2),
-            sz * (d / 2 - cornerSize / 2)
-          );
-          group.add(corner);
-        }
-      }
-    }
-
-    const strapMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
-    for (const strapY of [h * 0.3, h * 0.7]) {
-      const strap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.03, d + 0.01), strapMat);
-      strap.position.y = strapY;
-      group.add(strap);
-    }
-
-    return group;
-  }
-
-  /**
-   * Heavy industrial steel tool cabinet.
-   */
-  public static createToolCabinet(w: number, h: number, d: number): THREE.Group {
-    const group = new THREE.Group();
-    const cabinetMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.35, metalness: 0.6 });
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.95 });
-    const topRubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
-
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.06, d), cabinetMat);
-    body.position.y = (h - 0.06) / 2 + 0.06;
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), podMat);
+    body.position.y = h / 2;
     body.castShadow = true;
     body.receiveShadow = true;
     group.add(body);
 
-    const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.03, d + 0.02), topRubberMat);
-    top.position.y = h;
-    group.add(top);
+    // Glowing status light strips
+    const stripe1 = new THREE.Mesh(new THREE.BoxGeometry(w * 1.01, 0.03, 0.04), cyanLed);
+    stripe1.position.set(0, h * 0.70, d / 2);
+    group.add(stripe1);
 
-    const nDrawers = 4;
-    const drawerSpacing = (h - 0.15) / nDrawers;
-    for (let i = 0; i < nDrawers; i++) {
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, w * 0.65, 8), chromeMat);
-      handle.rotation.z = Math.PI / 2;
-      handle.position.set(0, 0.14 + i * drawerSpacing, d / 2 + 0.02);
-      group.add(handle);
+    const stripe2 = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, d * 1.01), cyanLed);
+    stripe2.position.set(w / 2, h * 0.70, 0);
+    group.add(stripe2);
+
+    return group;
+  }
+
+  /**
+   * Cryogenic Server / Electronics Rack (Replaces metal tool cabinet)
+   */
+  public static createToolCabinet(w: number, h: number, d: number): THREE.Group {
+    const group = new THREE.Group();
+    const rackMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.25, metalness: 0.95 });
+    const violetLed = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), rackMat);
+    body.position.y = h / 2;
+    body.castShadow = true;
+    body.receiveShadow = true;
+    group.add(body);
+
+    // Glowing Server Blades
+    for (let i = 0; i < 5; i++) {
+      const sy = 0.2 + i * (h / 6);
+      const blade = new THREE.Mesh(new THREE.BoxGeometry(w * 0.75, 0.02, 0.03), i % 2 === 0 ? cyanLed : violetLed);
+      blade.position.set(0, sy, d / 2 + 0.01);
+      group.add(blade);
     }
 
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.5 });
-    for (const sx of [-1, 1]) {
-      for (const sz of [-1, 1]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 12), wheelMat);
-        wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(sx * (w / 2 - 0.06), 0.04, sz * (d / 2 - 0.06));
-        group.add(wheel);
+    return group;
+  }
+
+  /**
+   * Magnetic Plasma Power Cell Cluster (Replaces 55-gal oil barrels)
+   */
+  public static createBarrelCluster(w: number = 0.85, h: number = 0.95, d: number = 0.85): THREE.Group {
+    const group = new THREE.Group();
+    const cellMat = new THREE.MeshStandardMaterial({ color: 0x0a1120, roughness: 0.2, metalness: 0.9 });
+    const cyanLed = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+    const barrelPositions: [number, number][] = [
+      [-w * 0.24, -d * 0.24],
+      [w * 0.24, -d * 0.24],
+      [0.0, d * 0.24],
+    ];
+
+    const r = Math.min(w, d) * 0.22;
+    for (const [bx, bz] of barrelPositions) {
+      const canister = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 20), cellMat);
+      canister.position.set(bx, h / 2, bz);
+      canister.castShadow = true;
+      group.add(canister);
+
+      // Glowing magnetic containment rings
+      for (const ry of [h * 0.3, h * 0.7]) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(r * 1.03, 0.015, 8, 24), cyanLed);
+        ring.rotation.x = Math.PI / 2;
+        ring.position.set(bx, ry, bz);
+        group.add(ring);
       }
     }
 
@@ -1407,89 +1597,70 @@ export class LabEnvironmentBuilder {
   }
 
   /**
-   * Realistic modern human robotics engineer/technician (1.75m tall):
-   * Safety hard hat, safety glasses, high-vis reflective vest, work trousers, boots.
+   * Laser-Guided Containment Barrier (Replaces yellow safety barrier)
    */
-  public static createRealisticTechnician(): {
-    root: THREE.Group;
-    head: THREE.Object3D;
-  } {
+  public static createSafetyBarrier(w: number = 1.1, h: number = 0.85, d: number = 0.45): THREE.Group {
     const group = new THREE.Group();
+    const stanchionMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
+    const cyanLaser = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
-    const skinMat = new THREE.MeshStandardMaterial({ color: 0xf6c8a0, roughness: 0.65 });
-    const hardHatMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.3, metalness: 0.3 });
-    const vestMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.6 });
-    const stripeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.9 });
-    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
-    const bootMat = new THREE.MeshStandardMaterial({ color: 0x3f2d1d, roughness: 0.7 });
+    for (const sx of [-w / 2, w / 2]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.065, h, 16), stanchionMat);
+      post.position.set(sx, h / 2, 0);
+      post.castShadow = true;
+      group.add(post);
 
-    // Boots
-    for (const sx of [-0.10, 0.10]) {
-      const boot = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.24), bootMat);
-      boot.position.set(sx, 0.07, 0.02);
-      boot.castShadow = true;
-      group.add(boot);
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 12), cyanLaser);
+      cap.position.set(sx, h, 0);
+      group.add(cap);
     }
+
+    // Dual Glowing Laser Energy Rails
+    for (const ly of [h * 0.4, h * 0.8]) {
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, w, 8), cyanLaser);
+      rail.rotation.z = Math.PI / 2;
+      rail.position.set(0, ly, 0);
+      group.add(rail);
+    }
+
+    return group;
+  }
+
+  /**
+   * Lead AI Robotics Researcher (Scenario 2 Pedestrian)
+   * High-tech laboratory cybernetic coat/suit with visor HUD.
+   */
+  public static createRealisticTechnician(): { root: THREE.Group; head: THREE.Group } {
+    const root = new THREE.Group();
+    const suitMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 });
+    const whiteCoat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.3 });
+    const visorMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
 
     // Legs
-    for (const sx of [-0.10, 0.10]) {
-      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.74, 12), pantsMat);
-      leg.position.set(sx, 0.51, 0);
-      leg.castShadow = true;
-      group.add(leg);
+    for (const lx of [-0.09, 0.09]) {
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.85, 12), suitMat);
+      leg.position.set(lx, 0.425, 0);
+      root.add(leg);
     }
 
-    // Torso with Safety Vest
-    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.56, 0.22), vestMat);
-    torso.position.set(0, 1.16, 0);
-    torso.castShadow = true;
-    group.add(torso);
+    // Torso with Sci-Fi Research Coat
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.60, 0.22), whiteCoat);
+    torso.position.y = 1.15;
+    root.add(torso);
 
-    const s1 = new THREE.Mesh(new THREE.BoxGeometry(0.364, 0.04, 0.224), stripeMat);
-    s1.position.set(0, 1.25, 0);
-    group.add(s1);
+    // Head with Glowing Cybernetic Visor HUD
+    const head = new THREE.Group();
+    head.position.y = 1.58;
 
-    const s2 = new THREE.Mesh(new THREE.BoxGeometry(0.364, 0.04, 0.224), stripeMat);
-    s2.position.set(0, 1.05, 0);
-    group.add(s2);
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(0.12, 16, 16), suitMat);
+    head.add(skull);
 
-    // Arms
-    for (const sx of [-0.23, 0.23]) {
-      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.52, 10), vestMat);
-      arm.position.set(sx, 1.15, 0);
-      arm.castShadow = true;
-      group.add(arm);
-    }
+    const visor = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.05, 0.08), visorMat);
+    visor.position.set(0, 0.02, 0.10);
+    head.add(visor);
 
-    // Head
-    const headGroup = new THREE.Group();
-    headGroup.position.set(0, 1.54, 0);
+    root.add(head);
 
-    const headMesh = new THREE.Mesh(new THREE.SphereGeometry(0.11, 16, 16), skinMat);
-    headMesh.position.y = 0;
-    headMesh.castShadow = true;
-    headGroup.add(headMesh);
-
-    // Hard Hat
-    const hat = new THREE.Mesh(new THREE.SphereGeometry(0.125, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.55), hardHatMat);
-    hat.position.y = 0.05;
-    headGroup.add(hat);
-
-    const brim = new THREE.Mesh(new THREE.RingGeometry(0.11, 0.16, 16), hardHatMat);
-    brim.rotation.x = -Math.PI / 2;
-    brim.position.y = 0.05;
-    headGroup.add(brim);
-
-    // Safety Glasses
-    const glasses = new THREE.Mesh(
-      new THREE.BoxGeometry(0.16, 0.035, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.8, transparent: true, opacity: 0.8 })
-    );
-    glasses.position.set(0, 0.01, 0.10);
-    headGroup.add(glasses);
-
-    group.add(headGroup);
-
-    return { root: group, head: headGroup };
+    return { root, head };
   }
 }

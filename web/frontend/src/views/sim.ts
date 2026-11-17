@@ -184,6 +184,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <span>[P] PRESENT</span>
           </button>
 
+          <!-- Interactive 3D Lighting Mode Switcher -->
+          <button id="btn-lighting" class="glass-pill" title="Cycle Sci-Fi Lab Lighting: Cyberpunk / Research / Night / Presentation (L)" style="color: #c084fc;">
+            <span>💡 <span id="label-lighting-mode">CYBERPUNK</span></span>
+          </button>
+
           <!-- Fullscreen Toggle -->
           <button id="btn-fullscreen" class="glass-pill" title="Toggle Fullscreen" style="color: var(--text-main);">
             <span>⛶ FULL</span>
@@ -1416,6 +1421,18 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       btnPres.onclick = togglePresentation;
     }
 
+    // 3D Laboratory Lighting Preset Switcher
+    const btnLighting = document.getElementById("btn-lighting");
+    const labelLighting = document.getElementById("label-lighting-mode");
+    if (btnLighting) {
+      btnLighting.onclick = () => {
+        if (primaryScene) {
+          const mode = primaryScene.cycleLightingMode();
+          if (labelLighting) labelLighting.textContent = mode.toUpperCase();
+        }
+      };
+    }
+
     // Fullscreen Toggle
     document.getElementById("btn-fullscreen")!.onclick = () => {
       if (!document.fullscreenElement) {
@@ -1501,6 +1518,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         document.getElementById("btn-reset")!.click();
       } else if (e.key === "h" || e.key === "H") {
         document.getElementById("btn-help")!.click();
+      } else if (e.key === "l" || e.key === "L") {
+        if (primaryScene) {
+          const mode = primaryScene.cycleLightingMode();
+          const labelLighting = document.getElementById("label-lighting-mode");
+          if (labelLighting) labelLighting.textContent = mode.toUpperCase();
+        }
       } else if (e.key === "n" || e.key === "N") {
         btnMute.click();
       } else if (e.key === "]" || e.key === "+" || e.key === "=") {
