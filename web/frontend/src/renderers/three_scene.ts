@@ -114,13 +114,16 @@ export class ThreeSimulationScene {
   public onFpsUpdate?: (fps: number) => void;
 
   // AAA Continuous Network Snapshot Interpolation Buffer (Zero-Stutter Constant Velocity)
-  private static readonly INTERP_DELAY_MS = 50.0; // 50ms buffer (1.5 packet duration)
+  private static readonly INTERP_DELAY_MS = 90.0; // 90ms buffer (2.7 packet duration for jitter-free interpolation)
   private robotSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private personSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private currentRobotPos = new THREE.Vector3();
   private currentRobotHeading: number = 0;
+  private targetRobotHeading: number = 0;
+  private robotVelocity: THREE.Vector2 = new THREE.Vector2(0, 0);
   private currentPersonPos = new THREE.Vector3();
   private currentPersonHeading: number = 0;
+  private targetPersonHeading: number = 0;
   private personVy: number = 0;
   private personVisible: boolean = false;
   private lastMode: string = "world_model";
@@ -189,7 +192,7 @@ export class ThreeSimulationScene {
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.22;
       this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
       container.appendChild(this.renderer.domElement);
       DiagnosticsOverlay.getInstance().setRenderer(this.renderer);
@@ -1065,7 +1068,6 @@ export class ThreeSimulationScene {
       if (this.robotSnapshots.length === 1) {
         const s = this.robotSnapshots[0];
         this.currentRobotPos.set(s.x, 0, s.z);
-        this.currentRobotHeading = s.heading;
       } else {
         const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
         const snaps = this.robotSnapshots;
@@ -1073,23 +1075,21 @@ export class ThreeSimulationScene {
         if (renderTime <= snaps[0].time) {
           // Pre-buffer start
           this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
-          this.currentRobotHeading = snaps[0].heading;
         } else if (renderTime >= snaps[snaps.length - 1].time) {
-          // Extrapolate gently along latest velocity
+          // Extrapolate gently along latest velocity without abrupt braking
           const sLast = snaps[snaps.length - 1];
-          const sPrev = snaps[snaps.length - 2];
+          const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
           const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
           const vx = (sLast.x - sPrev.x) / dtSeg;
           const vz = (sLast.z - sPrev.z) / dtSeg;
-          const extraSec = Math.min(0.05, (renderTime - sLast.time) / 1000.0);
-          const damping = Math.max(0.0, 1.0 - (extraSec / 0.05));
+          const extraSec = Math.max(0, (renderTime - sLast.time) / 1000.0);
+          const damping = Math.max(0.0, 1.0 - (extraSec / 0.30) * (extraSec / 0.30));
 
           this.currentRobotPos.set(
             sLast.x + vx * extraSec * damping,
             0,
             sLast.z + vz * extraSec * damping
           );
-          this.currentRobotHeading = sLast.heading;
         } else {
           // Find enclosing bracket [idx0, idx0 + 1]
           let idx0 = 0;
@@ -1109,15 +1109,16 @@ export class ThreeSimulationScene {
             0,
             THREE.MathUtils.lerp(s0.z, s1.z, alpha)
           );
-
-          // Shortest-path angular slerp for heading
-          let diff = (s1.heading - s0.heading) % (Math.PI * 2);
-          if (diff > Math.PI) diff -= Math.PI * 2;
-          if (diff < -Math.PI) diff += Math.PI * 2;
-          this.currentRobotHeading = s0.heading + diff * alpha;
         }
       }
     }
+
+    // Smooth Spherical Angular Heading Tracking (Eliminates 90-degree orthogonal stair-stepping jitter)
+    let headingDiff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
+    if (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
+    if (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
+    const turnAlpha = Math.min(1.0, Math.max(0.04, dt * 7.5));
+    this.currentRobotHeading += headingDiff * turnAlpha;
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
     if (this.humanoidRobot) {
@@ -1152,18 +1153,26 @@ export class ThreeSimulationScene {
       if (this.personSnapshots.length === 1) {
         const s = this.personSnapshots[0];
         this.currentPersonPos.set(s.x, 0, s.z);
-        this.currentPersonHeading = s.heading;
       } else {
         const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
         const snaps = this.personSnapshots;
 
         if (renderTime <= snaps[0].time) {
           this.currentPersonPos.set(snaps[0].x, 0, snaps[0].z);
-          this.currentPersonHeading = snaps[0].heading;
         } else if (renderTime >= snaps[snaps.length - 1].time) {
           const sLast = snaps[snaps.length - 1];
-          this.currentPersonPos.set(sLast.x, 0, sLast.z);
-          this.currentPersonHeading = sLast.heading;
+          const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
+          const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
+          const vx = (sLast.x - sPrev.x) / dtSeg;
+          const vz = (sLast.z - sPrev.z) / dtSeg;
+          const extraSec = Math.max(0, (renderTime - sLast.time) / 1000.0);
+          const damping = Math.max(0.0, 1.0 - (extraSec / 0.30) * (extraSec / 0.30));
+
+          this.currentPersonPos.set(
+            sLast.x + vx * extraSec * damping,
+            0,
+            sLast.z + vz * extraSec * damping
+          );
         } else {
           let idx0 = 0;
           for (let i = 0; i < snaps.length - 1; i++) {
@@ -1182,13 +1191,13 @@ export class ThreeSimulationScene {
             0,
             THREE.MathUtils.lerp(s0.z, s1.z, alpha)
           );
-
-          let diff = (s1.heading - s0.heading) % (Math.PI * 2);
-          if (diff > Math.PI) diff -= Math.PI * 2;
-          if (diff < -Math.PI) diff += Math.PI * 2;
-          this.currentPersonHeading = s0.heading + diff * alpha;
         }
       }
+
+      let pDiff = (this.targetPersonHeading - this.currentPersonHeading) % (Math.PI * 2);
+      if (pDiff > Math.PI) pDiff -= Math.PI * 2;
+      if (pDiff < -Math.PI) pDiff += Math.PI * 2;
+      this.currentPersonHeading += pDiff * Math.min(1.0, dt * 6.5);
 
       const isMoving = Math.abs(this.personVy) > 0.01;
       const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
@@ -1251,15 +1260,9 @@ export class ThreeSimulationScene {
       }
     }
 
-    // Animate ambient cyber particles
+    // Animate ambient cyber particles (Zero CPU loop & Zero GPU buffer re-upload)
     if (this.cyberParticles) {
-      const pPosAttr = this.cyberParticles.geometry.attributes.position as THREE.BufferAttribute;
-      const pArr = pPosAttr.array as Float32Array;
-      for (let i = 1; i < pArr.length; i += 3) {
-        pArr[i] += dt * 0.25;
-        if (pArr[i] > 4.8) pArr[i] = 0.25;
-      }
-      pPosAttr.needsUpdate = true;
+      this.cyberParticles.position.y = (this.cyberParticles.position.y + dt * 0.25) % 4.5;
     }
 
     // Update Camera Motion smoothly on every tick
@@ -1301,30 +1304,40 @@ export class ThreeSimulationScene {
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
 
-        // Calculate heading for this snapshot
-        let snapHeading = this.isDocked ? (Math.PI / 2) : this.currentRobotHeading;
+        // Calculate smooth target heading from MPC planned trajectory or filtered velocity
         const lastSnap = this.robotSnapshots.length > 0 ? this.robotSnapshots[this.robotSnapshots.length - 1] : null;
 
         if (this.isDocked) {
-          snapHeading = Math.PI / 2;
+          this.targetRobotHeading = Math.PI / 2;
+        } else if (frame.plan?.best && frame.plan.best.length >= 2) {
+          // Lookahead along MPC planned trajectory (steps 2-4) to eliminate orthogonal stair-stepping jitter
+          const lookaheadIdx = Math.min(3, frame.plan.best.length - 1);
+          const tgt = this.to3D(frame.plan.best[lookaheadIdx][0], frame.plan.best[lookaheadIdx][1]);
+          const dx = tgt.x - pos.x;
+          const dz = tgt.z - pos.z;
+          if (Math.hypot(dx, dz) > 0.05) {
+            this.targetRobotHeading = Math.atan2(dx, dz);
+          }
         } else if (lastSnap) {
           const dx = pos.x - lastSnap.x;
           const dz = pos.z - lastSnap.z;
           if (Math.hypot(dx, dz) > 0.02) {
-            snapHeading = Math.atan2(dx, dz);
-          } else {
-            snapHeading = lastSnap.heading;
+            this.robotVelocity.x = THREE.MathUtils.lerp(this.robotVelocity.x, dx, 0.35);
+            this.robotVelocity.z = THREE.MathUtils.lerp(this.robotVelocity.z, dz, 0.35);
+            if (this.robotVelocity.length() > 0.01) {
+              this.targetRobotHeading = Math.atan2(this.robotVelocity.x, this.robotVelocity.z);
+            }
           }
         }
 
         if (this.isFirstStateUpdate || frame.step === 0 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
-          this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: snapHeading, time: now }];
+          this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: now }];
           this.currentRobotPos.set(pos.x, 0, pos.z);
-          this.currentRobotHeading = snapHeading;
+          this.currentRobotHeading = this.targetRobotHeading;
           this.isFirstStateUpdate = false;
         } else {
-          this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: snapHeading, time: now });
-          if (this.robotSnapshots.length > 15) {
+          this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: now });
+          if (this.robotSnapshots.length > 25) {
             this.robotSnapshots.shift();
           }
         }
@@ -1335,14 +1348,17 @@ export class ThreeSimulationScene {
         const now = performance.now();
         const personHeadingRad = -((e.heading || 0) * (Math.PI / 180));
         this.personVy = e.vy || 0;
+        this.targetPersonHeading = personHeadingRad;
 
-        if (this.personSnapshots.length === 0 || Math.hypot(pos.x - this.personSnapshots[this.personSnapshots.length - 1].x, pos.z - this.personSnapshots[this.personSnapshots.length - 1].z) > 2.5) {
+        const lastPersonSnap = this.personSnapshots.length > 0 ? this.personSnapshots[this.personSnapshots.length - 1] : null;
+
+        if (this.personSnapshots.length === 0 || (lastPersonSnap && Math.hypot(pos.x - lastPersonSnap.x, pos.z - lastPersonSnap.z) > 2.5)) {
           this.personSnapshots = [{ x: pos.x, z: pos.z, heading: personHeadingRad, time: now }];
           this.currentPersonPos.set(pos.x, 0, pos.z);
           this.currentPersonHeading = personHeadingRad;
         } else {
           this.personSnapshots.push({ x: pos.x, z: pos.z, heading: personHeadingRad, time: now });
-          if (this.personSnapshots.length > 15) {
+          if (this.personSnapshots.length > 25) {
             this.personSnapshots.shift();
           }
         }
@@ -1641,13 +1657,11 @@ export class ThreeSimulationScene {
       // Top-Down interactive view
       if (this.controls) {
         this.controls.enabled = true;
-        this.controls.update();
       }
     } else {
       // Overview: Free orbit, pan, and zoom via OrbitControls
       if (this.controls) {
         this.controls.enabled = true;
-        this.controls.update();
       }
     }
   }
@@ -1660,6 +1674,9 @@ export class ThreeSimulationScene {
 
   public setCameraMode(mode: "overview" | "chase" | "topdown" | "robot_pov" | "orbit" | "cinematic") {
     this.cameraMode = mode;
+    if (this.povHeadlight) {
+      this.povHeadlight.castShadow = (mode === "robot_pov");
+    }
     if (this.controls) {
       if (mode === "overview") {
         this.controls.enabled = true;
@@ -1704,7 +1721,7 @@ export class ThreeSimulationScene {
       this.targetDpr = 1.0;
     } else {
       this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      this.renderer.shadowMap.type = THREE.PCFShadowMap;
       this.targetDpr = Math.min(window.devicePixelRatio || 1, 1.25);
     }
     this.currentDpr = this.targetDpr;

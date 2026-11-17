@@ -921,6 +921,22 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   };
   animId = requestAnimationFrame(animLoop);
 
+  // Page visibility management: freeze oscilloscope and signal server to pause to save GPU/CPU when tab is hidden
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      if (animId) {
+        cancelAnimationFrame(animId);
+        animId = 0;
+      }
+      wsClient.sendCommand({ cmd: "pause" });
+    } else {
+      if (!animId) {
+        animId = requestAnimationFrame(animLoop);
+      }
+      wsClient.sendCommand({ cmd: "start" });
+    }
+  });
+
   // Setup UI Event Handlers
   const setupControls = () => {
     // Mode toggles

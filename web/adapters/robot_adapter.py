@@ -154,6 +154,12 @@ class RobotAdapter:
                     last_action=self.last_action
                 )
                 self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+                if self.last_plan_info and "best_trajectory" in self.last_plan_info:
+                    traj = self.last_plan_info["best_trajectory"]
+                    if len(traj) >= 2:
+                        dx = traj[1][0] - traj[0][0]
+                        dy = traj[1][1] - traj[0][1]
+                        self.robot_heading = float(np.degrees(np.arctan2(dx, dy)))
         else:
             # Reactive greedy baseline
             chosen_action = get_greedy_action(self.env.robot_x, self.env.robot_y, self.env.goal_x, self.env.goal_y)
