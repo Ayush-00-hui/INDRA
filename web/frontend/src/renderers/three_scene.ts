@@ -17,7 +17,7 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { DiagnosticsOverlay } from "../ui/diagnostics_overlay";
-import { LabEnvironmentBuilder, FuturisticLabHandles } from "./lab_environment";
+import { LabEnvironmentBuilder } from "./lab_environment";
 import { HumanoidRobot } from "./humanoid_robot";
 
 export class ThreeSimulationScene {
@@ -34,8 +34,6 @@ export class ThreeSimulationScene {
   private hemiLight: THREE.HemisphereLight;
   private ambientLight: THREE.AmbientLight;
   private ceilingLights: THREE.PointLight[] = [];
-  private labHandles: FuturisticLabHandles | null = null;
-  public currentLightingMode: "research" | "cyberpunk" | "night" | "presentation" = "cyberpunk";
   private povHeadlight: THREE.SpotLight;
   private floorMesh: THREE.Mesh | null = null;
   private gridHelper: THREE.GridHelper | null = null;
@@ -254,8 +252,8 @@ export class ThreeSimulationScene {
       return;
     }
 
-    // High Dynamic Range PBR Cyberpunk Lighting (Key Cyan Light + Violet Sky Fill + Ambient)
-    this.sunLight = new THREE.DirectionalLight(0x00f0ff, 2.0);
+    // High Dynamic Range PBR Lighting (Key Sunlight + Sky Fill + Ambient)
+    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 2.0);
     this.sunLight.position.set(6.5, 14.0, 5.5);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 1024; // Optimized for razor-sharp shadows at 60 FPS
@@ -269,10 +267,10 @@ export class ThreeSimulationScene {
     this.sunLight.shadow.bias = -0.0003;
     this.scene.add(this.sunLight);
 
-    this.hemiLight = new THREE.HemisphereLight(0xc084fc, 0x090e1a, 0.90);
+    this.hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 0.85);
     this.scene.add(this.hemiLight);
 
-    this.ambientLight = new THREE.AmbientLight(0x1e1b4b, 0.45);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.40);
     this.scene.add(this.ambientLight);
 
     // Roots
@@ -460,25 +458,67 @@ export class ThreeSimulationScene {
     const floorMat = new THREE.MeshStandardMaterial({
       map: floorTex,
       roughnessMap: floorRoughnessTex,
-      roughness: 0.18, // Mirror-smooth sci-fi reflections
-      metalness: 0.35,
+      roughness: 0.32,
+      metalness: 0.08,
     });
     this.floorMesh = new THREE.Mesh(floorGeo, floorMat);
     this.floorMesh.rotation.x = -Math.PI / 2;
     this.floorMesh.receiveShadow = true;
     this.scene.add(this.floorMesh);
 
-    // 2. Futuristic 2050 AI Robotics Research Laboratory Architecture
-    this.labHandles = LabEnvironmentBuilder.buildWarehouseArchitecture(this.scene);
-    this.ceilingLights.push(...this.labHandles.lights);
+    // 2. Realistic 4.2m Industrial Warehouse Architecture (Expanded 15.6m span)
+    const { lights } = LabEnvironmentBuilder.buildWarehouseArchitecture(this.scene);
+    this.ceilingLights.push(...lights);
 
-    // 3. Ambient Floor Laser Guidelines
+    // 3. Populate room with high-tech storage racks, monitoring terminals, and charging hub
     this.addRoomDecorations();
   }
 
   private addRoomDecorations() {
-    // Ambient Perimeter Laser Guidelines
-    const guideMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.45 });
+    // Note: Industrial pallet storage racks along the North perimeter are authored cleanly
+    // by LabEnvironmentBuilder.buildWarehouseArchitecture. Duplicate racks previously placed here
+    // collided with the perimeter racks and caused 150+ redundant WebGL draw calls.
+
+    // 1. High-Tech Monitoring Terminal Station
+    const terminal = new THREE.Group();
+    const deskMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
+    const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.85, 0.85), deskMat);
+    deskMesh.position.set(0, 0.425, 0);
+    terminal.add(deskMesh);
+
+    const screenMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    for (const sx of [-0.45, 0.45]) {
+      const stand = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.25, 8), deskMat);
+      stand.position.set(sx, 0.97, 0);
+      terminal.add(stand);
+
+      const scr = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.35, 0.02), screenMat);
+      scr.position.set(sx, 1.15, 0);
+      scr.rotation.y = sx < 0 ? 0.15 : -0.15;
+      terminal.add(scr);
+    }
+    terminal.position.set(8.2, 0, 5.2);
+    terminal.rotation.y = -Math.PI * 0.75;
+    this.scene.add(terminal);
+
+    // 2. Autonomous Robot Fast-Charging Dock Hub
+    const charger = new THREE.Group();
+    const chargerBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.5, 0.40), deskMat);
+    chargerBody.position.set(0, 0.75, 0);
+    charger.add(chargerBody);
+
+    const ledBar = new THREE.Mesh(
+      new THREE.BoxGeometry(0.10, 1.0, 0.02),
+      new THREE.MeshBasicMaterial({ color: 0x00ff9d })
+    );
+    ledBar.position.set(0, 0.80, 0.21);
+    charger.add(ledBar);
+    charger.position.set(-8.4, 0, 5.2);
+    charger.rotation.y = Math.PI * 0.75;
+    this.scene.add(charger);
+
+    // 3. Ambient Floor Laser Guidelines
+    const guideMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 });
     const guidePts = [
       new THREE.Vector3(-9.6, 0.015, -6.3),
       new THREE.Vector3(9.6, 0.015, -6.3),
@@ -1376,61 +1416,6 @@ export class ThreeSimulationScene {
       this.cyberParticles.position.y = (this.cyberParticles.position.y + dt * 0.25) % 4.5;
     }
 
-    // Animate Futuristic AI Laboratory Elements (Zero Allocation Loop)
-    if (this.labHandles) {
-      // 1. Quantum AI Core Spinning Gyro Rings & Pulsing Core
-      if (this.labHandles.aiCore) {
-        const core = this.labHandles.aiCore;
-        core.outerRing.rotation.y += dt * 0.95;
-        core.outerRing.rotation.x = Math.sin(now * 0.001) * 0.18;
-        core.innerRing.rotation.x -= dt * 1.35;
-        core.innerRing.rotation.z += dt * 0.90;
-        const pulse = 1.0 + 0.12 * Math.sin(now * 0.005);
-        core.coreOrb.scale.set(pulse, pulse, pulse);
-        const orbMat = core.coreOrb.material as THREE.MeshStandardMaterial;
-        if (orbMat) {
-          orbMat.emissiveIntensity = 2.4 + 0.8 * Math.sin(now * 0.006);
-        }
-        if (core.light) {
-          core.light.intensity = 2.8 + 0.8 * Math.sin(now * 0.005);
-        }
-      }
-
-      // 2. Holographic World Simulation Emitter
-      if (this.labHandles.holoEmitter) {
-        const holo = this.labHandles.holoEmitter;
-        holo.globeGroup.rotation.y += dt * 0.85;
-        holo.globeGroup.rotation.x = Math.sin(now * 0.0008) * 0.08;
-        for (let i = 0; i < holo.rings.length; i++) {
-          holo.rings[i].rotation.z += (i % 2 === 0 ? 1 : -1) * dt * 1.15;
-        }
-        if (holo.beam) {
-          const bMat = holo.beam.material as THREE.MeshBasicMaterial;
-          if (bMat) {
-            bMat.opacity = 0.18 + 0.07 * Math.sin(now * 0.004);
-          }
-        }
-      }
-
-      // 3. 6-Axis Articulated Robotic Arm Procedural Idle Kinematics
-      if (this.labHandles.roboticArm) {
-        const arm = this.labHandles.roboticArm;
-        arm.baseRot.rotation.y = Math.sin(now * 0.0008) * 0.42;
-        arm.shoulderRot.rotation.z = -0.32 + Math.sin(now * 0.0011) * 0.12;
-        arm.elbowRot.rotation.z = 0.68 + Math.sin(now * 0.0014) * 0.16;
-        arm.wristRot.rotation.x = Math.sin(now * 0.0018) * 0.35;
-        const grip = Math.abs(Math.sin(now * 0.0012)) * 0.012;
-        arm.gripperL.position.x = -0.03 - grip;
-        arm.gripperR.position.x = 0.03 + grip;
-      }
-
-      // 4. Autonomous Exploration Rover Scanner Head Sweep
-      if (this.labHandles.roverInspection) {
-        const rover = this.labHandles.roverInspection;
-        rover.scannerHead.rotation.y = Math.sin(now * 0.0015) * 0.75;
-      }
-    }
-
     // Update Camera Motion smoothly on every tick
     this.updateCamera(now, this.currentRobotPos.x, this.currentRobotPos.z, this.currentRobotHeading);
 
@@ -1935,61 +1920,6 @@ export class ThreeSimulationScene {
     const nextIdx = (modes.indexOf(this.cameraMode) + 1) % modes.length;
     this.setCameraMode(modes[nextIdx]);
     return this.cameraMode;
-  }
-
-  public setLightingMode(mode: "research" | "cyberpunk" | "night" | "presentation") {
-    this.currentLightingMode = mode;
-    if (!this.sunLight || !this.hemiLight || !this.ambientLight) return;
-
-    if (mode === "research") {
-      // Clinical Daylight Lab (5500K Clean White / Ice Blue)
-      this.sunLight.color.setHex(0xf8fafc);
-      this.sunLight.intensity = 2.4;
-      this.hemiLight.color.setHex(0x93c5fd);
-      this.hemiLight.groundColor.setHex(0x1e293b);
-      this.hemiLight.intensity = 1.0;
-      this.ambientLight.color.setHex(0xe2e8f0);
-      this.ambientLight.intensity = 0.45;
-      if (this.renderer) this.renderer.toneMappingExposure = 1.25;
-    } else if (mode === "cyberpunk") {
-      // High-Contrast Cyan & Violet Neon
-      this.sunLight.color.setHex(0x00f0ff);
-      this.sunLight.intensity = 2.0;
-      this.hemiLight.color.setHex(0xc084fc);
-      this.hemiLight.groundColor.setHex(0x090e1a);
-      this.hemiLight.intensity = 0.90;
-      this.ambientLight.color.setHex(0x1e1b4b);
-      this.ambientLight.intensity = 0.45;
-      if (this.renderer) this.renderer.toneMappingExposure = 1.20;
-    } else if (mode === "night") {
-      // Stealth Night Mode (Dimmed Ambient with Glowing Cores & Monitors)
-      this.sunLight.color.setHex(0x1e3a8a);
-      this.sunLight.intensity = 0.75;
-      this.hemiLight.color.setHex(0x312e81);
-      this.hemiLight.groundColor.setHex(0x020617);
-      this.hemiLight.intensity = 0.35;
-      this.ambientLight.color.setHex(0x0a0f1d);
-      this.ambientLight.intensity = 0.20;
-      if (this.renderer) this.renderer.toneMappingExposure = 1.10;
-    } else if (mode === "presentation") {
-      // Presentation Spotlight Mode (High Key Focused Arena)
-      this.sunLight.color.setHex(0xffffff);
-      this.sunLight.intensity = 2.8;
-      this.hemiLight.color.setHex(0x38bdf8);
-      this.hemiLight.groundColor.setHex(0x0f172a);
-      this.hemiLight.intensity = 1.1;
-      this.ambientLight.color.setHex(0xffffff);
-      this.ambientLight.intensity = 0.55;
-      if (this.renderer) this.renderer.toneMappingExposure = 1.30;
-    }
-  }
-
-  public cycleLightingMode(): string {
-    const modes: ("research" | "cyberpunk" | "night" | "presentation")[] = ["cyberpunk", "research", "night", "presentation"];
-    const idx = modes.indexOf(this.currentLightingMode);
-    const nextMode = modes[(idx + 1) % modes.length];
-    this.setLightingMode(nextMode);
-    return nextMode;
   }
 
   public setQuality(quality: "low" | "med" | "high") {
