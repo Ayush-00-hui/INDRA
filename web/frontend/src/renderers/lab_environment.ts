@@ -413,13 +413,11 @@ export class LabEnvironmentBuilder {
     for (const [cx, cz] of colPositions) {
       const col = new THREE.Mesh(new THREE.BoxGeometry(0.28, wallHeight, 0.28), steelMat);
       col.position.set(cx, wallHeight / 2, cz);
-      col.castShadow = true;
       col.receiveShadow = true;
       scene.add(col);
 
       const guard = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.25, 0.95, 16), yellowGuardMat);
       guard.position.set(cx, 0.475, cz);
-      guard.castShadow = true;
       scene.add(guard);
     }
 
@@ -530,7 +528,6 @@ export class LabEnvironmentBuilder {
     for (const dZ of [-0.35, 0.35]) {
       const girder = new THREE.Mesh(new THREE.BoxGeometry(21.2, 0.42, 0.16), craneYellowMat);
       girder.position.set(0, 6.18, craneBridgeZ + dZ);
-      girder.castShadow = true;
       craneGroup.add(girder);
     }
 
@@ -545,7 +542,6 @@ export class LabEnvironmentBuilder {
     const trolleyX = 1.4;
     const trolley = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.32, 1.1), steelMat);
     trolley.position.set(trolleyX, 6.42, craneBridgeZ);
-    trolley.castShadow = true;
     craneGroup.add(trolley);
 
     // Motor Drum & Cable Spool
@@ -564,7 +560,6 @@ export class LabEnvironmentBuilder {
     // Heavy Forged Industrial Steel Crane Hook
     const hookBlock = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.32, 0.28), craneYellowMat);
     hookBlock.position.set(trolleyX, 4.0, craneBridgeZ);
-    hookBlock.castShadow = true;
     craneGroup.add(hookBlock);
 
     const hookCurve = new THREE.Mesh(
@@ -573,7 +568,6 @@ export class LabEnvironmentBuilder {
     );
     hookCurve.rotation.z = Math.PI * 0.85;
     hookCurve.position.set(trolleyX, 3.75, craneBridgeZ);
-    hookCurve.castShadow = true;
     craneGroup.add(hookCurve);
 
     // Flashing Amber Warning Beacons at bridge girder ends
@@ -620,7 +614,6 @@ export class LabEnvironmentBuilder {
     for (const pZ of [-5.5, -2.5, 0.5, 3.5, 5.5]) {
       const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.16, mezzY, 0.16), steelMat);
       pillar.position.set(mezzX - 0.65, mezzY / 2, pZ);
-      pillar.castShadow = true;
       mezzGroup.add(pillar);
     }
 
@@ -732,33 +725,28 @@ export class LabEnvironmentBuilder {
     // Robot Arm Axis 1: Rotary Turret Base
     const baseCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.36, 0.40, 20), steelMat);
     baseCyl.position.y = 0.525;
-    baseCyl.castShadow = true;
     cellGroup.add(baseCyl);
 
     // Axis 2: Lower Arm Shoulder & Boom (Angled forward)
     const shoulder = new THREE.Mesh(new THREE.SphereGeometry(0.24, 16, 16), steelMat);
     shoulder.position.y = 0.82;
-    shoulder.castShadow = true;
     cellGroup.add(shoulder);
 
     const lowerArm = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.95, 0.22), orangeMat);
     lowerArm.position.set(0.18, 1.25, -0.15);
     lowerArm.rotation.x = -0.35;
     lowerArm.rotation.z = 0.25;
-    lowerArm.castShadow = true;
     cellGroup.add(lowerArm);
 
     // Axis 3: Elbow Articulation & Forearm
     const elbow = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 16), steelMat);
     elbow.position.set(0.32, 1.68, -0.32);
-    elbow.castShadow = true;
     cellGroup.add(elbow);
 
     const forearm = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.85, 16), orangeMat);
     forearm.rotation.z = Math.PI / 3;
     forearm.rotation.y = 0.4;
     forearm.position.set(0.68, 1.55, -0.22);
-    forearm.castShadow = true;
     cellGroup.add(forearm);
 
     // Axis 5/6: Wrist & Pneumatic Gripper End-Effector
@@ -886,12 +874,10 @@ export class LabEnvironmentBuilder {
         if (c.isTote) {
           const tote = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.28, 0.55), toteBlueMat);
           tote.position.set(c.x, y + 0.04 + 0.14, z);
-          tote.castShadow = true;
           convGroup.add(tote);
         } else {
           const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), boxMat);
           box.position.set(c.x, y + 0.04 + 0.225, z);
-          box.castShadow = true;
           convGroup.add(box);
         }
       }
@@ -922,7 +908,6 @@ export class LabEnvironmentBuilder {
     // Transformer Main Body (1.4m x 1.8m x 1.1m)
     const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 1.1), cabinetMat);
     body.position.y = 0.9;
-    body.castShadow = true;
     body.receiveShadow = true;
     subGroup.add(body);
 
@@ -988,7 +973,6 @@ export class LabEnvironmentBuilder {
 
     const pallet = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), palletMat);
     pallet.position.y = 0.06;
-    pallet.castShadow = true;
     pallet.receiveShadow = true;
     group.add(pallet);
 
@@ -1012,7 +996,6 @@ export class LabEnvironmentBuilder {
       // Main cylinder
       const cyl = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR, drumH, 20), dc.mat);
       cyl.position.y = drumH / 2;
-      cyl.castShadow = true;
       cyl.receiveShadow = true;
       drumGroup.add(cyl);
 
@@ -1052,7 +1035,6 @@ export class LabEnvironmentBuilder {
     for (const sx of [-w / 2 + 0.1, w / 2 - 0.1]) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, postH, 16), yellowMat);
       post.position.set(sx, postH / 2, 0);
-      post.castShadow = true;
       group.add(post);
 
       // Heavy Floor Base Plate
@@ -1067,7 +1049,6 @@ export class LabEnvironmentBuilder {
       const rail = new THREE.Mesh(new THREE.CylinderGeometry(postR * 0.9, postR * 0.9, w, 16), yellowMat);
       rail.rotation.z = Math.PI / 2;
       rail.position.set(0, ry, 0);
-      rail.castShadow = true;
       group.add(rail);
 
       // Reflective black hazard band around center of rail
@@ -1101,7 +1082,6 @@ export class LabEnvironmentBuilder {
       // Brushed stainless cylinder pot
       const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.35, 0.85, 20), planterMat);
       pot.position.y = 0.425;
-      pot.castShadow = true;
       pot.receiveShadow = true;
       pGroup.add(pot);
 
@@ -1118,7 +1098,6 @@ export class LabEnvironmentBuilder {
         leaf.scale.set(0.65, 1.6, 0.22);
         leaf.rotation.set(0.45 * Math.cos(ang), ang, 0.45 * Math.sin(ang));
         leaf.position.set(0.18 * Math.cos(ang), 1.05 + Math.sin(i) * 0.12, 0.18 * Math.sin(ang));
-        leaf.castShadow = true;
         pGroup.add(leaf);
       }
 
@@ -1139,7 +1118,6 @@ export class LabEnvironmentBuilder {
     const postGeo = new THREE.CylinderGeometry(0.11, 0.11, 0.95, 16);
     const post = new THREE.Mesh(postGeo, yellowMat);
     post.position.y = 0.95 / 2;
-    post.castShadow = true;
     group.add(post);
 
     const capGeo = new THREE.SphereGeometry(0.11, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2);
@@ -1193,7 +1171,6 @@ export class LabEnvironmentBuilder {
     for (const [px, pz] of [[-w / 2, -d / 2], [w / 2, -d / 2], [-w / 2, d / 2], [w / 2, d / 2]]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.09, h, 0.09), blueMat);
       post.position.set(px, h / 2, pz);
-      post.castShadow = true;
       rackGroup.add(post);
     }
 
@@ -1213,13 +1190,11 @@ export class LabEnvironmentBuilder {
       const boxMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.8 });
       const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.50, 0.55), boxMat);
       b1.position.set(-0.35, tierY + 0.38, 0);
-      b1.castShadow = true;
       rackGroup.add(b1);
 
       const blueBinMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.2 });
       const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.40, 0.55), blueBinMat);
       b2.position.set(0.35, tierY + 0.33, 0);
-      b2.castShadow = true;
       rackGroup.add(b2);
     }
 

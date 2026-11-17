@@ -26,7 +26,7 @@ class RobotAdapter:
         self.fixed_dock_start = fixed_dock_start
         self.env = RobotEnv(scenario=scenario_variant, fixed_dock_start=fixed_dock_start)
         self.state: Optional[np.ndarray] = None
-        self.last_action: int = RobotEnv.ACTION_STAY
+        self.last_action: Optional[int] = None
         self.last_plan_info: Optional[Dict[str, Any]] = None
         self.plan_latency_ms: float = 0.0
         self.cum_reward: float = 0.0
@@ -86,7 +86,7 @@ class RobotAdapter:
         if seed is not None:
             self.current_seed = seed
         self.state = self.env.reset(seed=self.current_seed)
-        self.last_action = RobotEnv.ACTION_STAY
+        self.last_action = None
         self.last_plan_info = None
         self.plan_latency_ms = 0.0
         self.cum_reward = 0.0

@@ -39,11 +39,41 @@ class SoundManager {
 
         this.masterGain.connect(this.analyser);
         this.analyser.connect(this.ctx.destination);
+        this.initMotorSynth();
       }
     }
     if (this.ctx && this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
     }
+  }
+
+  private initMotorSynth() {
+    if (!this.ctx || !this.masterGain || this.motorOsc) return;
+    try {
+      this.motorFilter = this.ctx.createBiquadFilter();
+      this.motorFilter.type = "lowpass";
+      this.motorFilter.frequency.setValueAtTime(190, this.ctx.currentTime);
+      this.motorFilter.Q.setValueAtTime(0.7, this.ctx.currentTime);
+
+      this.motorGain = this.ctx.createGain();
+      this.motorGain.gain.setValueAtTime(0.00001, this.ctx.currentTime);
+
+      this.motorOsc = this.ctx.createOscillator();
+      this.motorOsc.type = "sine";
+      this.motorOsc.frequency.setValueAtTime(74, this.ctx.currentTime);
+
+      this.motorSubOsc = this.ctx.createOscillator();
+      this.motorSubOsc.type = "sine";
+      this.motorSubOsc.frequency.setValueAtTime(42, this.ctx.currentTime);
+
+      this.motorOsc.connect(this.motorGain);
+      this.motorSubOsc.connect(this.motorGain);
+      this.motorGain.connect(this.motorFilter);
+      this.motorFilter.connect(this.masterGain);
+
+      this.motorOsc.start();
+      this.motorSubOsc.start();
+    } catch {}
   }
 
   public unlock() {
@@ -67,61 +97,25 @@ class SoundManager {
 
   /**
    * Ultra-smooth, velvety whisper-quiet electric motor glide.
-   * Uses filtered pure sine waves with deep low-pass 190Hz damping.
-   * Completely non-irritating, silky smooth electric hum.
+   * Persistent zero-allocation continuous synthesizer.
+   * Eliminates GC stutter and audio node thrashing.
    */
   public playMove() {
     if (this.isMuted) return;
     if (!this.ctx || this.ctx.state !== "running" || !this.masterGain) return;
+    if (!this.motorOsc) this.initMotorSynth();
 
     const now = performance.now();
-    // Throttle so sound glides continuously with smooth cadence
-    if (now - this.lastMoveTime < 130) return;
     this.lastMoveTime = now;
 
-    try {
+    if (this.motorGain && this.ctx) {
       const t = this.ctx.currentTime;
-      const dur = 0.22;
-
-      // Deep acoustic low-pass filter to remove all harshness
-      const filter = this.ctx.createBiquadFilter();
-      filter.type = "lowpass";
-      filter.frequency.setValueAtTime(190, t);
-      filter.Q.setValueAtTime(0.7, t);
-
-      // Primary silky electric motor glide (smooth gentle sine wave)
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.setValueAtTime(72, t);
-      osc.frequency.linearRampToValueAtTime(94, t + dur * 0.45);
-      osc.frequency.linearRampToValueAtTime(68, t + dur);
-
-      // Whisper-quiet gentle gain
-      gain.gain.setValueAtTime(0.0001, t);
-      gain.gain.linearRampToValueAtTime(0.018, t + 0.05);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-
-      // Warm sub-harmonic cushion (42 Hz)
-      const sub = this.ctx.createOscillator();
-      const subG = this.ctx.createGain();
-      sub.type = "sine";
-      sub.frequency.setValueAtTime(42, t);
-      subG.gain.setValueAtTime(0.0001, t);
-      subG.gain.linearRampToValueAtTime(0.014, t + 0.05);
-      subG.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-
-      osc.connect(gain);
-      sub.connect(subG);
-      gain.connect(filter);
-      subG.connect(filter);
-      filter.connect(this.masterGain);
-
-      osc.start(t);
-      sub.start(t);
-      osc.stop(t + dur);
-      sub.stop(t + dur);
-    } catch {}
+      const targetGain = this.isMuted ? 0 : 0.024 * this.volume;
+      // Rapid smooth fade-in without pop
+      this.motorGain.gain.setTargetAtTime(targetGain, t, 0.04);
+      // Gentle exponential decay to silence if no further move calls arrive
+      this.motorGain.gain.setTargetAtTime(0.00001, t + 0.12, 0.09);
+    }
   }
 
   /**

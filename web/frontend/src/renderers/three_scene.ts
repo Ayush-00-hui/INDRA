@@ -171,10 +171,10 @@ export class ThreeSimulationScene {
     this.povCamera.layers.enable(0);
     this.povCamera.layers.disable(1); // MASK CHASSIS: POV camera cannot see own body
 
-    // Forward SpotLight Headlight on Humanoid
+    // Forward SpotLight Headlight on Humanoid (shadow cast only in robot_pov camera mode)
     this.povHeadlight = new THREE.SpotLight(0xfffaed, 2.5, 9.0, Math.PI / 4, 0.4, 1.2);
     this.povHeadlight.position.set(0, 1.50, 0);
-    this.povHeadlight.castShadow = true;
+    this.povHeadlight.castShadow = false;
     this.povCamera.add(this.povHeadlight);
     this.scene.add(this.povCamera);
 
@@ -1067,40 +1067,34 @@ export class ThreeSimulationScene {
 
     // 1. AAA Continuous PLL Simulation-Time Jitter Buffer for Humanoid Robot (Constant Velocity 60+ FPS)
     const isPaused = Boolean(this.lastMode === "paused" || this.isDocked);
-    if (this.robotSnapshots.length > 0) {
-      if (!isPaused) {
-        this.playbackTime += dt * 1000.0;
-      }
+    const prevRobotX = this.currentRobotPos.x;
+    const prevRobotZ = this.currentRobotPos.z;
 
+    if (this.robotSnapshots.length > 0) {
       // Phase-Locked Loop (PLL) clock synchronization with server stream
       const latestSnap = this.robotSnapshots[this.robotSnapshots.length - 1];
       const targetTime = latestSnap.time - ThreeSimulationScene.INTERP_DELAY_MS;
       const drift = targetTime - this.playbackTime;
 
-      if (Math.abs(drift) > 350) {
+      if (!isPaused) {
+        // Continuous proportional speed scaling instead of sudden disruptive jumps:
+        // Smoothly accelerates when lagging behind and gently brakes when getting ahead
+        const speedScale = Math.max(0.70, Math.min(1.30, 1.0 + (drift / 250.0)));
+        this.playbackTime += dt * 1000.0 * speedScale;
+      }
+
+      // Hard clamp only on extreme discontinuity (e.g. background tab or long pause)
+      if (Math.abs(drift) > 800) {
         this.playbackTime = targetTime;
-      } else {
-        this.playbackTime += drift * 0.08;
       }
 
       const snaps = this.robotSnapshots;
       if (snaps.length === 1 || this.playbackTime <= snaps[0].time) {
         this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
       } else if (this.playbackTime >= snaps[snaps.length - 1].time) {
-        // Extrapolate gently along latest velocity without abrupt braking
+        // Hold smoothly at latest received position without velocity overshoot snap
         const sLast = snaps[snaps.length - 1];
-        const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
-        const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
-        const vx = (sLast.x - sPrev.x) / dtSeg;
-        const vz = (sLast.z - sPrev.z) / dtSeg;
-        const extraSec = Math.max(0, (this.playbackTime - sLast.time) / 1000.0);
-        const damping = Math.max(0.0, 1.0 - (extraSec / 0.35) * (extraSec / 0.35));
-
-        this.currentRobotPos.set(
-          sLast.x + vx * extraSec * damping,
-          0,
-          sLast.z + vz * extraSec * damping
-        );
+        this.currentRobotPos.set(sLast.x, 0, sLast.z);
       } else {
         // Reverse search for enclosing bracket [idx0, idx0 + 1]
         let idx0 = 0;
@@ -1115,19 +1109,35 @@ export class ThreeSimulationScene {
         const segDuration = Math.max(0.001, s1.time - s0.time);
         const alpha = Math.max(0.0, Math.min(1.0, (this.playbackTime - s0.time) / segDuration));
 
+        // Smooth cubic Hermite interpolation (Smoothstep) to eliminate linear waypoint corner jerks!
+        const smoothAlpha = alpha * alpha * (3.0 - 2.0 * alpha);
+
         this.currentRobotPos.set(
-          THREE.MathUtils.lerp(s0.x, s1.x, alpha),
+          THREE.MathUtils.lerp(s0.x, s1.x, smoothAlpha),
           0,
-          THREE.MathUtils.lerp(s0.z, s1.z, alpha)
+          THREE.MathUtils.lerp(s0.z, s1.z, smoothAlpha)
         );
       }
     }
 
-    // Smooth Spherical Angular Heading Tracking (Eliminates 90-degree orthogonal stair-stepping jitter)
+    // 2. Heading alignment: aligns smoothly with actual 3D movement velocity
+    const moveDx = this.currentRobotPos.x - prevRobotX;
+    const moveDz = this.currentRobotPos.z - prevRobotZ;
+    const moveDist = Math.hypot(moveDx, moveDz);
+    const moveSpeed = dt > 0 ? moveDist / dt : 0;
+
+    if (this.isDocked) {
+      this.targetRobotHeading = Math.PI / 2;
+    } else if (moveSpeed > 0.04) {
+      // Robot body faces smoothly in its true direction of motion
+      this.targetRobotHeading = Math.atan2(moveDx, moveDz);
+    }
+
+    // Smooth Spherical Angular Heading Tracking (Eliminates twitching)
     let headingDiff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
     if (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
     if (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
-    const turnAlpha = Math.min(1.0, Math.max(0.04, dt * 7.5));
+    const turnAlpha = Math.min(1.0, Math.max(0.05, dt * 8.5));
     this.currentRobotHeading += headingDiff * turnAlpha;
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1158,6 +1168,12 @@ export class ThreeSimulationScene {
     this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
     this.povHeadlight.target.position.set(eyeX + fwdX * 4.0, eyeY - 0.2, eyeZ + fwdZ * 4.0);
 
+    // Dynamic shadow toggling: SpotLight shadow map computed only when in robot_pov camera mode
+    const isPov = this.cameraMode === "robot_pov";
+    if (this.povHeadlight.castShadow !== isPov) {
+      this.povHeadlight.castShadow = isPov;
+    }
+
     // 2. Continuous Snapshot Interpolation for Scenario 2 Person
     if (this.personGroup && this.personVisible && this.personSnapshots.length > 0) {
       const pSnaps = this.personSnapshots;
@@ -1165,18 +1181,7 @@ export class ThreeSimulationScene {
         this.currentPersonPos.set(pSnaps[0].x, 0, pSnaps[0].z);
       } else if (this.playbackTime >= pSnaps[pSnaps.length - 1].time) {
         const sLast = pSnaps[pSnaps.length - 1];
-        const sPrev = pSnaps.length >= 2 ? pSnaps[pSnaps.length - 2] : sLast;
-        const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
-        const vx = (sLast.x - sPrev.x) / dtSeg;
-        const vz = (sLast.z - sPrev.z) / dtSeg;
-        const extraSec = Math.max(0, (this.playbackTime - sLast.time) / 1000.0);
-        const damping = Math.max(0.0, 1.0 - (extraSec / 0.35) * (extraSec / 0.35));
-
-        this.currentPersonPos.set(
-          sLast.x + vx * extraSec * damping,
-          0,
-          sLast.z + vz * extraSec * damping
-        );
+        this.currentPersonPos.set(sLast.x, 0, sLast.z);
       } else {
         let pIdx = 0;
         for (let i = pSnaps.length - 2; i >= 0; i--) {
@@ -1189,11 +1194,12 @@ export class ThreeSimulationScene {
         const p1 = pSnaps[pIdx + 1];
         const segDur = Math.max(0.001, p1.time - p0.time);
         const pAlpha = Math.max(0.0, Math.min(1.0, (this.playbackTime - p0.time) / segDur));
+        const smoothPAlpha = pAlpha * pAlpha * (3.0 - 2.0 * pAlpha);
 
         this.currentPersonPos.set(
-          THREE.MathUtils.lerp(p0.x, p1.x, pAlpha),
+          THREE.MathUtils.lerp(p0.x, p1.x, smoothPAlpha),
           0,
-          THREE.MathUtils.lerp(p0.z, p1.z, pAlpha)
+          THREE.MathUtils.lerp(p0.z, p1.z, smoothPAlpha)
         );
       }
 
@@ -1312,24 +1318,12 @@ export class ThreeSimulationScene {
 
         if (this.isDocked) {
           this.targetRobotHeading = Math.PI / 2;
-        } else if (frame.plan?.best && frame.plan.best.length >= 2) {
-          // Lookahead along MPC planned trajectory (steps 2-4) to eliminate orthogonal stair-stepping jitter
-          const lookaheadIdx = Math.min(3, frame.plan.best.length - 1);
-          const tgt = this.to3D(frame.plan.best[lookaheadIdx][0], frame.plan.best[lookaheadIdx][1]);
+        } else if (this.isFirstStateUpdate && frame.plan?.best && frame.plan.best.length >= 2) {
+          const tgt = this.to3D(frame.plan.best[1][0], frame.plan.best[1][1]);
           const dx = tgt.x - pos.x;
           const dz = tgt.z - pos.z;
-          if (Math.hypot(dx, dz) > 0.05) {
-            this.targetRobotHeading = Math.atan2(dx, dz);
-          }
-        } else if (lastSnap) {
-          const dx = pos.x - lastSnap.x;
-          const dz = pos.z - lastSnap.z;
           if (Math.hypot(dx, dz) > 0.02) {
-            this.robotVelocity.x = THREE.MathUtils.lerp(this.robotVelocity.x, dx, 0.35);
-            this.robotVelocity.z = THREE.MathUtils.lerp(this.robotVelocity.z, dz, 0.35);
-            if (this.robotVelocity.length() > 0.01) {
-              this.targetRobotHeading = Math.atan2(this.robotVelocity.x, this.robotVelocity.z);
-            }
+            this.targetRobotHeading = Math.atan2(dx, dz);
           }
         }
 

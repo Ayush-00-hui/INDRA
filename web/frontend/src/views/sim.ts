@@ -612,14 +612,31 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     drawNeuralCortex(cortexCanvas, frame);
   };
 
+  let sessionCompletedRuns: number = 0;
+  let sessionSuccessRuns: number = 0;
+  let prevStepNum: number = 0;
+  let hasRecordedCurrentEpisode: boolean = false;
+
   const updateTelemetry = (frame: any) => {
     if (!frame) return;
 
     const currentStep = frame.metrics?.step_count ?? frame.step ?? 0;
+    if (frame.events && frame.events.includes("goal") && !hasRecordedCurrentEpisode) {
+      sessionSuccessRuns++;
+      sessionCompletedRuns++;
+      hasRecordedCurrentEpisode = true;
+    } else if (currentStep === 0 && prevStepNum > 10) {
+      if (!hasRecordedCurrentEpisode) {
+        sessionCompletedRuns++;
+      }
+      hasRecordedCurrentEpisode = false;
+    }
+    prevStepNum = currentStep;
+
     if (frame.metrics) {
-      const epCount = frame.metrics.episode ?? 1;
-      const succCount = frame.metrics.extra?.success_count ?? (frame.metrics.success ? 1 : 0);
-      const winRatePct = ((succCount / Math.max(epCount, 1)) * 100).toFixed(1);
+      const epCount = Math.max(sessionCompletedRuns + 1, frame.metrics.episode ?? 1);
+      const succCount = Math.max(sessionSuccessRuns, frame.metrics.extra?.success_count ?? (frame.metrics.success ? 1 : 0));
+      const winRatePct = ((succCount / epCount) * 100).toFixed(1);
       metricWinrate.textContent = `${winRatePct}% (n=${epCount})`;
       metricCollisions.textContent = `${frame.metrics.collisions}`;
       metricSteps.textContent = `${currentStep} / 200`;
@@ -891,15 +908,21 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (status === "connected") {
       badgeConnection.textContent = "● LIVE FEED";
       badgeConnection.className = "badge badge-live";
-      if (primaryScene) primaryScene.setDockStatus("released");
-    } else {
+      replayLoader.stop(); // CRITICAL: Stop offline replay when live server stream is connected!
+      if (primaryScene) primaryScene.setDockStatus(isDocked ? "docked" : "released");
+    } else if (status === "fallback_replay") {
       badgeConnection.textContent = "○ REPLAY FALLBACK";
       badgeConnection.className = "badge badge-replay";
       replayLoader.onFrame = (rf) => handleFrame(rf);
-      replayLoader.load("robotics", 1, "wm");
+      replayLoader.load("robotics", currentVariant, currentMode === "baseline" ? "baseline" : "wm");
+    } else if (status === "connecting") {
+      badgeConnection.textContent = "◌ CONNECTING...";
+      badgeConnection.className = "badge badge-connecting";
+    } else {
+      badgeConnection.textContent = "○ DISCONNECTED";
+      badgeConnection.className = "badge badge-disconnected";
     }
   };
-  wsClient.connect();
 
   // Animation Loop for Live Audio Oscilloscope & Mission Clock
   let animId = 0;
@@ -1111,6 +1134,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     };
 
+    // Synchronize initial DOM controls and HUD banner with current state
+    setDockingState(isDocked, false);
+
     const toggleDockRelease = () => {
       setDockingState(!isDocked);
     };
@@ -1216,6 +1242,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   };
 
   setupControls();
+  wsClient.connect();
 
   // Cleanup on unmount
   return () => {

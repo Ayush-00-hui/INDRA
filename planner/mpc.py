@@ -241,7 +241,7 @@ def plan(
 
         # Action momentum / continuity bonus: encourage continuing current direction of movement
         # unless an alternative action has a clearly higher expected return (stops 1-step policy chattering)
-        if last_action is not None and 0 <= last_action < action_size:
+        if last_action is not None and 0 <= last_action < 4:
             returns[actions[:, 0] == last_action] += 2.20
 
         # Anti-immediate-reversal penalty (strongly prevents 2-state back-and-forth oscillations)

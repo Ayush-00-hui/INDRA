@@ -40,6 +40,8 @@ export class HumanoidRobot {
   private lastPos = new THREE.Vector3();
   private smoothedSpeed: number = 0;
   private walkTimer: number = 0;
+  private hasInitializedPos: boolean = false;
+  private walkBlend: number = 0.0;
 
   constructor() {
     this.root = new THREE.Group();
@@ -358,76 +360,83 @@ export class HumanoidRobot {
     const now = performance.now();
 
     // 1. Calculate horizontal ground velocity
+    if (!this.hasInitializedPos) {
+      this.lastPos.copy(currentPos);
+      this.hasInitializedPos = true;
+    }
+
     const dx = currentPos.x - this.lastPos.x;
     const dz = currentPos.z - this.lastPos.z;
     const distMoved = Math.hypot(dx, dz);
     this.lastPos.copy(currentPos);
 
     const instantSpeed = dt > 0 ? distMoved / dt : 0;
-    this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, 0.25);
+    this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, Math.min(1.0, dt * 10.0));
 
     // Dynamic walking gait with hysteresis to prevent intermittent leg resets across frame intervals
-    if (!isDocked && this.smoothedSpeed > 0.06) {
-      this.walkTimer = 0.18; // Sustain walking gait across network packet intervals
+    if (!isDocked && this.smoothedSpeed > 0.04) {
+      this.walkTimer = 0.22; // Sustain walking gait across network packet intervals
     } else if (this.walkTimer > 0) {
       this.walkTimer -= dt;
     }
-    const isWalking = this.walkTimer > 0;
+    const isWalking = this.walkTimer > 0 && !isDocked;
+    // Smooth continuous blending of walking animation to eliminate abrupt leg snapping
+    this.walkBlend = THREE.MathUtils.lerp(this.walkBlend, isWalking ? 1.0 : 0.0, Math.min(1.0, dt * 8.0));
 
     // 2. Position & Heading: aligns directly with the movement/path tangent
     this.root.position.copy(currentPos);
     this.root.rotation.y = headingRad;
 
-    // 3. Dynamic Bipedal Walking Stride
-    if (isWalking) {
+    // 3. Dynamic Bipedal Walking Stride with smooth blend weight
+    if (this.walkBlend > 0.01) {
       // Step frequency scales gracefully with movement speed
-      const strideFreq = Math.min(7.5, Math.max(4.0, this.smoothedSpeed * 4.5));
+      const strideFreq = Math.min(6.5, Math.max(3.5, this.smoothedSpeed * 4.2));
       this.walkPhase += dt * strideFreq;
 
       const sinGait = Math.sin(this.walkPhase);
       const cosGait = Math.cos(this.walkPhase);
 
       // Alternating Hip Swing (Forward & Backward)
-      this.leftLegGroup.rotation.x = sinGait * 0.48;
-      this.rightLegGroup.rotation.x = -sinGait * 0.48;
+      this.leftLegGroup.rotation.x = sinGait * 0.48 * this.walkBlend;
+      this.rightLegGroup.rotation.x = -sinGait * 0.48 * this.walkBlend;
 
       // Realistic Knee Flexion during leg recovery
-      this.leftKneeGroup.rotation.x = Math.max(0, -sinGait) * 0.65;
-      this.rightKneeGroup.rotation.x = Math.max(0, sinGait) * 0.65;
+      this.leftKneeGroup.rotation.x = Math.max(0, -sinGait) * 0.65 * this.walkBlend;
+      this.rightKneeGroup.rotation.x = Math.max(0, sinGait) * 0.65 * this.walkBlend;
 
       // Reciprocal Arm Swing (in anti-phase with legs for dynamic balance!)
-      this.leftArmGroup.rotation.x = -sinGait * 0.42;
-      this.rightArmGroup.rotation.x = sinGait * 0.42;
+      this.leftArmGroup.rotation.x = -sinGait * 0.42 * this.walkBlend;
+      this.rightArmGroup.rotation.x = sinGait * 0.42 * this.walkBlend;
 
       // Natural Elbow Bend
-      this.leftElbowGroup.rotation.x = 0.20 + Math.max(0, -sinGait) * 0.25;
-      this.rightElbowGroup.rotation.x = 0.20 + Math.max(0, sinGait) * 0.25;
+      this.leftElbowGroup.rotation.x = (0.20 + Math.max(0, -sinGait) * 0.25) * this.walkBlend + 0.18 * (1.0 - this.walkBlend);
+      this.rightElbowGroup.rotation.x = (0.20 + Math.max(0, sinGait) * 0.25) * this.walkBlend + 0.18 * (1.0 - this.walkBlend);
 
       // Vertical Pelvic Bobbing (double-support low point, single-support high point)
-      const bob = Math.abs(cosGait) * 0.025;
+      const bob = Math.abs(cosGait) * 0.025 * this.walkBlend;
       this.pelvisGroup.position.y = this.basePelvisY + bob;
 
       // Subtle natural spinal twist
-      this.torsoGroup.rotation.y = sinGait * 0.06;
-      this.torsoGroup.rotation.z = -sinGait * 0.02;
+      this.torsoGroup.rotation.y = sinGait * 0.06 * this.walkBlend;
+      this.torsoGroup.rotation.z = -sinGait * 0.02 * this.walkBlend;
 
     } else {
       // Idle Humanoid Stance (Smoothly return limbs to resting stance)
-      this.leftLegGroup.rotation.x = THREE.MathUtils.lerp(this.leftLegGroup.rotation.x, 0, 0.12);
-      this.rightLegGroup.rotation.x = THREE.MathUtils.lerp(this.rightLegGroup.rotation.x, 0, 0.12);
-      this.leftKneeGroup.rotation.x = THREE.MathUtils.lerp(this.leftKneeGroup.rotation.x, 0, 0.12);
-      this.rightKneeGroup.rotation.x = THREE.MathUtils.lerp(this.rightKneeGroup.rotation.x, 0, 0.12);
+      this.leftLegGroup.rotation.x = THREE.MathUtils.lerp(this.leftLegGroup.rotation.x, 0, 0.15);
+      this.rightLegGroup.rotation.x = THREE.MathUtils.lerp(this.rightLegGroup.rotation.x, 0, 0.15);
+      this.leftKneeGroup.rotation.x = THREE.MathUtils.lerp(this.leftKneeGroup.rotation.x, 0, 0.15);
+      this.rightKneeGroup.rotation.x = THREE.MathUtils.lerp(this.rightKneeGroup.rotation.x, 0, 0.15);
 
-      this.leftArmGroup.rotation.x = THREE.MathUtils.lerp(this.leftArmGroup.rotation.x, 0.06, 0.12);
-      this.rightArmGroup.rotation.x = THREE.MathUtils.lerp(this.rightArmGroup.rotation.x, 0.06, 0.12);
-      this.leftElbowGroup.rotation.x = THREE.MathUtils.lerp(this.leftElbowGroup.rotation.x, 0.18, 0.12);
-      this.rightElbowGroup.rotation.x = THREE.MathUtils.lerp(this.rightElbowGroup.rotation.x, 0.18, 0.12);
+      this.leftArmGroup.rotation.x = THREE.MathUtils.lerp(this.leftArmGroup.rotation.x, 0.06, 0.15);
+      this.rightArmGroup.rotation.x = THREE.MathUtils.lerp(this.rightArmGroup.rotation.x, 0.06, 0.15);
+      this.leftElbowGroup.rotation.x = THREE.MathUtils.lerp(this.leftElbowGroup.rotation.x, 0.18, 0.15);
+      this.rightElbowGroup.rotation.x = THREE.MathUtils.lerp(this.rightElbowGroup.rotation.x, 0.18, 0.15);
 
       // Subtle idle breathing chest expansion
       const breathe = Math.sin(now * 0.0025) * 0.008;
-      this.pelvisGroup.position.y = THREE.MathUtils.lerp(this.pelvisGroup.position.y, this.basePelvisY + breathe, 0.1);
-      this.torsoGroup.rotation.y = THREE.MathUtils.lerp(this.torsoGroup.rotation.y, 0, 0.1);
-      this.torsoGroup.rotation.z = THREE.MathUtils.lerp(this.torsoGroup.rotation.z, 0, 0.1);
+      this.pelvisGroup.position.y = THREE.MathUtils.lerp(this.pelvisGroup.position.y, this.basePelvisY + breathe, 0.12);
+      this.torsoGroup.rotation.y = THREE.MathUtils.lerp(this.torsoGroup.rotation.y, 0, 0.12);
+      this.torsoGroup.rotation.z = THREE.MathUtils.lerp(this.torsoGroup.rotation.z, 0, 0.12);
     }
 
     // 4. Update Brain / Arc Reactor Core Color
