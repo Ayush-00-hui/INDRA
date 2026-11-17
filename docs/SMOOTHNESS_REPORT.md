@@ -50,7 +50,7 @@ This document records quantitative telemetry for 3D simulation smoothness, frame
 ## Technical Audit & Verification Sign-Off Checklist
 
 - [x] **Frame-Rate-Independent Damping:** All per-frame `lerp` factors replaced with continuous-time exponential decay $1.0 - \exp(-k \cdot \Delta t)$. Verified identical settling motion at 60 Hz and 165 Hz.
-- [x] **Decoupled Simulation Pacing:** Simulation tick rate decoupled from display refresh via `web/config.json` (`natural_steps_per_second: 9.0`). Robot moves at realistic $1.0\,\text{m/s}$ speed.
+- [x] **Decoupled Simulation Pacing:** Simulation tick rate decoupled from display refresh via `web/config.json` (`natural_steps_per_second: 30.0`). Robot moves at snappy, responsive physical AMR speed ($2.4\,\text{m/s}$ at 1.0x, tunable up to 4.0x via UI and `[ / ]` shortcuts).
 - [x] **Single rAF & Zero-Allocation Render Loop:** Pre-allocated scratch geometry buffers, 12-mesh hologram pooling, zero major garbage collections during long-running soak test.
 - [x] **Crisp Navigation Ribbon:** Replaced 0.95m wide blob with centripetal Catmull-Rom spline, arc-length tapering ($0.14\,\text{m} \to 0.07\,\text{m}$), and polygon offset preventing z-fighting.
 - [x] **HUD Honesty & Real Telemetry:** Decorative hardcoded "288,818 PARAMS" canvas completely removed. Replaced with honest Model Architecture Card populated live from `/api/diagnostics` (288,884 verified parameters, real CUDA device).

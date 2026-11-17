@@ -162,7 +162,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <select id="select-speed" style="background: transparent; border: none; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer;">
               <option value="0.5" style="background: #090f1d;">0.5x</option>
               <option value="1.0" selected style="background: #090f1d;">1.0x</option>
+              <option value="1.5" style="background: #090f1d;">1.5x</option>
               <option value="2.0" style="background: #090f1d;">2.0x</option>
+              <option value="3.0" style="background: #090f1d;">3.0x</option>
               <option value="4.0" style="background: #090f1d;">4.0x</option>
             </select>
           </div>
@@ -202,6 +204,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         <span id="pres-step-tag" style="color: #e2e8f0;">STEP: 0</span>
         <span style="color: #475569;">|</span>
         <span id="pres-dist-tag" style="color: var(--accent-cyan);">DIST: 0.0m</span>
+        <span style="color: #475569;">|</span>
+        <span id="pres-speed-tag" style="color: #38bdf8;">1.0x</span>
         <span style="color: #475569;">|</span>
         <span style="color: #fbbf24;">★★★★★ HONEST</span>
       </div>
@@ -415,7 +419,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
       <!-- Bottom Status Pill -->
       <div class="glass-pill bottom-pill">
-        <span>[S] Split Compare | [TAB] Toggle WM | [C] Camera | [1/2] Scenarios | [R] Reset | [H] Help</span>
+        <span>[S] Split Compare | [TAB] Toggle WM | [C] Camera | [+/-] Speed | [1/2] Scenarios | [R] Reset | [H] Help</span>
       </div>
 
       <!-- Help Modal (H key) -->
@@ -432,6 +436,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <span class="shortcut-key">C</span><span>Cycle Camera (Overview &rarr; Chase &rarr; Visor POV &rarr; Top-Down &rarr; Orbit &rarr; Director)</span>
             <span class="shortcut-key">1 / 2</span><span>Switch Scenario 1 (Static Chair) / Scenario 2 (Dynamic Pedestrian)</span>
             <span class="shortcut-key">R</span><span>Reset Current Layout / Advance to Next Seed</span>
+            <span class="shortcut-key">+ / - or [ / ]</span><span>Accelerate / Decelerate Speed (0.5x - 4.0x)</span>
             <span class="shortcut-key">N</span><span>Toggle Procedural Audio Effects Mute / Unmute</span>
             <span class="shortcut-key">CLICK FLOOR</span><span>Deploy currently selected object (Goal, Crate, Cabinet, Table)</span>
             <span class="shortcut-key">H</span><span>Toggle this Help Modal</span>
@@ -662,6 +667,16 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       metricCollisions.textContent = `${frame.metrics.collisions}`;
       const maxSteps = frame.metrics?.extra?.max_steps ?? frame.metrics?.max_steps ?? 400;
       metricSteps.textContent = `${currentStep} / ${maxSteps}`;
+    }
+
+    const povSpeedEl = document.getElementById("pov-speed");
+    if (povSpeedEl) {
+      const speedMult = currentSpeed || 1.0;
+      const vx = frame.robot?.vx ?? 0;
+      const vy = frame.robot?.vy ?? 0;
+      const vMag = Math.sqrt(vx * vx + vy * vy);
+      const spdVal = vMag > 0 ? (vMag * 0.024 * 30.0 * speedMult) : (2.4 * speedMult);
+      povSpeedEl.textContent = `${spdVal.toFixed(2)} m/s`;
     }
 
     if (scenarioId === "driving") {
@@ -1155,6 +1170,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     selectSpeed.onchange = () => {
       currentSpeed = parseFloat(selectSpeed.value);
       wsClient.sendCommand({ cmd: "set", speed: currentSpeed });
+      const presSpeedEl = document.getElementById("pres-speed-tag");
+      if (presSpeedEl) presSpeedEl.textContent = `${currentSpeed}x`;
       sound.playClick();
     };
 
@@ -1269,6 +1286,20 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         document.getElementById("btn-help")!.click();
       } else if (e.key === "n" || e.key === "N") {
         btnMute.click();
+      } else if (e.key === "]" || e.key === "+" || e.key === "=") {
+        const speedLevels = ["0.5", "1.0", "1.5", "2.0", "3.0", "4.0"];
+        const currIdx = speedLevels.indexOf(selectSpeed.value);
+        if (currIdx !== -1 && currIdx < speedLevels.length - 1) {
+          selectSpeed.value = speedLevels[currIdx + 1];
+          selectSpeed.dispatchEvent(new Event("change"));
+        }
+      } else if (e.key === "[" || e.key === "-" || e.key === "_") {
+        const speedLevels = ["0.5", "1.0", "1.5", "2.0", "3.0", "4.0"];
+        const currIdx = speedLevels.indexOf(selectSpeed.value);
+        if (currIdx !== -1 && currIdx > 0) {
+          selectSpeed.value = speedLevels[currIdx - 1];
+          selectSpeed.dispatchEvent(new Event("change"));
+        }
       }
     };
 

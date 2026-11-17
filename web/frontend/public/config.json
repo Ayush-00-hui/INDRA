@@ -1,9 +1,9 @@
 {
-  "natural_steps_per_second": 9.0,
-  "speed_multipliers": [0.25, 0.5, 1.0, 2.0, 4.0],
+  "natural_steps_per_second": 30.0,
+  "speed_multipliers": [0.5, 1.0, 1.5, 2.0, 3.0, 4.0],
   "default_speed": 1.0,
-  "target_visual_speed_mps": 1.0,
-  "thinking_beat_ms": 250,
+  "target_visual_speed_mps": 2.4,
+  "thinking_beat_ms": 150,
   "adaptive_jitter_buffer": {
     "min_buffer_ticks": 2.0,
     "max_buffer_ticks": 4.0,

@@ -80,7 +80,7 @@ where $k$ is the continuous time decay constant ($k \in [4.0, 10.0]\,\text{s}^{-
 
 ### Q8: How is simulation rate decoupled from display refresh rate?
 **Answer:**  
-The simulation tick loop runs at `natural_steps_per_second` (default **9.0 Hz**, configured in `web/config.json`), representing realistic physical AMR robot cruising speed ($\approx 1.0\,\text{m/s}$).  
+The simulation tick loop runs at `natural_steps_per_second` (default **30.0 Hz**, configured in `web/config.json`), representing realistic physical AMR robot cruising speed ($\approx 2.4\,\text{m/s}$ at 1.0x, tunable up to 4.0x via UI dropdown or hotkeys).  
 Meanwhile, the Three.js WebGL canvas renders at the display's native refresh rate (**60–165 Hz**).  
 The client maintains a continuous cubic Hermite snapshot interpolation buffer:
 $$\mathbf{p}(t) = \mathbf{p}_0(1 - 3\alpha^2 + 2\alpha^3) + \mathbf{p}_1(3\alpha^2 - 2\alpha^3)$$

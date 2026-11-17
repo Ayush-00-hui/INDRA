@@ -61,9 +61,9 @@ server_stats = {
 # Load web configuration (pacing, natural steps per second)
 CONFIG_PATH = os.path.join(ROOT_DIR, "web", "config.json")
 web_config = {
-    "natural_steps_per_second": 9.0,
-    "speed_multipliers": [0.25, 0.5, 1.0, 2.0, 4.0],
-    "thinking_beat_ms": 250
+    "natural_steps_per_second": 30.0,
+    "speed_multipliers": [0.5, 1.0, 1.5, 2.0, 3.0, 4.0],
+    "thinking_beat_ms": 150
 }
 if os.path.exists(CONFIG_PATH):
     try:
@@ -290,7 +290,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
     listener_task = asyncio.create_task(client_listener())
 
     loop = asyncio.get_running_loop()
-    natural_rate = float(web_config.get("natural_steps_per_second", 9.0))
+    natural_rate = float(web_config.get("natural_steps_per_second", 30.0))
     target_dt = (1.0 / natural_rate) / speed
     next_frame_time = time.perf_counter()
     last_tick_time = time.perf_counter()
