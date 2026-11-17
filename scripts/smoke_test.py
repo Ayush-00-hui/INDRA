@@ -86,8 +86,15 @@ def test_model_loading():
     import torch
     from model.world_model import load_model, WorldModel
 
-    # Check S1 model
-    m1 = load_model("models/robot_model.pt", state_size=16, action_size=5)
+    # Check primary robot model (checking robot_model.pt, or fallback to robot_student / ensemble)
+    s1_path = "models/robot_model.pt"
+    if not os.path.exists(s1_path):
+        if os.path.exists("models/robot_student.pt"):
+            s1_path = "models/robot_student.pt"
+        elif os.path.exists("models/robot_ensemble.pt"):
+            s1_path = "models/robot_ensemble.pt"
+
+    m1 = load_model(s1_path, state_size=16, action_size=5)
     s_t = torch.zeros((4, 16), dtype=torch.float32)
     a_t = torch.zeros((4,), dtype=torch.long)
     ns, r = m1.predict(s_t, a_t)
@@ -130,7 +137,13 @@ def test_mpc_planner():
 
     env = RobotEnv(scenario=1)
     s = env.reset(seed=100)
-    m = load_model("models/robot_model.pt", state_size=16, action_size=5)
+    m_path = "models/robot_model.pt"
+    if not os.path.exists(m_path):
+        if os.path.exists("models/robot_student.pt"):
+            m_path = "models/robot_student.pt"
+        elif os.path.exists("models/robot_ensemble.pt"):
+            m_path = "models/robot_ensemble.pt"
+    m = load_model(m_path, state_size=16, action_size=5)
 
     # Warm-up CUDA kernels, primitive cache, and trajectory memory
     _ = plan(model=m, state=s, action_size=5, horizon=14, n_samples=300, gamma=0.95, return_trajectories=True)
