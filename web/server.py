@@ -208,6 +208,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
     listener_task = asyncio.create_task(client_listener())
 
     loop = asyncio.get_running_loop()
+    next_frame_time = time.perf_counter()
 
     try:
         while True:
@@ -272,9 +273,14 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     rs = adapter_left.get_render_state()
                     rs.metrics.extra["is_paused"] = True
                     await websocket.send_text(rs.model_dump_json())
+                next_frame_time = time.perf_counter() + 0.08
                 await asyncio.sleep(0.08)
             else:
-                t_step_start = time.perf_counter()
+                target_dt = (1.0 / 30.0) / speed
+                now = time.perf_counter()
+                if next_frame_time < now - target_dt * 2:
+                    next_frame_time = now + target_dt
+
                 if mode == "compare":
                     # Run step for both in thread executor
                     def step_both():
@@ -286,12 +292,26 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     left_rs.metrics.extra["is_paused"] = False
                     right_rs.metrics.extra["is_paused"] = False
                     comp_pkt = CompareRenderState(scenario=scenario, left=left_rs, right=right_rs)
+
+                    # Cadence delay: release frame exactly on metronome schedule
+                    now = time.perf_counter()
+                    sleep_needed = next_frame_time - now
+                    if sleep_needed > 0:
+                        await asyncio.sleep(sleep_needed)
+
                     await websocket.send_text(comp_pkt.model_dump_json())
+
+                    now = time.perf_counter()
+                    if next_frame_time < now - target_dt:
+                        next_frame_time = now + target_dt
+                    else:
+                        next_frame_time += target_dt
 
                     if both_done:
                         await asyncio.sleep(1.2)
                         current_seed += 1
                         init_adapters()
+                        next_frame_time = time.perf_counter() + target_dt
                 else:
                     # Single mode step
                     def step_single():
@@ -299,18 +319,26 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
 
                     rs, done = await loop.run_in_executor(executor, step_single)
                     rs.metrics.extra["is_paused"] = False
+
+                    # Cadence delay: release frame exactly on metronome schedule
+                    now = time.perf_counter()
+                    sleep_needed = next_frame_time - now
+                    if sleep_needed > 0:
+                        await asyncio.sleep(sleep_needed)
+
                     await websocket.send_text(rs.model_dump_json())
+
+                    now = time.perf_counter()
+                    if next_frame_time < now - target_dt:
+                        next_frame_time = now + target_dt
+                    else:
+                        next_frame_time += target_dt
 
                     if done:
                         await asyncio.sleep(1.2)
                         current_seed += 1
                         adapter_left.reset(current_seed)
-
-                # Sleep proportional to speed (base 30 Hz -> 33.3ms), subtracting computation time
-                compute_dt = time.perf_counter() - t_step_start
-                target_dt = (1.0 / 30.0) / speed
-                dt_sleep = max(0.002, target_dt - compute_dt)
-                await asyncio.sleep(dt_sleep)
+                        next_frame_time = time.perf_counter() + target_dt
 
     except WebSocketDisconnect:
         logger.info(f"Client disconnected from /ws/{scenario}")

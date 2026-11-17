@@ -117,6 +117,8 @@ export class ThreeSimulationScene {
   private static readonly INTERP_DELAY_MS = 90.0; // 90ms buffer (2.7 packet duration for jitter-free interpolation)
   private robotSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private personSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
+  private playbackTime: number = 0;
+  private lastSimTime: number = 0;
   private currentRobotPos = new THREE.Vector3();
   private currentRobotHeading: number = 0;
   private targetRobotHeading: number = 0;
@@ -1063,53 +1065,61 @@ export class ThreeSimulationScene {
       this.controls.update();
     }
 
-    // 1. AAA Continuous Snapshot Interpolation for Humanoid Robot (Constant Velocity 60+ FPS)
+    // 1. AAA Continuous PLL Simulation-Time Jitter Buffer for Humanoid Robot (Constant Velocity 60+ FPS)
+    const isPaused = Boolean(this.lastMode === "paused" || this.isDocked);
     if (this.robotSnapshots.length > 0) {
-      if (this.robotSnapshots.length === 1) {
-        const s = this.robotSnapshots[0];
-        this.currentRobotPos.set(s.x, 0, s.z);
+      if (!isPaused) {
+        this.playbackTime += dt * 1000.0;
+      }
+
+      // Phase-Locked Loop (PLL) clock synchronization with server stream
+      const latestSnap = this.robotSnapshots[this.robotSnapshots.length - 1];
+      const targetTime = latestSnap.time - ThreeSimulationScene.INTERP_DELAY_MS;
+      const drift = targetTime - this.playbackTime;
+
+      if (Math.abs(drift) > 350) {
+        this.playbackTime = targetTime;
       } else {
-        const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
-        const snaps = this.robotSnapshots;
+        this.playbackTime += drift * 0.08;
+      }
 
-        if (renderTime <= snaps[0].time) {
-          // Pre-buffer start
-          this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
-        } else if (renderTime >= snaps[snaps.length - 1].time) {
-          // Extrapolate gently along latest velocity without abrupt braking
-          const sLast = snaps[snaps.length - 1];
-          const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
-          const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
-          const vx = (sLast.x - sPrev.x) / dtSeg;
-          const vz = (sLast.z - sPrev.z) / dtSeg;
-          const extraSec = Math.max(0, (renderTime - sLast.time) / 1000.0);
-          const damping = Math.max(0.0, 1.0 - (extraSec / 0.30) * (extraSec / 0.30));
+      const snaps = this.robotSnapshots;
+      if (snaps.length === 1 || this.playbackTime <= snaps[0].time) {
+        this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
+      } else if (this.playbackTime >= snaps[snaps.length - 1].time) {
+        // Extrapolate gently along latest velocity without abrupt braking
+        const sLast = snaps[snaps.length - 1];
+        const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
+        const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
+        const vx = (sLast.x - sPrev.x) / dtSeg;
+        const vz = (sLast.z - sPrev.z) / dtSeg;
+        const extraSec = Math.max(0, (this.playbackTime - sLast.time) / 1000.0);
+        const damping = Math.max(0.0, 1.0 - (extraSec / 0.35) * (extraSec / 0.35));
 
-          this.currentRobotPos.set(
-            sLast.x + vx * extraSec * damping,
-            0,
-            sLast.z + vz * extraSec * damping
-          );
-        } else {
-          // Find enclosing bracket [idx0, idx0 + 1]
-          let idx0 = 0;
-          for (let i = 0; i < snaps.length - 1; i++) {
-            if (snaps[i].time <= renderTime && renderTime <= snaps[i + 1].time) {
-              idx0 = i;
-              break;
-            }
+        this.currentRobotPos.set(
+          sLast.x + vx * extraSec * damping,
+          0,
+          sLast.z + vz * extraSec * damping
+        );
+      } else {
+        // Reverse search for enclosing bracket [idx0, idx0 + 1]
+        let idx0 = 0;
+        for (let i = snaps.length - 2; i >= 0; i--) {
+          if (snaps[i].time <= this.playbackTime) {
+            idx0 = i;
+            break;
           }
-          const s0 = snaps[idx0];
-          const s1 = snaps[idx0 + 1];
-          const segDuration = Math.max(0.001, s1.time - s0.time);
-          const alpha = Math.max(0.0, Math.min(1.0, (renderTime - s0.time) / segDuration));
-
-          this.currentRobotPos.set(
-            THREE.MathUtils.lerp(s0.x, s1.x, alpha),
-            0,
-            THREE.MathUtils.lerp(s0.z, s1.z, alpha)
-          );
         }
+        const s0 = snaps[idx0];
+        const s1 = snaps[idx0 + 1];
+        const segDuration = Math.max(0.001, s1.time - s0.time);
+        const alpha = Math.max(0.0, Math.min(1.0, (this.playbackTime - s0.time) / segDuration));
+
+        this.currentRobotPos.set(
+          THREE.MathUtils.lerp(s0.x, s1.x, alpha),
+          0,
+          THREE.MathUtils.lerp(s0.z, s1.z, alpha)
+        );
       }
     }
 
@@ -1150,48 +1160,41 @@ export class ThreeSimulationScene {
 
     // 2. Continuous Snapshot Interpolation for Scenario 2 Person
     if (this.personGroup && this.personVisible && this.personSnapshots.length > 0) {
-      if (this.personSnapshots.length === 1) {
-        const s = this.personSnapshots[0];
-        this.currentPersonPos.set(s.x, 0, s.z);
+      const pSnaps = this.personSnapshots;
+      if (pSnaps.length === 1 || this.playbackTime <= pSnaps[0].time) {
+        this.currentPersonPos.set(pSnaps[0].x, 0, pSnaps[0].z);
+      } else if (this.playbackTime >= pSnaps[pSnaps.length - 1].time) {
+        const sLast = pSnaps[pSnaps.length - 1];
+        const sPrev = pSnaps.length >= 2 ? pSnaps[pSnaps.length - 2] : sLast;
+        const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
+        const vx = (sLast.x - sPrev.x) / dtSeg;
+        const vz = (sLast.z - sPrev.z) / dtSeg;
+        const extraSec = Math.max(0, (this.playbackTime - sLast.time) / 1000.0);
+        const damping = Math.max(0.0, 1.0 - (extraSec / 0.35) * (extraSec / 0.35));
+
+        this.currentPersonPos.set(
+          sLast.x + vx * extraSec * damping,
+          0,
+          sLast.z + vz * extraSec * damping
+        );
       } else {
-        const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
-        const snaps = this.personSnapshots;
-
-        if (renderTime <= snaps[0].time) {
-          this.currentPersonPos.set(snaps[0].x, 0, snaps[0].z);
-        } else if (renderTime >= snaps[snaps.length - 1].time) {
-          const sLast = snaps[snaps.length - 1];
-          const sPrev = snaps.length >= 2 ? snaps[snaps.length - 2] : sLast;
-          const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
-          const vx = (sLast.x - sPrev.x) / dtSeg;
-          const vz = (sLast.z - sPrev.z) / dtSeg;
-          const extraSec = Math.max(0, (renderTime - sLast.time) / 1000.0);
-          const damping = Math.max(0.0, 1.0 - (extraSec / 0.30) * (extraSec / 0.30));
-
-          this.currentPersonPos.set(
-            sLast.x + vx * extraSec * damping,
-            0,
-            sLast.z + vz * extraSec * damping
-          );
-        } else {
-          let idx0 = 0;
-          for (let i = 0; i < snaps.length - 1; i++) {
-            if (snaps[i].time <= renderTime && renderTime <= snaps[i + 1].time) {
-              idx0 = i;
-              break;
-            }
+        let pIdx = 0;
+        for (let i = pSnaps.length - 2; i >= 0; i--) {
+          if (pSnaps[i].time <= this.playbackTime) {
+            pIdx = i;
+            break;
           }
-          const s0 = snaps[idx0];
-          const s1 = snaps[idx0 + 1];
-          const segDuration = Math.max(0.001, s1.time - s0.time);
-          const alpha = Math.max(0.0, Math.min(1.0, (renderTime - s0.time) / segDuration));
-
-          this.currentPersonPos.set(
-            THREE.MathUtils.lerp(s0.x, s1.x, alpha),
-            0,
-            THREE.MathUtils.lerp(s0.z, s1.z, alpha)
-          );
         }
+        const p0 = pSnaps[pIdx];
+        const p1 = pSnaps[pIdx + 1];
+        const segDur = Math.max(0.001, p1.time - p0.time);
+        const pAlpha = Math.max(0.0, Math.min(1.0, (this.playbackTime - p0.time) / segDur));
+
+        this.currentPersonPos.set(
+          THREE.MathUtils.lerp(p0.x, p1.x, pAlpha),
+          0,
+          THREE.MathUtils.lerp(p0.z, p1.z, pAlpha)
+        );
       }
 
       let pDiff = (this.targetPersonHeading - this.currentPersonHeading) % (Math.PI * 2);
@@ -1330,36 +1333,55 @@ export class ThreeSimulationScene {
           }
         }
 
-        if (this.isFirstStateUpdate || frame.step === 0 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
-          this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: now }];
+        const step = frame.step ?? (frame.metrics?.step_count ?? 0);
+        const simTime = step * (1000.0 / 30.0);
+
+        if (this.isFirstStateUpdate || frame.step === 0 || Math.abs(simTime - this.lastSimTime) > 800 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
+          this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: simTime }];
           this.currentRobotPos.set(pos.x, 0, pos.z);
           this.currentRobotHeading = this.targetRobotHeading;
+          this.playbackTime = simTime - ThreeSimulationScene.INTERP_DELAY_MS;
+          this.lastSimTime = simTime;
           this.isFirstStateUpdate = false;
         } else {
-          this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: now });
-          if (this.robotSnapshots.length > 25) {
-            this.robotSnapshots.shift();
+          if (lastSnap && simTime <= lastSnap.time) {
+            lastSnap.x = pos.x;
+            lastSnap.z = pos.z;
+            lastSnap.heading = this.targetRobotHeading;
+          } else {
+            this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: simTime });
+            this.lastSimTime = simTime;
+            if (this.robotSnapshots.length > 30) {
+              this.robotSnapshots.shift();
+            }
           }
         }
 
       } else if (e.kind === "person") {
         personFound = true;
         this.personVisible = true;
-        const now = performance.now();
         const personHeadingRad = -((e.heading || 0) * (Math.PI / 180));
         this.personVy = e.vy || 0;
         this.targetPersonHeading = personHeadingRad;
 
+        const pStep = frame.step ?? (frame.metrics?.step_count ?? 0);
+        const pSimTime = pStep * (1000.0 / 30.0);
         const lastPersonSnap = this.personSnapshots.length > 0 ? this.personSnapshots[this.personSnapshots.length - 1] : null;
 
-        if (this.personSnapshots.length === 0 || (lastPersonSnap && Math.hypot(pos.x - lastPersonSnap.x, pos.z - lastPersonSnap.z) > 2.5)) {
-          this.personSnapshots = [{ x: pos.x, z: pos.z, heading: personHeadingRad, time: now }];
+        if (this.personSnapshots.length === 0 || frame.step === 0 || Math.abs(pSimTime - (lastPersonSnap?.time ?? 0)) > 800 || (lastPersonSnap && Math.hypot(pos.x - lastPersonSnap.x, pos.z - lastPersonSnap.z) > 2.5)) {
+          this.personSnapshots = [{ x: pos.x, z: pos.z, heading: personHeadingRad, time: pSimTime }];
           this.currentPersonPos.set(pos.x, 0, pos.z);
           this.currentPersonHeading = personHeadingRad;
         } else {
-          this.personSnapshots.push({ x: pos.x, z: pos.z, heading: personHeadingRad, time: now });
-          if (this.personSnapshots.length > 25) {
-            this.personSnapshots.shift();
+          if (lastPersonSnap && pSimTime <= lastPersonSnap.time) {
+            lastPersonSnap.x = pos.x;
+            lastPersonSnap.z = pos.z;
+            lastPersonSnap.heading = personHeadingRad;
+          } else {
+            this.personSnapshots.push({ x: pos.x, z: pos.z, heading: personHeadingRad, time: pSimTime });
+            if (this.personSnapshots.length > 30) {
+              this.personSnapshots.shift();
+            }
           }
         }
 

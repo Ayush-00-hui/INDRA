@@ -852,26 +852,23 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       { name: "OUT", count: 4, x: 285 },
     ];
 
-    // Synaptic connections with glowing flow pulses
+    // Synaptic connections with glowing flow pulses (batched single-path render for zero CPU overhead)
     ctx.lineWidth = 1.0;
     for (let l = 0; l < layers.length - 1; l++) {
       const l1 = layers[l];
       const l2 = layers[l + 1];
+      const alpha = 0.08 + 0.10 * Math.sin(cortexPulse + l * 0.7);
+      ctx.strokeStyle = `rgba(0, 240, 255, ${alpha.toFixed(2)})`;
+      ctx.beginPath();
       for (let i = 0; i < l1.count; i++) {
         const y1 = (h / (l1.count + 1)) * (i + 1);
         for (let j = 0; j < l2.count; j++) {
           const y2 = (h / (l2.count + 1)) * (j + 1);
-
-          const pulseOffset = (l * 2 + i + j) * 0.4;
-          const alpha = 0.08 + 0.12 * Math.sin(cortexPulse + pulseOffset);
-          ctx.strokeStyle = `rgba(0, 240, 255, ${alpha.toFixed(2)})`;
-
-          ctx.beginPath();
           ctx.moveTo(l1.x, y1);
           ctx.lineTo(l2.x, y2);
-          ctx.stroke();
         }
       }
+      ctx.stroke();
     }
 
     // Nodes
