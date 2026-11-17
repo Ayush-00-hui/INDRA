@@ -437,6 +437,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const cortexCanvas = document.getElementById("neural-cortex-canvas") as HTMLCanvasElement;
   const povHeadingVal = document.getElementById("pov-heading-val");
   const povTargetDist = document.getElementById("pov-target-dist");
+  const metricGoalDist = document.getElementById("metric-goal-dist");
+  const sparklineDistPath = document.getElementById("sparkline-dist-path");
+  const sparklineDistVal = document.getElementById("sparkline-dist-val");
 
   // Viewport Scenes
   let primaryScene: any = null;
@@ -724,9 +727,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     }
 
-    const metricGoalDist = document.getElementById("metric-goal-dist");
-    const sparklineDistPath = document.getElementById("sparkline-dist-path");
-    const sparklineDistVal = document.getElementById("sparkline-dist-val");
     if (frame.goal && frame.entities) {
       const robot = frame.entities.find((e: any) => e.id === "robot" || e.kind === "robot");
       if (robot && metricGoalDist && sparklineDistPath && sparklineDistVal) {
@@ -764,7 +764,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       lblChosenAction.textContent = chosenAct;
 
       if (frame.plan.alts && Array.isArray(frame.plan.alts)) {
-        candidatesContainer.innerHTML = "";
         let maxRet = -1e9;
         let minRet = 1e9;
         frame.plan.alts.forEach((c: any) => {
@@ -774,7 +773,29 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         });
         const range = Math.max(maxRet - minRet, 1.0);
 
-        frame.plan.alts.forEach((c: any) => {
+        // Zero DOM-thrashing in-place update: create reusable candidate row elements only once
+        const currentRows = candidatesContainer.querySelectorAll(".candidate-row");
+        if (currentRows.length !== frame.plan.alts.length || candidatesContainer.querySelector(".why-reason")) {
+          candidatesContainer.innerHTML = "";
+          frame.plan.alts.forEach(() => {
+            const row = document.createElement("div");
+            row.className = "candidate-row";
+            row.innerHTML = `
+              <span class="cand-act" style="width: 50px;"></span>
+              <div class="candidate-bar-bg">
+                <div class="candidate-bar-fill"></div>
+              </div>
+              <span class="cand-score" style="width: 48px; text-align: right; font-weight: 700;"></span>
+            `;
+            candidatesContainer.appendChild(row);
+          });
+        }
+
+        const rows = candidatesContainer.children;
+        frame.plan.alts.forEach((c: any, idx: number) => {
+          const row = rows[idx] as HTMLElement;
+          if (!row) return;
+
           const val = c.score !== undefined ? c.score : (c.return !== undefined ? c.return : 0.0);
           const actId = c.first_action !== undefined ? c.first_action : (c.action !== undefined ? c.action : 4);
           const actName = actionNames[actId] || "STAY";
@@ -782,17 +803,26 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           const pct = Math.max(8, Math.min(100, Math.round(((val - minRet) / range) * 100)));
           const barColor = isChosen ? "#00ff9d" : c.collides ? "#ff4757" : "#00f0ff";
 
-          const row = document.createElement("div");
-          row.className = "candidate-row";
           row.style.opacity = isChosen ? "1" : "0.75";
-          row.innerHTML = `
-            <span style="width: 50px; font-weight: ${isChosen ? "800" : "500"}; color: ${isChosen ? "#00ff9d" : "inherit"};">${actName}:</span>
-            <div class="candidate-bar-bg">
-              <div class="candidate-bar-fill" style="width: ${pct}%; background: ${barColor};"></div>
-            </div>
-            <span style="width: 48px; text-align: right; color: ${barColor}; font-weight: 700;">${val >= 0 ? "+" : ""}${Number(val).toFixed(1)}</span>
-          `;
-          candidatesContainer.appendChild(row);
+
+          const actSpan = row.querySelector(".cand-act") as HTMLElement;
+          if (actSpan) {
+            actSpan.textContent = `${actName}:`;
+            actSpan.style.fontWeight = isChosen ? "800" : "500";
+            actSpan.style.color = isChosen ? "#00ff9d" : "inherit";
+          }
+
+          const barFill = row.querySelector(".candidate-bar-fill") as HTMLElement;
+          if (barFill) {
+            barFill.style.width = `${pct}%`;
+            barFill.style.background = barColor;
+          }
+
+          const scoreSpan = row.querySelector(".cand-score") as HTMLElement;
+          if (scoreSpan) {
+            scoreSpan.textContent = `${val >= 0 ? "+" : ""}${Number(val).toFixed(1)}`;
+            scoreSpan.style.color = barColor;
+          }
         });
 
         whyExplanation.textContent = `Evaluated 300 candidate rollouts over a 14-step receding horizon. Selected [${chosenAct}] as the highest expected reward trajectory toward the goal.`;

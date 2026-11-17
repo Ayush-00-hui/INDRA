@@ -466,12 +466,8 @@ export class LabEnvironmentBuilder {
       lens.rotation.x = Math.PI / 2;
       lens.position.set(lx, wallHeight - 0.76, lz);
       scene.add(lens);
-
-      const pl = new THREE.PointLight(0xfff7e6, 1.25, 18.0, 1.2);
-      pl.position.set(lx, wallHeight - 0.82, lz);
-      pl.castShadow = false;
-      scene.add(pl);
-      lights.push(pl);
+      // High-efficiency lighting: glowing emissive lamp lens without expensive multi-pass
+      // dynamic PointLight shader loops, keeping frame rate rock-solid at 60+ FPS.
     }
 
     // 12. Heavy-Duty Pallet Racks behind North Perimeter

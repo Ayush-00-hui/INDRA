@@ -135,6 +135,12 @@ export class ThreeSimulationScene {
   private static readonly MAX_CANDIDATE_LINES = 8;
   private static readonly MAX_CANDIDATE_PTS = 32;
 
+  // Zero-Allocation Pre-Allocated Buffers for Best Trajectory Navigation Ribbon & Neon Rails
+  private static readonly MAX_RIBBON_PTS = 80;
+  private ribbonPosArray = new Float32Array(ThreeSimulationScene.MAX_RIBBON_PTS * 2 * 3);
+  private leftRailPosArray = new Float32Array(ThreeSimulationScene.MAX_RIBBON_PTS * 3);
+  private rightRailPosArray = new Float32Array(ThreeSimulationScene.MAX_RIBBON_PTS * 3);
+
   // GLTF Loader & Model Cache
   private gltfLoader = new GLTFLoader();
   private modelCache: Map<string, THREE.Group> = new Map();
@@ -206,7 +212,7 @@ export class ThreeSimulationScene {
     }
 
     // High Dynamic Range PBR Lighting (Key Sunlight + Sky Fill + Ambient)
-    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 1.85);
+    this.sunLight = new THREE.DirectionalLight(0xfff7e6, 2.0);
     this.sunLight.position.set(6.5, 14.0, 5.5);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 1024; // Optimized for razor-sharp shadows at 60 FPS
@@ -220,10 +226,10 @@ export class ThreeSimulationScene {
     this.sunLight.shadow.bias = -0.0003;
     this.scene.add(this.sunLight);
 
-    this.hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 0.75);
+    this.hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 0.85);
     this.scene.add(this.hemiLight);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.30);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.40);
     this.scene.add(this.ambientLight);
 
     // Roots
@@ -288,6 +294,9 @@ export class ThreeSimulationScene {
 
     // Initialize Candidate Line Pool (Zero-allocation trajectory line pool)
     this.initCandidateLinePool();
+
+    // Initialize Navigation Ribbon & Laser Rails Pool (Zero-allocation best trajectory)
+    this.initNavigationRibbonPool();
 
     // Pre-load external GLB models asynchronously
     this.preloadAuthoredModels();
@@ -421,46 +430,11 @@ export class ThreeSimulationScene {
   }
 
   private addRoomDecorations() {
-    // 1. High-Tech Industrial Pallet Storage Racks along North Perimeter
-    const rackMat = new THREE.MeshStandardMaterial({ color: 0x1d4ed8, roughness: 0.35, metalness: 0.6 });
-    const beamMat = new THREE.MeshStandardMaterial({ color: 0xea580c, roughness: 0.4, metalness: 0.5 });
-    const toteMat1 = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 });
-    const toteMat2 = new THREE.MeshStandardMaterial({ color: 0x16a34a, roughness: 0.4 });
-    const crateWoodMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.7 });
+    // Note: Industrial pallet storage racks along the North perimeter are authored cleanly
+    // by LabEnvironmentBuilder.buildWarehouseArchitecture. Duplicate racks previously placed here
+    // collided with the perimeter racks and caused 150+ redundant WebGL draw calls.
 
-    const createRack = (x: number, z: number, rotY: number = 0) => {
-      const rack = new THREE.Group();
-      for (const ox of [-1.1, 1.1]) {
-        for (const oz of [-0.35, 0.35]) {
-          const col = new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.06), rackMat);
-          col.position.set(ox, 1.6, oz);
-          rack.add(col);
-        }
-      }
-      for (const y of [0.75, 1.65, 2.55]) {
-        const shelf = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.05, 0.75), beamMat);
-        shelf.position.set(0, y, 0);
-        rack.add(shelf);
-
-        const b1 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), y === 0.75 ? crateWoodMat : toteMat1);
-        b1.position.set(-0.55, y + 0.25, 0);
-        rack.add(b1);
-
-        const b2 = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.45, 0.55), y === 1.65 ? crateWoodMat : toteMat2);
-        b2.position.set(0.55, y + 0.25, 0);
-        rack.add(b2);
-      }
-      rack.position.set(x, 0, z);
-      rack.rotation.y = rotY;
-      this.scene.add(rack);
-    };
-
-    createRack(-5.5, -5.8);
-    createRack(0.0, -5.8);
-    createRack(5.5, -5.8);
-    createRack(-9.6, -1.8, Math.PI / 2);
-
-    // 2. High-Tech Monitoring Terminal Station
+    // 1. High-Tech Monitoring Terminal Station
     const terminal = new THREE.Group();
     const deskMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.8 });
     const deskMesh = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.85, 0.85), deskMat);
@@ -482,7 +456,7 @@ export class ThreeSimulationScene {
     terminal.rotation.y = -Math.PI * 0.75;
     this.scene.add(terminal);
 
-    // 3. Autonomous Robot Fast-Charging Dock Hub
+    // 2. Autonomous Robot Fast-Charging Dock Hub
     const charger = new THREE.Group();
     const chargerBody = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.5, 0.40), deskMat);
     chargerBody.position.set(0, 0.75, 0);
@@ -498,32 +472,7 @@ export class ThreeSimulationScene {
     charger.rotation.y = Math.PI * 0.75;
     this.scene.add(charger);
 
-    // 4. Modern Lab Plants in Metallic Planters
-    const createPlant = (x: number, z: number) => {
-      const p = new THREE.Group();
-      const pot = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.28, 0.22, 0.65, 16),
-        new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.7 })
-      );
-      pot.position.y = 0.325;
-      p.add(pot);
-
-      const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
-      for (let i = 0; i < 7; i++) {
-        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.26, 8, 8), leafMat);
-        const ang = (i / 7) * Math.PI * 2;
-        leaf.scale.set(0.65, 1.5, 0.3);
-        leaf.rotation.set(0.4 * Math.cos(ang), ang, 0.4 * Math.sin(ang));
-        leaf.position.set(0.14 * Math.cos(ang), 0.75, 0.14 * Math.sin(ang));
-        p.add(leaf);
-      }
-      p.position.set(x, 0, z);
-      this.scene.add(p);
-    };
-    createPlant(-9.2, 5.8);
-    createPlant(9.2, 5.8);
-
-    // 5. Ambient Floor Laser Guidelines
+    // 3. Ambient Floor Laser Guidelines
     const guideMat = new THREE.LineBasicMaterial({ color: 0x00f0ff, transparent: true, opacity: 0.35 });
     const guidePts = [
       new THREE.Vector3(-9.6, 0.015, -6.3),
@@ -1017,6 +966,59 @@ export class ThreeSimulationScene {
     }
   }
 
+  private initNavigationRibbonPool() {
+    // 1. Pre-allocated BufferGeometry for Ribbon Quad Strip (Zero runtime garbage collection)
+    const ribbonGeo = new THREE.BufferGeometry();
+    const maxPts = ThreeSimulationScene.MAX_RIBBON_PTS;
+    const indices = new Uint16Array((maxPts - 1) * 6);
+    for (let i = 0; i < maxPts - 1; i++) {
+      const idx = i * 2;
+      const o = i * 6;
+      indices[o + 0] = idx;
+      indices[o + 1] = idx + 1;
+      indices[o + 2] = idx + 2;
+      indices[o + 3] = idx + 1;
+      indices[o + 4] = idx + 3;
+      indices[o + 5] = idx + 2;
+    }
+    ribbonGeo.setIndex(new THREE.BufferAttribute(indices, 1));
+    ribbonGeo.setAttribute("position", new THREE.BufferAttribute(this.ribbonPosArray, 3));
+    ribbonGeo.setDrawRange(0, 0);
+
+    const ribbonMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.85,
+      polygonOffset: true,
+      polygonOffsetFactor: -2,
+      polygonOffsetUnits: -4,
+    });
+    this.chosenRibbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
+    this.chosenRibbonMesh.visible = false;
+    this.scene.add(this.chosenRibbonMesh);
+
+    // 2. Pre-allocated BufferGeometries for Dual Luminous Neon Laser Rails
+    const railMat = new THREE.LineBasicMaterial({
+      color: 0x00ffff,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const leftGeo = new THREE.BufferGeometry();
+    leftGeo.setAttribute("position", new THREE.BufferAttribute(this.leftRailPosArray, 3));
+    leftGeo.setDrawRange(0, 0);
+    this.pathEdgeLineLeft = new THREE.Line(leftGeo, railMat);
+    this.pathEdgeLineLeft.visible = false;
+    this.scene.add(this.pathEdgeLineLeft);
+
+    const rightGeo = new THREE.BufferGeometry();
+    rightGeo.setAttribute("position", new THREE.BufferAttribute(this.rightRailPosArray, 3));
+    rightGeo.setDrawRange(0, 0);
+    this.pathEdgeLineRight = new THREE.Line(rightGeo, railMat.clone());
+    this.pathEdgeLineRight.visible = false;
+    this.scene.add(this.pathEdgeLineRight);
+  }
+
   // =========================================================================
   // DECOUPLED 60+ FPS NATIVE RENDER LOOP & CONTINUOUS KINEMATICS
   // =========================================================================
@@ -1067,8 +1069,8 @@ export class ThreeSimulationScene {
       let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
       if (diff > Math.PI) diff -= Math.PI * 2;
       if (diff < -Math.PI) diff += Math.PI * 2;
-      // Controlled, physically grounded turning speed (no violent 90-degree snapping)
-      this.currentRobotHeading += diff * Math.min(1.0, dt * 8.0);
+      // Responsive, physically grounded turning speed (snappy 18 rad/s, zero sluggish delay)
+      this.currentRobotHeading += diff * Math.min(1.0, dt * 18.0);
     }
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1347,87 +1349,70 @@ export class ThreeSimulationScene {
 
       // Smooth with Catmull-Rom spline
       const curve = new THREE.CatmullRomCurve3(rawPoints);
-      const smoothPoints = curve.getPoints(Math.min(60, rawPoints.length * 5));
 
-      // Build 0.95m wide grand glowing futuristic quad strip highway
+      // Build 0.95m wide grand glowing futuristic quad strip highway via Zero-Allocation Pre-Allocated Buffers
       const ribbonWidth = 0.95;
-      const vertices: number[] = [];
-      const indices: number[] = [];
-      const leftRailPts: THREE.Vector3[] = [];
-      const rightRailPts: THREE.Vector3[] = [];
+      const sampleCount = Math.min(ThreeSimulationScene.MAX_RIBBON_PTS - 1, Math.min(60, rawPoints.length * 5));
+      const smoothPoints = curve.getPoints(sampleCount);
+      const numPts = smoothPoints.length;
 
-      for (let i = 0; i < smoothPoints.length; i++) {
+      for (let i = 0; i < numPts; i++) {
         const curr = smoothPoints[i];
-        let tangent: THREE.Vector3;
-        if (i < smoothPoints.length - 1) {
-          tangent = new THREE.Vector3().subVectors(smoothPoints[i + 1], curr).normalize();
+        let tangentX: number;
+        let tangentZ: number;
+        if (i < numPts - 1) {
+          tangentX = smoothPoints[i + 1].x - curr.x;
+          tangentZ = smoothPoints[i + 1].z - curr.z;
         } else {
-          tangent = new THREE.Vector3().subVectors(curr, smoothPoints[i - 1]).normalize();
+          tangentX = curr.x - smoothPoints[i - 1].x;
+          tangentZ = curr.z - smoothPoints[i - 1].z;
         }
-        const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).multiplyScalar(ribbonWidth * 0.5);
+        const len = Math.hypot(tangentX, tangentZ) || 1.0;
+        const normFactor = (ribbonWidth * 0.5) / len;
+        const normX = -tangentZ * normFactor;
+        const normZ = tangentX * normFactor;
 
-        const lx = curr.x + normal.x;
-        const lz = curr.z + normal.z;
-        const rx = curr.x - normal.x;
-        const rz = curr.z - normal.z;
+        const lx = curr.x + normX;
+        const lz = curr.z + normZ;
+        const rx = curr.x - normX;
+        const rz = curr.z - normZ;
 
-        vertices.push(lx, 0.022, lz);
-        vertices.push(rx, 0.022, rz);
+        const vIdx = i * 6;
+        this.ribbonPosArray[vIdx + 0] = lx;
+        this.ribbonPosArray[vIdx + 1] = 0.022;
+        this.ribbonPosArray[vIdx + 2] = lz;
+        this.ribbonPosArray[vIdx + 3] = rx;
+        this.ribbonPosArray[vIdx + 4] = 0.022;
+        this.ribbonPosArray[vIdx + 5] = rz;
 
-        leftRailPts.push(new THREE.Vector3(lx, 0.025, lz));
-        rightRailPts.push(new THREE.Vector3(rx, 0.025, rz));
+        const rIdx = i * 3;
+        this.leftRailPosArray[rIdx + 0] = lx;
+        this.leftRailPosArray[rIdx + 1] = 0.025;
+        this.leftRailPosArray[rIdx + 2] = lz;
 
-        if (i < smoothPoints.length - 1) {
-          const idx = i * 2;
-          indices.push(idx, idx + 1, idx + 2);
-          indices.push(idx + 1, idx + 3, idx + 2);
-        }
+        this.rightRailPosArray[rIdx + 0] = rx;
+        this.rightRailPosArray[rIdx + 1] = 0.025;
+        this.rightRailPosArray[rIdx + 2] = rz;
       }
 
-      if (!this.chosenRibbonMesh) {
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-        geom.setIndex(indices);
-        const mat = new THREE.MeshBasicMaterial({
-          color: 0x00f0ff, // Glowing Cyber Cyan Laser Guidance Highway
-          side: THREE.DoubleSide,
-          transparent: true,
-          opacity: 0.85,
-          polygonOffset: true,
-          polygonOffsetFactor: -2,
-          polygonOffsetUnits: -4,
-        });
-        this.chosenRibbonMesh = new THREE.Mesh(geom, mat);
-        this.scene.add(this.chosenRibbonMesh);
-      } else {
-        if (this.chosenRibbonMesh.geometry) {
-          this.chosenRibbonMesh.geometry.dispose();
-        }
-        const geom = new THREE.BufferGeometry();
-        geom.setAttribute("position", new THREE.Float32BufferAttribute(vertices, 3));
-        geom.setIndex(indices);
-        geom.computeVertexNormals();
-        this.chosenRibbonMesh.geometry = geom;
+      if (this.chosenRibbonMesh) {
+        const ribbonPosAttr = this.chosenRibbonMesh.geometry.attributes.position as THREE.BufferAttribute;
+        ribbonPosAttr.needsUpdate = true;
+        this.chosenRibbonMesh.geometry.setDrawRange(0, (numPts - 1) * 6);
         this.chosenRibbonMesh.visible = true;
       }
 
-      // Dual Luminous Neon Laser Rails on Left and Right Outer Edges
-      if (!this.pathEdgeLineLeft) {
-        const railMat = new THREE.LineBasicMaterial({
-          color: 0x00ffff,
-          transparent: true,
-          opacity: 0.95,
-        });
-        this.pathEdgeLineLeft = new THREE.Line(new THREE.BufferGeometry().setFromPoints(leftRailPts), railMat);
-        this.pathEdgeLineRight = new THREE.Line(new THREE.BufferGeometry().setFromPoints(rightRailPts), railMat.clone());
-        this.scene.add(this.pathEdgeLineLeft);
-        this.scene.add(this.pathEdgeLineRight);
-      } else {
-        if (this.pathEdgeLineLeft.geometry) this.pathEdgeLineLeft.geometry.dispose();
-        if (this.pathEdgeLineRight.geometry) this.pathEdgeLineRight.geometry.dispose();
-        this.pathEdgeLineLeft.geometry = new THREE.BufferGeometry().setFromPoints(leftRailPts);
-        this.pathEdgeLineRight.geometry = new THREE.BufferGeometry().setFromPoints(rightRailPts);
+      if (this.pathEdgeLineLeft) {
+        const leftPosAttr = this.pathEdgeLineLeft.geometry.attributes.position as THREE.BufferAttribute;
+        leftPosAttr.needsUpdate = true;
+        this.pathEdgeLineLeft.geometry.setDrawRange(0, numPts);
         this.pathEdgeLineLeft.visible = true;
+      }
+
+      if (this.pathEdgeLineRight) {
+        const rightPosAttr = this.pathEdgeLineRight.geometry.attributes.position as THREE.BufferAttribute;
+        rightPosAttr.needsUpdate = true;
+        this.pathEdgeLineRight.geometry.setDrawRange(0, numPts);
         this.pathEdgeLineRight.visible = true;
       }
 
