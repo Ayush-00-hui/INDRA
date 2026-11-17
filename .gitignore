@@ -10,3 +10,9 @@ results/demo_frames/
 results/trailer_frames/
 node_modules/
 .vite/
+release/previous-good.zip
+scratch/
+results/user_video_analysis/
+results/live_inspection/
+results/video_frames1/
+results/video_frames2/

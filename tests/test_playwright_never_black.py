@@ -76,7 +76,7 @@ def analyze_image_luminance(png_bytes: bytes):
 def test_no_hardcoded_fake_literals():
     """Lint-style test ensuring no fake literals (+14.2, -12.0) exist in frontend source."""
     src_dir = os.path.join(ROOT_DIR, "web", "frontend", "src")
-    forbidden = ["+14.2", "-12.0", "+4.8"]
+    forbidden = ["+14.2", "-12.0", "+4.8", "288,818"]
 
     for root, _, files in os.walk(src_dir):
         for f in files:

@@ -371,7 +371,9 @@ export class HumanoidRobot {
     this.lastPos.copy(currentPos);
 
     const instantSpeed = dt > 0 ? distMoved / dt : 0;
-    this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, Math.min(1.0, dt * 10.0));
+    // Exponential decay smoothing for frame-rate independence (60 Hz vs 165 Hz)
+    const speedDecay = 1.0 - Math.exp(-10.0 * dt);
+    this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, speedDecay);
 
     // Dynamic walking gait with hysteresis to prevent intermittent leg resets across frame intervals
     if (!isDocked && this.smoothedSpeed > 0.04) {
@@ -381,7 +383,8 @@ export class HumanoidRobot {
     }
     const isWalking = this.walkTimer > 0 && !isDocked;
     // Smooth continuous blending of walking animation to eliminate abrupt leg snapping
-    this.walkBlend = THREE.MathUtils.lerp(this.walkBlend, isWalking ? 1.0 : 0.0, Math.min(1.0, dt * 8.0));
+    const walkDecay = 1.0 - Math.exp(-8.0 * dt);
+    this.walkBlend = THREE.MathUtils.lerp(this.walkBlend, isWalking ? 1.0 : 0.0, walkDecay);
 
     // 2. Position & Heading: aligns directly with the movement/path tangent
     this.root.position.copy(currentPos);
@@ -421,22 +424,25 @@ export class HumanoidRobot {
       this.torsoGroup.rotation.z = -sinGait * 0.02 * this.walkBlend;
 
     } else {
-      // Idle Humanoid Stance (Smoothly return limbs to resting stance)
-      this.leftLegGroup.rotation.x = THREE.MathUtils.lerp(this.leftLegGroup.rotation.x, 0, 0.15);
-      this.rightLegGroup.rotation.x = THREE.MathUtils.lerp(this.rightLegGroup.rotation.x, 0, 0.15);
-      this.leftKneeGroup.rotation.x = THREE.MathUtils.lerp(this.leftKneeGroup.rotation.x, 0, 0.15);
-      this.rightKneeGroup.rotation.x = THREE.MathUtils.lerp(this.rightKneeGroup.rotation.x, 0, 0.15);
+      // Idle Humanoid Stance (Smoothly return limbs to resting stance via frame-rate independent exponential decay)
+      const limbDecay = 1.0 - Math.exp(-9.0 * dt);
+      const torsoDecay = 1.0 - Math.exp(-7.5 * dt);
 
-      this.leftArmGroup.rotation.x = THREE.MathUtils.lerp(this.leftArmGroup.rotation.x, 0.06, 0.15);
-      this.rightArmGroup.rotation.x = THREE.MathUtils.lerp(this.rightArmGroup.rotation.x, 0.06, 0.15);
-      this.leftElbowGroup.rotation.x = THREE.MathUtils.lerp(this.leftElbowGroup.rotation.x, 0.18, 0.15);
-      this.rightElbowGroup.rotation.x = THREE.MathUtils.lerp(this.rightElbowGroup.rotation.x, 0.18, 0.15);
+      this.leftLegGroup.rotation.x = THREE.MathUtils.lerp(this.leftLegGroup.rotation.x, 0, limbDecay);
+      this.rightLegGroup.rotation.x = THREE.MathUtils.lerp(this.rightLegGroup.rotation.x, 0, limbDecay);
+      this.leftKneeGroup.rotation.x = THREE.MathUtils.lerp(this.leftKneeGroup.rotation.x, 0, limbDecay);
+      this.rightKneeGroup.rotation.x = THREE.MathUtils.lerp(this.rightKneeGroup.rotation.x, 0, limbDecay);
+
+      this.leftArmGroup.rotation.x = THREE.MathUtils.lerp(this.leftArmGroup.rotation.x, 0.06, limbDecay);
+      this.rightArmGroup.rotation.x = THREE.MathUtils.lerp(this.rightArmGroup.rotation.x, 0.06, limbDecay);
+      this.leftElbowGroup.rotation.x = THREE.MathUtils.lerp(this.leftElbowGroup.rotation.x, 0.18, limbDecay);
+      this.rightElbowGroup.rotation.x = THREE.MathUtils.lerp(this.rightElbowGroup.rotation.x, 0.18, limbDecay);
 
       // Subtle idle breathing chest expansion
       const breathe = Math.sin(now * 0.0025) * 0.008;
-      this.pelvisGroup.position.y = THREE.MathUtils.lerp(this.pelvisGroup.position.y, this.basePelvisY + breathe, 0.12);
-      this.torsoGroup.rotation.y = THREE.MathUtils.lerp(this.torsoGroup.rotation.y, 0, 0.12);
-      this.torsoGroup.rotation.z = THREE.MathUtils.lerp(this.torsoGroup.rotation.z, 0, 0.12);
+      this.pelvisGroup.position.y = THREE.MathUtils.lerp(this.pelvisGroup.position.y, this.basePelvisY + breathe, torsoDecay);
+      this.torsoGroup.rotation.y = THREE.MathUtils.lerp(this.torsoGroup.rotation.y, 0, torsoDecay);
+      this.torsoGroup.rotation.z = THREE.MathUtils.lerp(this.torsoGroup.rotation.z, 0, torsoDecay);
     }
 
     // 4. Update Brain / Arc Reactor Core Color

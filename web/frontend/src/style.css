@@ -414,19 +414,20 @@ button {
   left: 0;
 }
 
-/* Left Tactical Control Rail */
+/* Left Tactical Control Rail (<=20% Viewport width, contained) */
 .control-rail {
   position: absolute;
   top: 64px;
   left: 14px;
-  width: 240px;
-  max-height: calc(100vh - 110px);
+  width: min(220px, 20vw);
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   z-index: 30;
+  contain: layout paint;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 240, 255, 0.3) transparent;
 }
@@ -480,19 +481,20 @@ button {
   font-weight: 700;
 }
 
-/* Right "Brain" Understanding & Telemetry Panel */
+/* Right Understanding & Telemetry Panel (<=22% Viewport width, contained) */
 .brain-panel {
   position: absolute;
   top: 64px;
   right: 14px;
-  width: 340px;
-  max-height: calc(100vh - 110px);
+  width: min(280px, 22vw);
+  max-height: calc(100vh - 120px);
   overflow-y: auto;
-  padding: 14px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   z-index: 30;
+  contain: layout paint;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 240, 255, 0.3) transparent;
 }
@@ -635,18 +637,48 @@ button {
   font-family: var(--font-mono);
 }
 
-/* Bottom Controls Pill */
+/* Bottom Controls Pill (constrained, never overlaps side panels) */
 .bottom-pill {
   position: absolute;
   bottom: 14px;
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 520px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   z-index: 30;
+  contain: layout paint;
   font-family: var(--font-mono);
   font-size: 0.74rem;
   color: var(--text-muted);
   border: 1px solid rgba(0, 240, 255, 0.3);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+/* Presentation Mode (Key P) */
+.sim-view.presentation-mode .control-rail,
+.sim-view.presentation-mode .brain-panel {
+  display: none !important;
+}
+
+.sim-view.presentation-mode .sim-header {
+  opacity: 0.20;
+  transition: opacity 0.25s ease;
+}
+
+.sim-view.presentation-mode .sim-header:hover {
+  opacity: 1.0;
+}
+
+.sim-view.presentation-mode .bottom-pill {
+  bottom: 22px;
+  max-width: 90vw;
+  font-size: 0.82rem;
+  padding: 8px 24px;
+  background: rgba(8, 14, 28, 0.94);
+  border: 1px solid var(--accent-cyan);
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.35);
 }
 
 /* Modal Overlay */

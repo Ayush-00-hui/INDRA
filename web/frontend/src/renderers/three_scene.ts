@@ -188,13 +188,40 @@ export class ThreeSimulationScene {
         stencil: false,
       });
       this.renderer.setSize(w, h);
-      this.targetDpr = Math.min(window.devicePixelRatio || 1, 1.25);
-      this.currentDpr = this.targetDpr;
+
+      // Support ?safe=1 URL parameter for guaranteed 60 FPS failover on integrated GPUs
+      const urlSearch = window.location.search || (window.location.hash.includes("?") ? window.location.hash.split("?")[1] : "");
+      const isSafeMode = new URLSearchParams(urlSearch).get("safe") === "1";
+      if (isSafeMode) {
+        this.quality = "low";
+        this.targetDpr = 1.0;
+        this.currentDpr = 1.0;
+        this.renderer.shadowMap.enabled = false;
+      } else {
+        this.targetDpr = Math.min(window.devicePixelRatio || 1, 1.25);
+        this.currentDpr = this.targetDpr;
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFShadowMap;
+      }
+
       this.renderer.setPixelRatio(this.currentDpr);
       this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
       this.renderer.toneMappingExposure = 1.22;
-      this.renderer.shadowMap.enabled = true;
-      this.renderer.shadowMap.type = THREE.PCFShadowMap;
+
+      // WebGL Context Lost & Restored Lifecycle Handlers
+      this.renderer.domElement.addEventListener("webglcontextlost", (event: Event) => {
+        event.preventDefault();
+        console.warn("[ThreeScene] WebGL context lost! Pausing render loop...");
+        if (this.animFrameId) {
+          cancelAnimationFrame(this.animFrameId);
+          this.animFrameId = 0;
+        }
+      });
+
+      this.renderer.domElement.addEventListener("webglcontextrestored", () => {
+        console.info("[ThreeScene] WebGL context restored. Re-starting render loop...");
+        this.startRenderLoop();
+      });
 
       container.appendChild(this.renderer.domElement);
       DiagnosticsOverlay.getInstance().setRenderer(this.renderer);
@@ -1133,11 +1160,11 @@ export class ThreeSimulationScene {
       this.targetRobotHeading = Math.atan2(moveDx, moveDz);
     }
 
-    // Smooth Spherical Angular Heading Tracking (Eliminates twitching)
+    // Smooth Spherical Angular Heading Tracking via exponential decay (frame-rate independent)
     let headingDiff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
     if (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
     if (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
-    const turnAlpha = Math.min(1.0, Math.max(0.05, dt * 8.5));
+    const turnAlpha = 1.0 - Math.exp(-8.5 * dt);
     this.currentRobotHeading += headingDiff * turnAlpha;
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1162,7 +1189,8 @@ export class ThreeSimulationScene {
     this.povCamera.position.set(eyeX, eyeY, eyeZ);
     // Three.js camera looks down -Z by default, while humanoid faces +Z: rotate by heading + PI
     this.povTargetQuat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), this.currentRobotHeading + Math.PI);
-    this.povCamera.quaternion.slerp(this.povTargetQuat, 0.25);
+    const povSlerpAlpha = 1.0 - Math.exp(-12 * dt);
+    this.povCamera.quaternion.slerp(this.povTargetQuat, povSlerpAlpha);
 
     // Update Headlight Target
     this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
@@ -1206,7 +1234,7 @@ export class ThreeSimulationScene {
       let pDiff = (this.targetPersonHeading - this.currentPersonHeading) % (Math.PI * 2);
       if (pDiff > Math.PI) pDiff -= Math.PI * 2;
       if (pDiff < -Math.PI) pDiff += Math.PI * 2;
-      this.currentPersonHeading += pDiff * Math.min(1.0, dt * 6.5);
+      this.currentPersonHeading += pDiff * (1.0 - Math.exp(-6.5 * dt));
 
       const isMoving = Math.abs(this.personVy) > 0.01;
       const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
@@ -1240,8 +1268,8 @@ export class ThreeSimulationScene {
       outerPulse.scale.set(pulseScale, pulseScale, 1.0);
     }
 
-    // Animate Docking Hydraulic Clamps & Status Coil
-    this.clampAngle = THREE.MathUtils.lerp(this.clampAngle, this.targetClampAngle, 0.18);
+    // Animate Docking Hydraulic Clamps & Status Coil via exponential decay
+    this.clampAngle = THREE.MathUtils.lerp(this.clampAngle, this.targetClampAngle, 1.0 - Math.exp(-10.0 * dt));
     if (this.dockLeftClamp) {
       this.dockLeftClamp.rotation.y = -this.clampAngle;
     }
@@ -1462,11 +1490,12 @@ export class ThreeSimulationScene {
         return new THREE.Vector3(p3d.x, 0.015, p3d.z);
       });
 
-      // Smooth with Catmull-Rom spline
+      // Centripetal Catmull-Rom smoothed navigation spline
       const curve = new THREE.CatmullRomCurve3(rawPoints);
+      curve.curveType = "centripetal";
 
-      // Build 0.95m wide grand glowing futuristic quad strip highway via Zero-Allocation Pre-Allocated Buffers
-      const ribbonWidth = 0.95;
+      // Crisp, tapered ~0.12-0.14m navigation ribbon with glowing edge rails (Zero-Allocation)
+      const nominalWidth = 0.14;
       const sampleCount = Math.min(ThreeSimulationScene.MAX_RIBBON_PTS - 1, Math.min(60, rawPoints.length * 5));
       const smoothPoints = curve.getPoints(sampleCount);
       const numPts = smoothPoints.length;
@@ -1483,7 +1512,13 @@ export class ThreeSimulationScene {
           tangentZ = curr.z - smoothPoints[i - 1].z;
         }
         const len = Math.hypot(tangentX, tangentZ) || 1.0;
-        const normFactor = (ribbonWidth * 0.5) / len;
+
+        // Smooth arc-length tapering: 0.14m body tapering to 0.07m at destination tip
+        const progress = numPts > 1 ? i / (numPts - 1) : 0;
+        const taper = Math.sin(0.25 + progress * 0.75 * Math.PI);
+        const width = Math.max(0.06, nominalWidth * taper);
+
+        const normFactor = (width * 0.5) / len;
         const normX = -tangentZ * normFactor;
         const normZ = tangentX * normFactor;
 
@@ -1494,19 +1529,19 @@ export class ThreeSimulationScene {
 
         const vIdx = i * 6;
         this.ribbonPosArray[vIdx + 0] = lx;
-        this.ribbonPosArray[vIdx + 1] = 0.022;
+        this.ribbonPosArray[vIdx + 1] = 0.024;
         this.ribbonPosArray[vIdx + 2] = lz;
         this.ribbonPosArray[vIdx + 3] = rx;
-        this.ribbonPosArray[vIdx + 4] = 0.022;
+        this.ribbonPosArray[vIdx + 4] = 0.024;
         this.ribbonPosArray[vIdx + 5] = rz;
 
         const rIdx = i * 3;
         this.leftRailPosArray[rIdx + 0] = lx;
-        this.leftRailPosArray[rIdx + 1] = 0.025;
+        this.leftRailPosArray[rIdx + 1] = 0.028;
         this.leftRailPosArray[rIdx + 2] = lz;
 
         this.rightRailPosArray[rIdx + 0] = rx;
-        this.rightRailPosArray[rIdx + 1] = 0.025;
+        this.rightRailPosArray[rIdx + 1] = 0.028;
         this.rightRailPosArray[rIdx + 2] = rz;
       }
 
@@ -1635,8 +1670,9 @@ export class ThreeSimulationScene {
       this.targetCamPos.set(behindX, camHeight, behindZ);
       this.targetCamLookAt.set(rx + Math.sin(heading) * 1.5, 1.1, rz + Math.cos(heading) * 1.5);
 
-      this.currentCamPos.lerp(this.targetCamPos, 0.08);
-      this.currentCamLookAt.lerp(this.targetCamLookAt, 0.08);
+      const chaseCamAlpha = 1.0 - Math.exp(-5.2 * dt);
+      this.currentCamPos.lerp(this.targetCamPos, chaseCamAlpha);
+      this.currentCamLookAt.lerp(this.targetCamLookAt, chaseCamAlpha);
 
       this.camera.position.copy(this.currentCamPos);
       this.camera.lookAt(this.currentCamLookAt);
@@ -1644,27 +1680,29 @@ export class ThreeSimulationScene {
     } else if (this.cameraMode === "orbit") {
       if (this.controls) this.controls.enabled = false;
       // Gentle cinematic orbital fly-over
-      this.orbitAngle += 0.003;
+      this.orbitAngle += dt * 0.20;
       const radius = 6.2;
       this.targetCamPos.set(Math.cos(this.orbitAngle) * radius, 5.0, Math.sin(this.orbitAngle) * radius);
       this.targetCamLookAt.set(0, 0.2, 0);
 
-      this.currentCamPos.lerp(this.targetCamPos, 0.08);
-      this.currentCamLookAt.lerp(this.targetCamLookAt, 0.08);
+      const orbitCamAlpha = 1.0 - Math.exp(-5.0 * dt);
+      this.currentCamPos.lerp(this.targetCamPos, orbitCamAlpha);
+      this.currentCamLookAt.lerp(this.targetCamLookAt, orbitCamAlpha);
 
       this.camera.position.copy(this.currentCamPos);
       this.camera.lookAt(this.currentCamLookAt);
 
     } else if (this.cameraMode === "cinematic") {
       if (this.controls) this.controls.enabled = false;
-      this.orbitAngle += 0.005;
+      this.orbitAngle += dt * 0.35;
       const radius = 3.8;
       const camHeight = 2.1 + Math.sin(this.orbitAngle * 1.5) * 0.35;
       this.targetCamPos.set(rx + Math.cos(this.orbitAngle) * radius, camHeight, rz + Math.sin(this.orbitAngle) * radius);
       this.targetCamLookAt.set(rx, 0.75, rz);
 
-      this.currentCamPos.lerp(this.targetCamPos, 0.06);
-      this.currentCamLookAt.lerp(this.targetCamLookAt, 0.06);
+      const cineCamAlpha = 1.0 - Math.exp(-4.0 * dt);
+      this.currentCamPos.lerp(this.targetCamPos, cineCamAlpha);
+      this.currentCamLookAt.lerp(this.targetCamLookAt, cineCamAlpha);
 
       this.camera.position.copy(this.currentCamPos);
       this.camera.lookAt(this.currentCamLookAt);

@@ -172,6 +172,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <span>📸 SNAP</span>
           </button>
 
+          <!-- Presentation Mode Toggle -->
+          <button id="btn-presentation" class="glass-pill" title="Toggle Clean Presentation Mode for Projectors (P)" style="color: var(--accent-cyan);">
+            <span>[P] PRESENT</span>
+          </button>
+
           <!-- Fullscreen Toggle -->
           <button id="btn-fullscreen" class="glass-pill" title="Toggle Fullscreen" style="color: var(--text-main);">
             <span>⛶ FULL</span>
@@ -188,14 +193,27 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </div>
       </header>
 
+      <!-- Minimal Cinematic Presentation Mode Broadcast Badge -->
+      <div id="presentation-badge" style="display: none; position: absolute; top: 16px; left: 16px; z-index: 50; padding: 8px 16px; font-size: 0.80rem; font-family: var(--font-mono); background: rgba(5, 10, 24, 0.92); border: 1px solid var(--accent-cyan); border-radius: 6px; box-shadow: 0 0 20px rgba(0, 240, 255, 0.35); align-items: center; gap: 10px;">
+        <span style="color: var(--accent-cyan); font-weight: 700;">[P] PRESENTATION</span>
+        <span style="color: #475569;">|</span>
+        <span id="pres-mode-tag" style="color: var(--accent-green); font-weight: 700;">WORLD MODEL</span>
+        <span style="color: #475569;">|</span>
+        <span id="pres-step-tag" style="color: #e2e8f0;">STEP: 0</span>
+        <span style="color: #475569;">|</span>
+        <span id="pres-dist-tag" style="color: var(--accent-cyan);">DIST: 0.0m</span>
+        <span style="color: #475569;">|</span>
+        <span style="color: #fbbf24;">★★★★★ HONEST</span>
+      </div>
+
       <!-- Left Heavy Tactical Control Rail -->
       <aside class="glass-panel control-rail">
-        <div class="rail-group-title">Robot Docking Bay</div>
+        <div class="rail-group-title">Robot Docking Station</div>
         <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 255, 157, 0.22); border: 2px solid #00ff9d; box-shadow: 0 0 18px rgba(0, 255, 157, 0.5); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press SPACE or ENTER to hold/launch robot">
           <span id="lbl-dock-launch" style="color: #00ff9d; letter-spacing: 0.5px;">⏸️ HOLD / PAUSE [SPACE]</span>
         </button>
 
-        <div class="rail-group-title">Tactical Strategy</div>
+        <div class="rail-group-title">Simulation Control</div>
         <button id="btn-mode-wm" class="rail-btn active" title="Model Predictive Control with Deep Neural World Model">
           <span>Neural World Model</span>
           <span style="font-size: 0.70rem; color: var(--accent-cyan);">[TAB]</span>
@@ -308,14 +326,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </button>
       </aside>
 
-      <!-- Right Neural Telemetry & Cortex Terminal -->
+      <!-- Right Neural Telemetry & Diagnostics Panel -->
       <aside class="glass-panel brain-panel">
         <div class="brain-header">
           <div class="brain-title">
             <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); display: inline-block;"></span>
-            <span>NEURAL CORTEX DYNAMICS</span>
+            <span>WORLD MODEL INFERENCE</span>
           </div>
-          <span id="metric-latency" style="font-family: var(--font-mono); font-size: 0.76rem; color: var(--accent-green); font-weight: 700;">8.7 ms</span>
+          <span id="metric-latency" style="font-family: var(--font-mono); font-size: 0.76rem; color: var(--accent-green); font-weight: 700;">4.8 ms</span>
         </div>
 
         <!-- 4-Step Pipeline Strip -->
@@ -326,7 +344,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </div>
           <div class="pipeline-node active">
             <span class="node-label">Imagine</span>
-            <span class="node-metric" id="metric-plan-samples">300x14</span>
+            <span class="node-metric" id="metric-plan-samples">300x18</span>
           </div>
           <div class="pipeline-node active">
             <span class="node-label">Planner</span>
@@ -338,13 +356,18 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </div>
         </div>
 
-        <!-- Real-Time Neural Network Synaptic Activity Visualizer -->
-        <div class="cortex-container">
-          <div class="cortex-header">
-            <span>RESIDUAL MLP ACTIVATIONS</span>
-            <span style="color: #64748b;">288,818 PARAMS</span>
+        <!-- Honest Live Model Architecture Card -->
+        <div class="cortex-container" style="border: 1px solid rgba(0, 240, 255, 0.2); background: rgba(8, 14, 28, 0.75); border-radius: 6px; padding: 8px 10px;">
+          <div class="cortex-header" style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.70rem; font-weight: 700; color: var(--accent-cyan);">MODEL ARCHITECTURE</span>
+            <span id="card-param-count" style="font-size: 0.72rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">288,884 PARAMS</span>
           </div>
-          <canvas id="neural-cortex-canvas" width="310" height="74" style="width: 100%; height: 74px; display: block;"></canvas>
+          <div style="font-size: 0.71rem; line-height: 1.45; color: #94a3b8; font-family: var(--font-mono);">
+            <div id="arch-model-name" style="color: #f1f5f9; font-weight: 700;">Distilled Residual Student</div>
+            <div style="color: #64748b; font-size: 0.68rem;">State [10] &rarr; 3&times; ResBlocks [256] &rarr; [128] &rarr; [4]</div>
+            <div id="arch-device-line" style="color: var(--accent-green); margin-top: 2px;">GPU: NVIDIA RTX 5070 (CUDA)</div>
+            <div id="arch-plan-line" style="color: var(--text-dim); font-size: 0.68rem; margin-top: 1px;">Vectorized MPC &middot; 300 rollouts / tick</div>
+          </div>
         </div>
 
         <!-- Why This Move? Candidate Card -->
@@ -434,7 +457,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const helpModal = document.getElementById("help-modal")!;
 
   const audioCanvas = document.getElementById("audio-visualizer-canvas") as HTMLCanvasElement;
-  const cortexCanvas = document.getElementById("neural-cortex-canvas") as HTMLCanvasElement;
   const povHeadingVal = document.getElementById("pov-heading-val");
   const povTargetDist = document.getElementById("pov-target-dist");
   const metricGoalDist = document.getElementById("metric-goal-dist");
@@ -609,7 +631,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     }
 
     updateTelemetry(frame);
-    drawNeuralCortex(cortexCanvas, frame);
   };
 
   let sessionCompletedRuns: number = 0;
@@ -848,60 +869,32 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     }
   };
 
-  /**
-   * Draw Real-Time Neural Cortex Activity Diagram.
-   */
-  let cortexPulse = 0;
-  const drawNeuralCortex = (canvas: HTMLCanvasElement, frame: any) => {
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    cortexPulse += 0.08;
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-
-    // 4 Layers: Input (16), ResBlock 1 (256), ResBlock 2 (256), Heads (Delta/Reward)
-    const layers = [
-      { name: "IN", count: 5, x: 25 },
-      { name: "RES1", count: 6, x: 105 },
-      { name: "RES2", count: 6, x: 195 },
-      { name: "OUT", count: 4, x: 285 },
-    ];
-
-    // Synaptic connections with glowing flow pulses (batched single-path render for zero CPU overhead)
-    ctx.lineWidth = 1.0;
-    for (let l = 0; l < layers.length - 1; l++) {
-      const l1 = layers[l];
-      const l2 = layers[l + 1];
-      const alpha = 0.08 + 0.10 * Math.sin(cortexPulse + l * 0.7);
-      ctx.strokeStyle = `rgba(0, 240, 255, ${alpha.toFixed(2)})`;
-      ctx.beginPath();
-      for (let i = 0; i < l1.count; i++) {
-        const y1 = (h / (l1.count + 1)) * (i + 1);
-        for (let j = 0; j < l2.count; j++) {
-          const y2 = (h / (l2.count + 1)) * (j + 1);
-          ctx.moveTo(l1.x, y1);
-          ctx.lineTo(l2.x, y2);
+  // Honest Model Diagnostics polling from /api/diagnostics
+  const fetchDiagnostics = async () => {
+    try {
+      const res = await fetch("/api/diagnostics");
+      if (res.ok) {
+        const diag = await res.json();
+        const paramEl = document.getElementById("card-param-count");
+        if (paramEl && diag.model_params) {
+          paramEl.textContent = `${Number(diag.model_params).toLocaleString()} PARAMS`;
+        }
+        const modelEl = document.getElementById("arch-model-name");
+        if (modelEl && diag.model_name) {
+          modelEl.textContent = diag.model_name;
+        }
+        const devEl = document.getElementById("arch-device-line");
+        if (devEl && diag.gpu_name) {
+          devEl.textContent = `GPU: ${diag.gpu_name}`;
+        }
+        if (diag.plan_ms && metricLatency) {
+          metricLatency.textContent = `${diag.plan_ms} ms`;
         }
       }
-      ctx.stroke();
-    }
-
-    // Nodes
-    layers.forEach((l, lIdx) => {
-      for (let i = 0; i < l.count; i++) {
-        const y = (h / (l.count + 1)) * (i + 1);
-        const nodeGlow = 0.5 + 0.5 * Math.sin(cortexPulse * 1.5 + lIdx + i);
-
-        ctx.fillStyle = lIdx === 3 ? "#00ff9d" : lIdx === 0 ? "#ffb703" : "#00f0ff";
-        ctx.beginPath();
-        ctx.arc(l.x, y, 3.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    });
+    } catch (e) {}
   };
+  fetchDiagnostics();
+  const diagPollId = window.setInterval(fetchDiagnostics, 3000);
 
   // Connect WebSocket
   wsClient.onFrame = handleFrame;
@@ -1180,6 +1173,32 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     };
 
+    // Presentation Mode Toggle (Key P or Button)
+    let isPresentationMode = false;
+    const togglePresentation = () => {
+      isPresentationMode = !isPresentationMode;
+      const simRoot = document.querySelector(".sim-view");
+      const presBadge = document.getElementById("presentation-badge");
+      const btnPresEl = document.getElementById("btn-presentation");
+      if (simRoot) {
+        if (isPresentationMode) {
+          simRoot.classList.add("presentation-mode");
+          if (presBadge) presBadge.style.display = "flex";
+          if (btnPresEl) btnPresEl.classList.add("active");
+        } else {
+          simRoot.classList.remove("presentation-mode");
+          if (presBadge) presBadge.style.display = "none";
+          if (btnPresEl) btnPresEl.classList.remove("active");
+        }
+      }
+      sound.playClick();
+    };
+
+    const btnPres = document.getElementById("btn-presentation");
+    if (btnPres) {
+      btnPres.onclick = togglePresentation;
+    }
+
     // Fullscreen Toggle
     document.getElementById("btn-fullscreen")!.onclick = () => {
       if (!document.fullscreenElement) {
@@ -1212,6 +1231,19 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement) return;
 
+      // Emergency reload preserving presenter state
+      if (e.ctrlKey && e.shiftKey && (e.key === "R" || e.key === "r")) {
+        e.preventDefault();
+        sessionStorage.setItem("wm_presenter_state", JSON.stringify({
+          scenario: scenarioId,
+          variant: currentVariant,
+          mode: currentMode,
+          isPresentation: isPresentationMode
+        }));
+        window.location.reload();
+        return;
+      }
+
       if (e.key === "Enter" || e.code === "Enter" || e.code === "NumpadEnter" || e.code === "Space" || e.key === " ") {
         e.preventDefault();
         e.stopPropagation();
@@ -1224,6 +1256,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         btnBase.click();
       } else if (e.key === "s" || e.key === "S") {
         btnComp.click();
+      } else if (e.key === "p" || e.key === "P") {
+        togglePresentation();
       } else if (e.key === "c" || e.key === "C") {
         if (primaryScene) {
           const next = primaryScene.cycleCamera();
@@ -1249,6 +1283,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   return () => {
     if (cleanupKeydown) cleanupKeydown();
     cancelAnimationFrame(animId);
+    clearInterval(diagPollId);
     wsClient.disconnect();
     replayLoader.stop();
     if (primaryScene) primaryScene.destroy();

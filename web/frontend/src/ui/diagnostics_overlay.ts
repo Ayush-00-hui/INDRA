@@ -150,11 +150,16 @@ export class DiagnosticsOverlay {
       const renderer = debugInfo ? gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
       const rLower = (renderer || "").toLowerCase();
 
+      // Guard: Never show software warning banner if running on genuine hardware GPU (NVIDIA, AMD, Intel)
+      const isHardware = rLower.includes("nvidia") || rLower.includes("geforce") || rLower.includes("amd") || rLower.includes("radeon") || (rLower.includes("intel") && !rLower.includes("llvmpipe"));
+      if (isHardware) {
+        return;
+      }
+
       if (
         rLower.includes("swiftshader") ||
         rLower.includes("llvmpipe") ||
         rLower.includes("basic render driver") ||
-        rLower.includes("software") ||
         rLower.includes("microsoft basic")
       ) {
         this.showSoftwareBanner(renderer);
