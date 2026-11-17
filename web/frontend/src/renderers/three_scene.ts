@@ -66,9 +66,6 @@ export class ThreeSimulationScene {
   private clampAngle: number = 0;
   private targetClampAngle: number = 0;
   private currentRobotHeading: number = 0;
-  private lastRobotPos = new THREE.Vector3();
-  private smoothedVx: number = 1.0;
-  private smoothedVz: number = 0.0;
   private pathEdgeLineLeft: THREE.Line | null = null;
   private pathEdgeLineRight: THREE.Line | null = null;
 
@@ -117,12 +114,19 @@ export class ThreeSimulationScene {
   private lastFpsTime: number = performance.now();
   public onFpsUpdate?: (fps: number) => void;
 
-  // Kinematic Targets for Smooth Sub-Frame Motion
+  // Network Snapshot Kinematics for Constant-Velocity Sub-Frame Motion
+  private prevRobotPos = new THREE.Vector3();
   private targetRobotPos = new THREE.Vector3();
   private currentRobotPos = new THREE.Vector3();
+  private smoothedMoveDir = new THREE.Vector2(1.0, 0.0);
+  private lastPacketTime: number = performance.now();
+  private packetInterval: number = 33.3;
   private targetRobotHeading: number = 0;
+
+  private prevPersonPos = new THREE.Vector3();
   private targetPersonPos = new THREE.Vector3();
   private currentPersonPos = new THREE.Vector3();
+  private lastPersonPacketTime: number = performance.now();
   private targetPersonHeading: number = 0;
   private personVy: number = 0;
   private personVisible: boolean = false;
@@ -1063,14 +1067,31 @@ export class ThreeSimulationScene {
       this.controls.update();
     }
 
-    // Smooth Sub-Frame Kinematic Interpolation for Robot
+    // Precise Constant-Velocity Sub-Frame Kinematics (Zero stutter, silky smooth 60 FPS motion)
     if (!this.isFirstStateUpdate) {
-      this.currentRobotPos.lerp(this.targetRobotPos, Math.min(1.0, dt * 20.0));
+      const elapsed = now - this.lastPacketTime;
+      const duration = Math.max(20.0, Math.min(100.0, this.packetInterval));
+      const alpha = Math.min(1.0, elapsed / duration);
+
+      // Linear interpolation guarantees rock-solid constant velocity at display refresh rate
+      this.currentRobotPos.lerpVectors(this.prevRobotPos, this.targetRobotPos, alpha);
+
+      // Gentle coasting if next frame is slightly delayed by network or scheduling jitter
+      if (elapsed > duration) {
+        const extraSec = Math.min(0.04, (elapsed - duration) / 1000.0);
+        const dtSec = duration / 1000.0;
+        const vx = (this.targetRobotPos.x - this.prevRobotPos.x) / dtSec;
+        const vz = (this.targetRobotPos.z - this.prevRobotPos.z) / dtSec;
+        const decay = Math.max(0.0, 1.0 - (extraSec / 0.04));
+        this.currentRobotPos.x = this.targetRobotPos.x + vx * extraSec * decay;
+        this.currentRobotPos.z = this.targetRobotPos.z + vz * extraSec * decay;
+      }
+
+      // Smooth Natural Humanoid Heading Damping (Eliminates heading twitches and snaps)
       let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
       if (diff > Math.PI) diff -= Math.PI * 2;
       if (diff < -Math.PI) diff += Math.PI * 2;
-      // Responsive, physically grounded turning speed (snappy 18 rad/s, zero sluggish delay)
-      this.currentRobotHeading += diff * Math.min(1.0, dt * 18.0);
+      this.currentRobotHeading += diff * Math.min(1.0, dt * 8.5);
     }
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1103,7 +1124,10 @@ export class ThreeSimulationScene {
 
     // Smooth Dynamic Actor Motion (Scenario 2 Person)
     if (this.personGroup && this.personVisible) {
-      this.currentPersonPos.lerp(this.targetPersonPos, Math.min(1.0, dt * 14.0));
+      const elapsedPerson = now - this.lastPersonPacketTime;
+      const alphaPerson = Math.min(1.0, elapsedPerson / Math.max(20.0, this.packetInterval));
+      this.currentPersonPos.lerpVectors(this.prevPersonPos, this.targetPersonPos, alphaPerson);
+
       const isMoving = Math.abs(this.personVy) > 0.01;
       const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
       this.personGroup.position.set(this.currentPersonPos.x, bob, this.currentPersonPos.z);
@@ -1204,64 +1228,67 @@ export class ThreeSimulationScene {
       const pos = this.to3D(e.x, e.y);
 
       if (e.kind === "robot") {
+        const now = performance.now();
+        if (this.lastPacketTime > 0) {
+          const dtPacket = now - this.lastPacketTime;
+          if (dtPacket >= 15 && dtPacket <= 200) {
+            this.packetInterval = THREE.MathUtils.lerp(this.packetInterval, dtPacket, 0.25);
+          }
+        }
+        this.lastPacketTime = now;
+
         // Anchor docking station to robot's initial starting location
         if (frame.step === 0 || !this.dockingStationGroup.userData.positioned) {
           this.dockingStationGroup.position.set(pos.x, 0, pos.z);
           this.dockingStationGroup.userData.positioned = true;
         }
 
-        this.targetRobotPos.set(pos.x, 0, pos.z);
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
 
-        // Calculate targetHeading:
-        // 1. When docked: lock East (facing into the arena).
-        // 2. When World Model plan is active: look 3-4 steps ahead along the smooth 14-step receding horizon spline!
-        // 3. When baseline/reactive: filter out single-step orthogonal grid stair-stepping with EMA.
-        let targetHeading = this.currentRobotHeading;
-        if (this.isDocked) {
-          targetHeading = Math.PI / 2; // Locked East
-          this.smoothedVx = 1.0;
-          this.smoothedVz = 0.0;
-        } else if (frame.plan && frame.plan.best && frame.plan.best.length >= 3) {
-          // Look 3-4 steps ahead along the smooth Catmull-Rom navigation ribbon
-          const lookaheadIdx = Math.min(3, frame.plan.best.length - 1);
-          const lookahead3D = this.to3D(frame.plan.best[lookaheadIdx][0], frame.plan.best[lookaheadIdx][1]);
-          const dx = lookahead3D.x - pos.x;
-          const dz = lookahead3D.z - pos.z;
-          if (Math.hypot(dx, dz) > 0.06) {
-            targetHeading = Math.atan2(dx, dz);
-            this.smoothedVx = dx;
-            this.smoothedVz = dz;
-          }
-        } else {
-          // In baseline mode or when plan is unavailable:
-          // Filter out discrete single-step orthogonal grid stair-stepping with EMA
-          const moveDx = pos.x - this.lastRobotPos.x;
-          const moveDz = pos.z - this.lastRobotPos.z;
-          if (Math.hypot(moveDx, moveDz) > 0.02) {
-            this.smoothedVx = THREE.MathUtils.lerp(this.smoothedVx, moveDx, 0.28);
-            this.smoothedVz = THREE.MathUtils.lerp(this.smoothedVz, moveDz, 0.28);
-            targetHeading = Math.atan2(this.smoothedVx, this.smoothedVz);
-          }
-        }
-        this.lastRobotPos.set(pos.x, 0, pos.z);
-        this.targetRobotHeading = targetHeading;
-
-        if (this.isFirstStateUpdate || frame.step === 0 || this.currentRobotPos.distanceTo(this.targetRobotPos) > 1.8) {
-          this.currentRobotPos.copy(this.targetRobotPos);
+        if (this.isFirstStateUpdate || frame.step === 0 || this.currentRobotPos.distanceTo(new THREE.Vector3(pos.x, 0, pos.z)) > 2.2) {
+          this.currentRobotPos.set(pos.x, 0, pos.z);
+          this.prevRobotPos.set(pos.x, 0, pos.z);
+          this.targetRobotPos.set(pos.x, 0, pos.z);
+          this.targetRobotHeading = this.isDocked ? Math.PI / 2 : this.currentRobotHeading;
           this.currentRobotHeading = this.targetRobotHeading;
           this.isFirstStateUpdate = false;
+        } else {
+          // Seamless handoff: base position for sub-frame interpolation is the current visual position
+          this.prevRobotPos.copy(this.currentRobotPos);
+          this.targetRobotPos.set(pos.x, 0, pos.z);
+
+          const stepDx = this.targetRobotPos.x - this.prevRobotPos.x;
+          const stepDz = this.targetRobotPos.z - this.prevRobotPos.z;
+          const dist = Math.hypot(stepDx, stepDz);
+
+          if (this.isDocked) {
+            this.targetRobotHeading = Math.PI / 2; // Locked East
+          } else if (dist > 0.02) {
+            // Smoothly update movement direction vector with EMA (filters out orthogonal stair-step jitter)
+            this.smoothedMoveDir.x = THREE.MathUtils.lerp(this.smoothedMoveDir.x, stepDx, 0.35);
+            this.smoothedMoveDir.z = THREE.MathUtils.lerp(this.smoothedMoveDir.z, stepDz, 0.35);
+            this.targetRobotHeading = Math.atan2(this.smoothedMoveDir.x, this.smoothedMoveDir.z);
+          }
         }
 
       } else if (e.kind === "person") {
         personFound = true;
         this.personVisible = true;
+        const now = performance.now();
+        this.lastPersonPacketTime = now;
+        if (this.currentPersonPos.distanceTo(new THREE.Vector3(pos.x, 0, pos.z)) > 2.2) {
+          this.currentPersonPos.set(pos.x, 0, pos.z);
+          this.prevPersonPos.set(pos.x, 0, pos.z);
+        } else {
+          this.prevPersonPos.copy(this.currentPersonPos);
+        }
         this.targetPersonPos.set(pos.x, 0, pos.z);
         this.personVy = e.vy || 0;
         this.targetPersonHeading = e.heading || 0;
         if (this.isFirstStateUpdate) {
           this.currentPersonPos.copy(this.targetPersonPos);
+          this.prevPersonPos.copy(this.targetPersonPos);
         }
 
       } else {

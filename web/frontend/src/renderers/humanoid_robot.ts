@@ -39,6 +39,7 @@ export class HumanoidRobot {
   private basePelvisY: number = 0.88;
   private lastPos = new THREE.Vector3();
   private smoothedSpeed: number = 0;
+  private walkTimer: number = 0;
 
   constructor() {
     this.root = new THREE.Group();
@@ -364,7 +365,14 @@ export class HumanoidRobot {
 
     const instantSpeed = dt > 0 ? distMoved / dt : 0;
     this.smoothedSpeed = THREE.MathUtils.lerp(this.smoothedSpeed, instantSpeed, 0.25);
-    const isWalking = !isDocked && this.smoothedSpeed > 0.04;
+
+    // Dynamic walking gait with hysteresis to prevent intermittent leg resets across frame intervals
+    if (!isDocked && this.smoothedSpeed > 0.06) {
+      this.walkTimer = 0.18; // Sustain walking gait across network packet intervals
+    } else if (this.walkTimer > 0) {
+      this.walkTimer -= dt;
+    }
+    const isWalking = this.walkTimer > 0;
 
     // 2. Position & Heading: aligns directly with the movement/path tangent
     this.root.position.copy(currentPos);
@@ -372,8 +380,8 @@ export class HumanoidRobot {
 
     // 3. Dynamic Bipedal Walking Stride
     if (isWalking) {
-      // Step frequency scales with movement speed
-      const strideFreq = Math.min(8.5, Math.max(3.5, this.smoothedSpeed * 6.0));
+      // Step frequency scales gracefully with movement speed
+      const strideFreq = Math.min(7.5, Math.max(4.0, this.smoothedSpeed * 4.5));
       this.walkPhase += dt * strideFreq;
 
       const sinGait = Math.sin(this.walkPhase);

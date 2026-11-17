@@ -239,11 +239,16 @@ def plan(
             not_at_goal = (init_dist > 40.0)
             returns[(actions[:, 0] == 4) & not_at_goal] -= 4.0
 
-        # Anti-immediate-reversal tie-breaker (prevents 2-state back-and-forth oscillations)
+        # Action momentum / continuity bonus: encourage continuing current direction of movement
+        # unless an alternative action has a clearly higher expected return (stops 1-step policy chattering)
+        if last_action is not None and 0 <= last_action < action_size:
+            returns[actions[:, 0] == last_action] += 2.20
+
+        # Anti-immediate-reversal penalty (strongly prevents 2-state back-and-forth oscillations)
         if last_action is not None and 0 <= last_action < 4:
             opposite = {0: 1, 1: 0, 2: 3, 3: 2}.get(last_action, -1)
             if opposite != -1:
-                returns[actions[:, 0] == opposite] -= 0.60
+                returns[actions[:, 0] == opposite] -= 4.00
 
         best_idx = torch.argmax(returns).item()
         best_action = int(actions[best_idx, 0].item())
