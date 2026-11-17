@@ -65,7 +65,6 @@ export class ThreeSimulationScene {
   public isDocked: boolean = true;
   private clampAngle: number = 0;
   private targetClampAngle: number = 0;
-  private currentRobotHeading: number = 0;
   private pathEdgeLineLeft: THREE.Line | null = null;
   private pathEdgeLineRight: THREE.Line | null = null;
 
@@ -114,20 +113,14 @@ export class ThreeSimulationScene {
   private lastFpsTime: number = performance.now();
   public onFpsUpdate?: (fps: number) => void;
 
-  // Network Snapshot Kinematics for Constant-Velocity Sub-Frame Motion
-  private prevRobotPos = new THREE.Vector3();
-  private targetRobotPos = new THREE.Vector3();
+  // AAA Continuous Network Snapshot Interpolation Buffer (Zero-Stutter Constant Velocity)
+  private static readonly INTERP_DELAY_MS = 50.0; // 50ms buffer (1.5 packet duration)
+  private robotSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
+  private personSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private currentRobotPos = new THREE.Vector3();
-  private smoothedMoveDir = new THREE.Vector2(1.0, 0.0);
-  private lastPacketTime: number = performance.now();
-  private packetInterval: number = 33.3;
-  private targetRobotHeading: number = 0;
-
-  private prevPersonPos = new THREE.Vector3();
-  private targetPersonPos = new THREE.Vector3();
+  private currentRobotHeading: number = 0;
   private currentPersonPos = new THREE.Vector3();
-  private lastPersonPacketTime: number = performance.now();
-  private targetPersonHeading: number = 0;
+  private currentPersonHeading: number = 0;
   private personVy: number = 0;
   private personVisible: boolean = false;
   private lastMode: string = "world_model";
@@ -1067,31 +1060,63 @@ export class ThreeSimulationScene {
       this.controls.update();
     }
 
-    // Precise Constant-Velocity Sub-Frame Kinematics (Zero stutter, silky smooth 60 FPS motion)
-    if (!this.isFirstStateUpdate) {
-      const elapsed = now - this.lastPacketTime;
-      const duration = Math.max(20.0, Math.min(100.0, this.packetInterval));
-      const alpha = Math.min(1.0, elapsed / duration);
+    // 1. AAA Continuous Snapshot Interpolation for Humanoid Robot (Constant Velocity 60+ FPS)
+    if (this.robotSnapshots.length > 0) {
+      if (this.robotSnapshots.length === 1) {
+        const s = this.robotSnapshots[0];
+        this.currentRobotPos.set(s.x, 0, s.z);
+        this.currentRobotHeading = s.heading;
+      } else {
+        const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
+        const snaps = this.robotSnapshots;
 
-      // Linear interpolation guarantees rock-solid constant velocity at display refresh rate
-      this.currentRobotPos.lerpVectors(this.prevRobotPos, this.targetRobotPos, alpha);
+        if (renderTime <= snaps[0].time) {
+          // Pre-buffer start
+          this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
+          this.currentRobotHeading = snaps[0].heading;
+        } else if (renderTime >= snaps[snaps.length - 1].time) {
+          // Extrapolate gently along latest velocity
+          const sLast = snaps[snaps.length - 1];
+          const sPrev = snaps[snaps.length - 2];
+          const dtSeg = Math.max(0.015, (sLast.time - sPrev.time) / 1000.0);
+          const vx = (sLast.x - sPrev.x) / dtSeg;
+          const vz = (sLast.z - sPrev.z) / dtSeg;
+          const extraSec = Math.min(0.05, (renderTime - sLast.time) / 1000.0);
+          const damping = Math.max(0.0, 1.0 - (extraSec / 0.05));
 
-      // Gentle coasting if next frame is slightly delayed by network or scheduling jitter
-      if (elapsed > duration) {
-        const extraSec = Math.min(0.04, (elapsed - duration) / 1000.0);
-        const dtSec = duration / 1000.0;
-        const vx = (this.targetRobotPos.x - this.prevRobotPos.x) / dtSec;
-        const vz = (this.targetRobotPos.z - this.prevRobotPos.z) / dtSec;
-        const decay = Math.max(0.0, 1.0 - (extraSec / 0.04));
-        this.currentRobotPos.x = this.targetRobotPos.x + vx * extraSec * decay;
-        this.currentRobotPos.z = this.targetRobotPos.z + vz * extraSec * decay;
+          this.currentRobotPos.set(
+            sLast.x + vx * extraSec * damping,
+            0,
+            sLast.z + vz * extraSec * damping
+          );
+          this.currentRobotHeading = sLast.heading;
+        } else {
+          // Find enclosing bracket [idx0, idx0 + 1]
+          let idx0 = 0;
+          for (let i = 0; i < snaps.length - 1; i++) {
+            if (snaps[i].time <= renderTime && renderTime <= snaps[i + 1].time) {
+              idx0 = i;
+              break;
+            }
+          }
+          const s0 = snaps[idx0];
+          const s1 = snaps[idx0 + 1];
+          const segDuration = Math.max(0.001, s1.time - s0.time);
+          const alpha = Math.max(0.0, Math.min(1.0, (renderTime - s0.time) / segDuration));
+
+          this.currentRobotPos.set(
+            THREE.MathUtils.lerp(s0.x, s1.x, alpha),
+            0,
+            THREE.MathUtils.lerp(s0.z, s1.z, alpha)
+          );
+
+          // Shortest-path angular slerp for heading
+          let diff = (s1.heading - s0.heading) % (Math.PI * 2);
+          if (diff > Math.PI) diff -= Math.PI * 2;
+          if (diff < -Math.PI) diff += Math.PI * 2;
+          this.currentRobotHeading = s0.heading + diff * alpha;
+        }
       }
-
-      // Smooth Natural Humanoid Heading Damping (Eliminates heading twitches and snaps)
-      let diff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
-      if (diff > Math.PI) diff -= Math.PI * 2;
-      if (diff < -Math.PI) diff += Math.PI * 2;
-      this.currentRobotHeading += diff * Math.min(1.0, dt * 8.5);
     }
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1122,16 +1147,53 @@ export class ThreeSimulationScene {
     this.povHeadlight.position.set(eyeX, eyeY, eyeZ);
     this.povHeadlight.target.position.set(eyeX + fwdX * 4.0, eyeY - 0.2, eyeZ + fwdZ * 4.0);
 
-    // Smooth Dynamic Actor Motion (Scenario 2 Person)
-    if (this.personGroup && this.personVisible) {
-      const elapsedPerson = now - this.lastPersonPacketTime;
-      const alphaPerson = Math.min(1.0, elapsedPerson / Math.max(20.0, this.packetInterval));
-      this.currentPersonPos.lerpVectors(this.prevPersonPos, this.targetPersonPos, alphaPerson);
+    // 2. Continuous Snapshot Interpolation for Scenario 2 Person
+    if (this.personGroup && this.personVisible && this.personSnapshots.length > 0) {
+      if (this.personSnapshots.length === 1) {
+        const s = this.personSnapshots[0];
+        this.currentPersonPos.set(s.x, 0, s.z);
+        this.currentPersonHeading = s.heading;
+      } else {
+        const renderTime = now - ThreeSimulationScene.INTERP_DELAY_MS;
+        const snaps = this.personSnapshots;
+
+        if (renderTime <= snaps[0].time) {
+          this.currentPersonPos.set(snaps[0].x, 0, snaps[0].z);
+          this.currentPersonHeading = snaps[0].heading;
+        } else if (renderTime >= snaps[snaps.length - 1].time) {
+          const sLast = snaps[snaps.length - 1];
+          this.currentPersonPos.set(sLast.x, 0, sLast.z);
+          this.currentPersonHeading = sLast.heading;
+        } else {
+          let idx0 = 0;
+          for (let i = 0; i < snaps.length - 1; i++) {
+            if (snaps[i].time <= renderTime && renderTime <= snaps[i + 1].time) {
+              idx0 = i;
+              break;
+            }
+          }
+          const s0 = snaps[idx0];
+          const s1 = snaps[idx0 + 1];
+          const segDuration = Math.max(0.001, s1.time - s0.time);
+          const alpha = Math.max(0.0, Math.min(1.0, (renderTime - s0.time) / segDuration));
+
+          this.currentPersonPos.set(
+            THREE.MathUtils.lerp(s0.x, s1.x, alpha),
+            0,
+            THREE.MathUtils.lerp(s0.z, s1.z, alpha)
+          );
+
+          let diff = (s1.heading - s0.heading) % (Math.PI * 2);
+          if (diff > Math.PI) diff -= Math.PI * 2;
+          if (diff < -Math.PI) diff += Math.PI * 2;
+          this.currentPersonHeading = s0.heading + diff * alpha;
+        }
+      }
 
       const isMoving = Math.abs(this.personVy) > 0.01;
       const bob = isMoving ? Math.abs(Math.sin(now * 0.008)) * 0.03 : 0.0;
       this.personGroup.position.set(this.currentPersonPos.x, bob, this.currentPersonPos.z);
-      this.personGroup.rotation.y = -this.targetPersonHeading * (Math.PI / 180);
+      this.personGroup.rotation.y = this.currentPersonHeading;
 
       // Head Glance IK toward robot
       if (this.personHead) {
@@ -1229,13 +1291,6 @@ export class ThreeSimulationScene {
 
       if (e.kind === "robot") {
         const now = performance.now();
-        if (this.lastPacketTime > 0) {
-          const dtPacket = now - this.lastPacketTime;
-          if (dtPacket >= 15 && dtPacket <= 200) {
-            this.packetInterval = THREE.MathUtils.lerp(this.packetInterval, dtPacket, 0.25);
-          }
-        }
-        this.lastPacketTime = now;
 
         // Anchor docking station to robot's initial starting location
         if (frame.step === 0 || !this.dockingStationGroup.userData.positioned) {
@@ -1246,29 +1301,31 @@ export class ThreeSimulationScene {
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
 
-        if (this.isFirstStateUpdate || frame.step === 0 || this.currentRobotPos.distanceTo(new THREE.Vector3(pos.x, 0, pos.z)) > 2.2) {
+        // Calculate heading for this snapshot
+        let snapHeading = this.isDocked ? (Math.PI / 2) : this.currentRobotHeading;
+        const lastSnap = this.robotSnapshots.length > 0 ? this.robotSnapshots[this.robotSnapshots.length - 1] : null;
+
+        if (this.isDocked) {
+          snapHeading = Math.PI / 2;
+        } else if (lastSnap) {
+          const dx = pos.x - lastSnap.x;
+          const dz = pos.z - lastSnap.z;
+          if (Math.hypot(dx, dz) > 0.02) {
+            snapHeading = Math.atan2(dx, dz);
+          } else {
+            snapHeading = lastSnap.heading;
+          }
+        }
+
+        if (this.isFirstStateUpdate || frame.step === 0 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
+          this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: snapHeading, time: now }];
           this.currentRobotPos.set(pos.x, 0, pos.z);
-          this.prevRobotPos.set(pos.x, 0, pos.z);
-          this.targetRobotPos.set(pos.x, 0, pos.z);
-          this.targetRobotHeading = this.isDocked ? Math.PI / 2 : this.currentRobotHeading;
-          this.currentRobotHeading = this.targetRobotHeading;
+          this.currentRobotHeading = snapHeading;
           this.isFirstStateUpdate = false;
         } else {
-          // Seamless handoff: base position for sub-frame interpolation is the current visual position
-          this.prevRobotPos.copy(this.currentRobotPos);
-          this.targetRobotPos.set(pos.x, 0, pos.z);
-
-          const stepDx = this.targetRobotPos.x - this.prevRobotPos.x;
-          const stepDz = this.targetRobotPos.z - this.prevRobotPos.z;
-          const dist = Math.hypot(stepDx, stepDz);
-
-          if (this.isDocked) {
-            this.targetRobotHeading = Math.PI / 2; // Locked East
-          } else if (dist > 0.02) {
-            // Smoothly update movement direction vector with EMA (filters out orthogonal stair-step jitter)
-            this.smoothedMoveDir.x = THREE.MathUtils.lerp(this.smoothedMoveDir.x, stepDx, 0.35);
-            this.smoothedMoveDir.z = THREE.MathUtils.lerp(this.smoothedMoveDir.z, stepDz, 0.35);
-            this.targetRobotHeading = Math.atan2(this.smoothedMoveDir.x, this.smoothedMoveDir.z);
+          this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: snapHeading, time: now });
+          if (this.robotSnapshots.length > 15) {
+            this.robotSnapshots.shift();
           }
         }
 
@@ -1276,19 +1333,18 @@ export class ThreeSimulationScene {
         personFound = true;
         this.personVisible = true;
         const now = performance.now();
-        this.lastPersonPacketTime = now;
-        if (this.currentPersonPos.distanceTo(new THREE.Vector3(pos.x, 0, pos.z)) > 2.2) {
-          this.currentPersonPos.set(pos.x, 0, pos.z);
-          this.prevPersonPos.set(pos.x, 0, pos.z);
-        } else {
-          this.prevPersonPos.copy(this.currentPersonPos);
-        }
-        this.targetPersonPos.set(pos.x, 0, pos.z);
+        const personHeadingRad = -((e.heading || 0) * (Math.PI / 180));
         this.personVy = e.vy || 0;
-        this.targetPersonHeading = e.heading || 0;
-        if (this.isFirstStateUpdate) {
-          this.currentPersonPos.copy(this.targetPersonPos);
-          this.prevPersonPos.copy(this.targetPersonPos);
+
+        if (this.personSnapshots.length === 0 || Math.hypot(pos.x - this.personSnapshots[this.personSnapshots.length - 1].x, pos.z - this.personSnapshots[this.personSnapshots.length - 1].z) > 2.5) {
+          this.personSnapshots = [{ x: pos.x, z: pos.z, heading: personHeadingRad, time: now }];
+          this.currentPersonPos.set(pos.x, 0, pos.z);
+          this.currentPersonHeading = personHeadingRad;
+        } else {
+          this.personSnapshots.push({ x: pos.x, z: pos.z, heading: personHeadingRad, time: now });
+          if (this.personSnapshots.length > 15) {
+            this.personSnapshots.shift();
+          }
         }
 
       } else {
