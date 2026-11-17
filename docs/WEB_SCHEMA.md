@@ -105,6 +105,46 @@ Clients send JSON strings to `/ws/{scenario}` to alter runtime behavior:
 | :--- | :--- | :--- |
 | `"start"` | `seed` (optional) | Begins streaming simulation frames. |
 | `"reset"` | `seed` (optional), `scenario_variant` | Resets environment to start position. |
-| `"set"` | `mode` (`"world_model"`, `"baseline"`, `"compare"`), `speed` (0.25 to 4.0), `mind_view` (bool) | Updates simulation or visualization parameters. |
+| `"set"` | `mode` (`"world_model"`, `"baseline"`, `"compare"`), `speed` (0.25 to 4.0), `mind_view` (bool), `weather` (`"clear"`, `"rain"`), `time_of_day` (`"day"`, `"sunset"`, `"night"`), `camera` (`"chase"`, `"pov"`, `"topdown"`, `"orbit"`, `"cinematic"`), `manual_action` (int 0..4) | Updates simulation, environmental, or visualization parameters. |
 | `"pause"` | None | Pauses simulation frame advancement. |
 | `"step"` | None | Steps forward exactly one frame while paused. |
+
+---
+
+## 5. Autonomous Driving Schema Extensions
+
+When `scenario == "driving"`, `RenderState` adds highway road network and vehicle dynamics specifications:
+
+### 5.1 World Layout & Coordinate Frame
+- Coordinate units: `world.units = "m"` (SI meters).
+- Road geometry defined inside `world.layout`:
+  - `centerline`: `List[List[float]]` array of `[x, y]` spline coordinates along road reference line.
+  - `lane_count`: integer number of lanes (default `3`).
+  - `lane_width`: lateral lane width in meters (default `3.75`).
+  - `road_width`: total drivable roadway width (default `11.25`).
+  - `shoulder_width`: road shoulder width (default `2.0`).
+  - `speed_limit`: highway speed limit in m/s (default `28.0` ~ 100 km/h).
+  - `scenery_seed`: deterministic PRNG seed for instanced roadside trees, streetlights, and signage.
+
+### 5.2 Vehicle Entities
+- `entities[].kind`: `"car"`, `"truck"`, `"person"`.
+- `entities[].extra`:
+  - `is_ego`: boolean indicating the ego vehicle.
+  - `steer_angle`: vehicle front steering wheel angle in radians.
+  - `brake_lights`: boolean flag triggering tail brake light illumination.
+  - `indicator`: `-1` (left indicator), `0` (none), `1` (right indicator).
+  - `color`: CSS hex color string (e.g. `"#00f0ff"` for ego).
+  - `target_speed`: vehicle desired cruise speed in m/s.
+
+### 5.3 Telemetry Metrics & Events
+- `metrics.extra`:
+  - `speed_kmh`: forward velocity in km/h.
+  - `lane_offset`: signed lateral deviation from target lane centerline in meters.
+  - `ttc`: headway time-to-collision in seconds (clipped to 10.0s).
+- `events`: string event tokens dispatched during frame transitions:
+  - `"brake"`: sudden braking maneuver triggered by lead vehicle.
+  - `"lane_change"`: lane change initiation.
+  - `"near_miss"`: headway TTC drops below critical safety threshold (< 1.8s).
+  - `"bonk"`: physical collision detected.
+  - `"goal"`: highway termination milestone successfully reached.
+

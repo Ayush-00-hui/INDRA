@@ -5,6 +5,7 @@
  */
 
 import { ThreeSimulationScene } from "../renderers/three_scene";
+import { DrivingScene } from "../renderers/driving_scene";
 import { CanvasFallbackRenderer } from "../renderers/canvas_fallback";
 import { SimWSClient } from "../client/ws_client";
 import { ReplayLoader } from "../client/replay_loader";
@@ -79,11 +80,55 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </div>
       </div>
 
-      <!-- Floating Docking Bay HUD Banner -->
-      <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00ff9d; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 255, 157, 0.35);">
-        <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #00ff9d; box-shadow: 0 0 10px #00ff9d; display: inline-block;"></span>
-        <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD</span>
-      </div>
+      ${
+        scenarioId === "driving"
+          ? `
+        <!-- AV Autonomous Driving Premium Glassmorphic HUD -->
+        <div id="av-hud" class="av-dashboard-hud">
+          <div class="av-speed-cluster">
+            <div id="av-speed-val" class="av-speed-val">0</div>
+            <div class="av-speed-unit">KM / H</div>
+            <div class="av-speed-limit">100</div>
+          </div>
+          <div class="av-gauge-item">
+            <div class="av-gauge-header"><span>LANE OFFSET</span><span id="av-offset-val">0.0 m</span></div>
+            <div class="av-gauge-bar-bg">
+              <div id="av-offset-fill" class="av-gauge-bar-fill" style="width: 50%; background: #00ff9d;"></div>
+            </div>
+          </div>
+          <div class="av-gauge-item">
+            <div class="av-gauge-header"><span>HEADWAY TTC</span><span id="av-ttc-val">10.0 s</span></div>
+            <div class="av-gauge-bar-bg">
+              <div id="av-ttc-fill" class="av-gauge-bar-fill" style="width: 100%; background: #00ff9d;"></div>
+            </div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 90px;">
+            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">ACTION</div>
+            <div id="av-action-chip" class="av-action-chip cruise">CRUISE</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px; border-left: 1px solid rgba(255,255,255,0.12); padding-left: 14px;">
+            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">MODEL MAE</div>
+            <div id="av-mae-val" style="color: var(--accent-cyan); font-weight: 800; font-size: 0.95rem;">0.019</div>
+          </div>
+        </div>
+
+        <!-- Radar Mini-map -->
+        <div id="av-minimap-box" class="av-minimap-box">
+          <div style="font-size: 0.60rem; color: var(--text-dim); font-weight: 800; margin-bottom: 2px;">RADAR MAP</div>
+          <canvas id="av-minimap-canvas" width="128" height="110" style="display: block; width: 100%; height: 100%; border-radius: 4px; background: #020617;"></canvas>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="av-toast-box" class="av-toast-box"></div>
+      `
+          : `
+        <!-- Floating Docking Bay HUD Banner -->
+        <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00ff9d; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 255, 157, 0.35);">
+          <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #00ff9d; box-shadow: 0 0 10px #00ff9d; display: inline-block;"></span>
+          <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD</span>
+        </div>
+      `
+      }
 
       <!-- Top Mission Control Navigation Header -->
       <header class="top-nav">
@@ -165,57 +210,91 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </button>
 
         ${
-          scenarioId === "robotics"
+          scenarioId === "driving"
             ? `
-          <div class="rail-group-title" style="margin-top: 4px;">Scenario Arena</div>
+          <div class="rail-group-title" style="margin-top: 4px;">Highway Scenarios</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="font-size: 0.73rem;">S1: Highway Curves</button>
+            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}" style="font-size: 0.73rem;">S2: Sudden Braking</button>
+            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}" style="font-size: 0.73rem;">S3: Overtaking</button>
+            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}" style="font-size: 0.73rem;">S4: Pedestrian Hazard</button>
+          </div>
+
+          <div class="rail-group-title" style="margin-top: 4px;">Camera Perspectives</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="cam-chase" class="rail-btn active" style="justify-content: center; font-size: 0.72rem;">1: Chase</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #38bdf8;">2: Cockpit</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">3: Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">4: Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #c084fc;">5: Fly-By</button>
+          </div>
+
+          <div class="rail-group-title" style="margin-top: 4px;">Time of Day & Atmosphere</div>
           <div style="display: flex; gap: 4px;">
-            <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.75rem;">S1: Chair</button>
-            <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.75rem;">S2: Person</button>
+            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.70rem;">☀️ Day</button>
+            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;">🌅 Sunset</button>
+            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;">🌙 Night</button>
+          </div>
+
+          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 6px; justify-content: center; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-weight: 700; font-size: 0.75rem;">
+            <span id="lbl-manual-drive">🎮 MANUAL DRIVE [WASD]</span>
+          </button>
+        `
+            : `
+          ${
+            scenarioId === "robotics"
+              ? `
+            <div class="rail-group-title" style="margin-top: 4px;">Scenario Arena</div>
+            <div style="display: flex; gap: 4px;">
+              <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.75rem;">S1: Chair</button>
+              <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.75rem;">S2: Person</button>
+            </div>
+          `
+              : ""
+          }
+
+          <div class="rail-group-title" style="margin-top: 4px;">Camera & Perspective</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="cam-overview" class="rail-btn active" style="justify-content: center; font-size: 0.72rem;">Overview</button>
+            <button id="cam-chase" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Chase Cam</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #38bdf8;">Robot POV</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Free Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #c084fc;">Director</button>
+          </div>
+
+          <div class="rail-group-title" style="margin-top: 4px;">Interactive Sandbox Tools</div>
+          <div style="font-size: 0.68rem; color: var(--text-dim);">Pick tool, then click arena floor:</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="tool-goal" class="rail-btn active" style="justify-content: center; font-size: 0.74rem;" title="Move target docking beacon">
+              <span>🎯 Goal Dock</span>
+            </button>
+            <button id="tool-crate" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Wooden Shipping Crate">
+              <span>📦 Crate</span>
+            </button>
+            <button id="tool-cabinet" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Metal Tool Cabinet">
+              <span>🧰 Cabinet</span>
+            </button>
+            <button id="tool-workstation" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Workbench Desk">
+              <span>🛠️ Table</span>
+            </button>
+            <button id="tool-barrels" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop 55-Gal Oil Drum Cluster">
+              <span>🛢️ Barrels</span>
+            </button>
+            <button id="tool-barrier" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Heavy Crash Barrier">
+              <span>🚧 Barrier</span>
+            </button>
+          </div>
+          <div style="display: flex; gap: 4px; margin-top: 2px;">
+            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #ff4757; border-color: rgba(255, 71, 87, 0.4); font-size: 0.70rem;" title="Clear all obstacles from arena">
+              <span>✕ Clear All</span>
+            </button>
+            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;" title="Generate random obstacle course">
+              <span>🎲 Randomize</span>
+            </button>
           </div>
         `
-            : ""
         }
-
-        <div class="rail-group-title" style="margin-top: 4px;">Camera & Perspective</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-          <button id="cam-overview" class="rail-btn active" style="justify-content: center; font-size: 0.72rem;">Overview</button>
-          <button id="cam-chase" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Chase Cam</button>
-          <button id="cam-pov" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #38bdf8;">Robot POV</button>
-          <button id="cam-topdown" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Top-Down</button>
-          <button id="cam-orbit" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Free Orbit</button>
-          <button id="cam-cinematic" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #c084fc;">Director</button>
-        </div>
-
-        <div class="rail-group-title" style="margin-top: 4px;">Interactive Sandbox Tools</div>
-        <div style="font-size: 0.68rem; color: var(--text-dim);">Pick tool, then click arena floor:</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-          <button id="tool-goal" class="rail-btn active" style="justify-content: center; font-size: 0.74rem;" title="Move target docking beacon">
-            <span>🎯 Goal Dock</span>
-          </button>
-          <button id="tool-crate" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Wooden Shipping Crate">
-            <span>📦 Crate</span>
-          </button>
-          <button id="tool-cabinet" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Metal Tool Cabinet">
-            <span>🧰 Cabinet</span>
-          </button>
-          <button id="tool-workstation" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Workbench Desk">
-            <span>🛠️ Table</span>
-          </button>
-          <button id="tool-barrels" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop 55-Gal Oil Drum Cluster">
-            <span>🛢️ Barrels</span>
-          </button>
-          <button id="tool-barrier" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Heavy Crash Barrier">
-            <span>🚧 Barrier</span>
-          </button>
-        </div>
-        <div style="display: flex; gap: 4px; margin-top: 2px;">
-          <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #ff4757; border-color: rgba(255, 71, 87, 0.4); font-size: 0.70rem;" title="Clear all obstacles from arena">
-            <span>✕ Clear All</span>
-          </button>
-          <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;" title="Generate random obstacle course">
-            <span>🎲 Randomize</span>
-          </button>
-        </div>
 
         <div class="rail-group-title" style="margin-top: 4px;">Acoustics & Audio</div>
         <div style="display: flex; gap: 4px;">
@@ -360,8 +439,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const povTargetDist = document.getElementById("pov-target-dist");
 
   // Viewport Scenes
-  let primaryScene: ThreeSimulationScene | null = null;
-  let secondaryScene: ThreeSimulationScene | null = null;
+  let primaryScene: any = null;
+  let secondaryScene: any = null;
   let canvasFallback: CanvasFallbackRenderer | null = null;
 
   let compareWrapper: HTMLDivElement | null = null;
@@ -404,14 +483,19 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     compareWrapper = null;
     secondaryScene = null;
 
-    primaryScene = new ThreeSimulationScene(canvasRoot);
+    if (scenarioId === "driving") {
+      primaryScene = new DrivingScene(canvasRoot);
+    } else {
+      primaryScene = new ThreeSimulationScene(canvasRoot);
+    }
+
     if (!primaryScene.isAvailable()) {
       primaryScene = null;
       canvasFallback = new CanvasFallbackRenderer(canvasRoot);
     } else {
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
-      primaryScene.onFpsUpdate = (fps) => {
+      primaryScene.onFpsUpdate = (fps: number) => {
         fpsDisplay.textContent = `${fps}.0 FPS`;
       };
     }
@@ -449,12 +533,17 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     rightTelemetryEl = document.getElementById("right-telemetry") as HTMLDivElement;
     winnerBadgeEl = document.getElementById("winner-badge") as HTMLDivElement;
 
-    secondaryScene = new ThreeSimulationScene(leftContainer);
-    primaryScene = new ThreeSimulationScene(rightContainer);
+    if (scenarioId === "driving") {
+      secondaryScene = new DrivingScene(leftContainer);
+      primaryScene = new DrivingScene(rightContainer);
+    } else {
+      secondaryScene = new ThreeSimulationScene(leftContainer);
+      primaryScene = new ThreeSimulationScene(rightContainer);
+    }
     if (primaryScene) {
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
-      primaryScene.onFpsUpdate = (fps) => {
+      primaryScene.onFpsUpdate = (fps: number) => {
         fpsDisplay.textContent = `${fps}.0 FPS`;
       };
     }
@@ -531,6 +620,108 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       metricWinrate.textContent = `${winRatePct}% (n=${epCount})`;
       metricCollisions.textContent = `${frame.metrics.collisions}`;
       metricSteps.textContent = `${currentStep} / 200`;
+    }
+
+    if (scenarioId === "driving") {
+      const speedVal = frame.metrics?.extra?.speed_kmh ?? 70.0;
+      const avSpeedEl = document.getElementById("av-speed-val");
+      if (avSpeedEl) avSpeedEl.textContent = Math.round(speedVal).toString();
+
+      const offsetVal = frame.metrics?.extra?.lane_offset ?? 0.0;
+      const avOffsetEl = document.getElementById("av-offset-val");
+      const avOffsetFill = document.getElementById("av-offset-fill");
+      if (avOffsetEl) avOffsetEl.textContent = `${offsetVal >= 0 ? "+" : ""}${offsetVal.toFixed(2)} m`;
+      if (avOffsetFill) {
+        const fillPct = Math.min(100, Math.max(0, 50 + (offsetVal / 4.0) * 50));
+        avOffsetFill.style.width = `${fillPct}%`;
+        avOffsetFill.style.backgroundColor = Math.abs(offsetVal) < 0.6 ? "#00ff9d" : (Math.abs(offsetVal) < 1.4 ? "#ffb703" : "#ef4444");
+      }
+
+      const ttcVal = frame.metrics?.extra?.ttc ?? 10.0;
+      const avTtcEl = document.getElementById("av-ttc-val");
+      const avTtcFill = document.getElementById("av-ttc-fill");
+      if (avTtcEl) avTtcEl.textContent = ttcVal < 9.9 ? `${ttcVal.toFixed(1)} s` : "CLEAR";
+      if (avTtcFill) {
+        const fillPct = Math.min(100, Math.max(0, (ttcVal / 6.0) * 100));
+        avTtcFill.style.width = `${fillPct}%`;
+        avTtcFill.style.backgroundColor = ttcVal > 3.0 ? "#00ff9d" : (ttcVal > 1.8 ? "#ffb703" : "#ef4444");
+      }
+
+      const drivingActions = ["ACCELERATE", "BRAKE", "STEER LEFT", "STEER RIGHT", "CRUISE"];
+      const drivingClasses = ["accelerate", "brake", "steer-left", "steer-right", "cruise"];
+      const actIdx = frame.plan?.chosen_action ?? 4;
+      const chipEl = document.getElementById("av-action-chip");
+      if (chipEl) {
+        chipEl.className = `av-action-chip ${drivingClasses[actIdx] || "cruise"}`;
+        chipEl.textContent = drivingActions[actIdx] || "CRUISE";
+      }
+
+      const avMaeEl = document.getElementById("av-mae-val");
+      if (avMaeEl) {
+        avMaeEl.textContent = frame.model_error !== null && frame.model_error !== undefined ? frame.model_error.toFixed(4) : "0.019";
+      }
+
+      // Draw Radar Mini-Map
+      const minimapCanvas = document.getElementById("av-minimap-canvas") as HTMLCanvasElement;
+      if (minimapCanvas && frame.world?.layout?.centerline) {
+        const mctx = minimapCanvas.getContext("2d");
+        if (mctx) {
+          mctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+          const cl = frame.world.layout.centerline;
+          const maxX = frame.world.bounds ? frame.world.bounds[2] : 200.0;
+          const toMx = (x: number) => 8 + (x / maxX) * (minimapCanvas.width - 16);
+          const toMy = (y: number) => minimapCanvas.height / 2 - (y / 50.0) * (minimapCanvas.height / 2);
+
+          mctx.strokeStyle = "rgba(71, 85, 105, 0.7)";
+          mctx.lineWidth = 4;
+          mctx.beginPath();
+          cl.forEach((p: number[], idx: number) => {
+            const mx = toMx(p[0]);
+            const my = toMy(p[1]);
+            if (idx === 0) mctx.moveTo(mx, my); else mctx.lineTo(mx, my);
+          });
+          mctx.stroke();
+
+          // Render vehicles on mini-map
+          (frame.entities || []).forEach((ent: any) => {
+            const ex = toMx(ent.x);
+            const ey = toMy(ent.y);
+            mctx.fillStyle = ent.extra?.is_ego ? "#00ff9d" : (ent.extra?.color || "#38bdf8");
+            mctx.beginPath();
+            mctx.arc(ex, ey, ent.extra?.is_ego ? 3.5 : 2.5, 0, Math.PI * 2);
+            mctx.fill();
+          });
+        }
+      }
+
+      // Toast Alerts for Driving Events
+      if (frame.events && frame.events.length > 0) {
+        const toastBox = document.getElementById("av-toast-box");
+        if (toastBox) {
+          frame.events.forEach((ev: string) => {
+            const toast = document.createElement("div");
+            toast.className = "av-toast-item";
+            if (ev === "brake") {
+              toast.innerHTML = "⚠️ LEAD VEHICLE HARD BRAKING";
+              toast.style.borderColor = "#ffb703";
+            } else if (ev === "lane_change") {
+              toast.innerHTML = "↔️ LANE CHANGE MANEUVER";
+              toast.style.borderColor = "#00f0ff";
+            } else if (ev === "near_miss") {
+              toast.innerHTML = "⚡ CRITICAL HEADWAY ALERT (TTC < 1.8s)";
+              toast.style.borderColor = "#ff4757";
+            } else if (ev === "bonk") {
+              toast.innerHTML = "💥 COLLISION DETECTED";
+              toast.style.borderColor = "#ef4444";
+            } else if (ev === "goal") {
+              toast.innerHTML = "🏆 HIGHWAY DESTINATION REACHED";
+              toast.style.borderColor = "#00ff9d";
+            }
+            toastBox.appendChild(toast);
+            setTimeout(() => { toast.remove(); }, 2500);
+          });
+        }
+      }
     }
 
     const metricGoalDist = document.getElementById("metric-goal-dist");

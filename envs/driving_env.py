@@ -21,7 +21,7 @@ class RoadNetwork:
     arc-length parametrization s in [0, S_max] and lateral offset d.
     """
 
-    def __init__(self, total_length: float = 750.0, lane_count: int = 3, lane_width: float = 3.75):
+    def __init__(self, total_length: float = 200.0, lane_count: int = 3, lane_width: float = 3.75):
         self.total_length = total_length
         self.lane_count = lane_count
         self.lane_width = lane_width
@@ -30,8 +30,7 @@ class RoadNetwork:
         self.drivable_half_width = (self.road_width / 2.0) + 0.8  # ~6.425 m
 
         # Construct smooth piecewise curvature profile kappa(s)
-        # s ranges: [0, 80] straight -> [80, 240] gentle right -> [240, 340] straight
-        #           -> [340, 500] left curve -> [500, 600] S-transition -> [600, 750] straight
+        # s ranges: [0, 35] straight -> [35, 95] gentle right -> [95, 135] straight -> [135, 200] left curve
         self.sample_ds = 0.5
         n_samples = int(total_length / self.sample_ds) + 1
         self.s_vals = np.linspace(0.0, total_length, n_samples, dtype=np.float32)
@@ -39,18 +38,14 @@ class RoadNetwork:
         # Precompute curvature, tangent angle, and Cartesian (x, y) coordinates
         self.kappas = np.zeros(n_samples, dtype=np.float32)
         for i, s in enumerate(self.s_vals):
-            if 80.0 <= s < 220.0:
-                # Gentle right turn (radius ~320m)
-                t = (s - 80.0) / 140.0
-                self.kappas[i] = 0.0031 * math.sin(t * math.pi)
-            elif 320.0 <= s < 480.0:
+            if 35.0 <= s < 95.0:
+                # Gentle right turn (radius ~300m)
+                t = (s - 35.0) / 60.0
+                self.kappas[i] = 0.0033 * math.sin(t * math.pi)
+            elif 135.0 <= s < 195.0:
                 # Sweeping left turn (radius ~280m)
-                t = (s - 320.0) / 160.0
+                t = (s - 135.0) / 60.0
                 self.kappas[i] = -0.0036 * math.sin(t * math.pi)
-            elif 520.0 <= s < 620.0:
-                # S-curve transition
-                t = (s - 520.0) / 100.0
-                self.kappas[i] = 0.0025 * math.sin(t * 2.0 * math.pi)
             else:
                 self.kappas[i] = 0.0
 
@@ -260,14 +255,14 @@ class DrivingEnv(BaseEnv):
         4: "CRUISE"
     }
 
-    def __init__(self, scenario_variant: int = 1):
+    def __init__(self, scenario_variant: int = 1, variant: Optional[int] = None):
         super().__init__()
-        self.scenario_variant = int(scenario_variant)
+        self.scenario_variant = int(variant if variant is not None else scenario_variant)
         self.scenario_name = "driving"
         self.state_size = 16
         self.action_size = 5
 
-        self.road = RoadNetwork(total_length=750.0, lane_count=3, lane_width=3.75)
+        self.road = RoadNetwork(total_length=200.0, lane_count=3, lane_width=3.75)
         self.wheelbase = 2.8      # meters
         self.car_length = 4.6     # meters
         self.car_width = 1.9      # meters
@@ -518,26 +513,18 @@ class DrivingEnv(BaseEnv):
 
         # 1. Action Decoding
         accel = 0.0
-        steer_rate = 0.0
 
         if action == self.ACTION_ACCELERATE:
             accel = 2.5
         elif action == self.ACTION_BRAKE:
             accel = -5.5
         elif action == self.ACTION_STEER_LEFT:
-            steer_rate = -0.35
-            # Target shifting to left lane
             if self.target_lane_idx > 0:
                 self.target_lane_idx -= 1
-                self.target_d = self.road.get_lane_center_d(self.target_lane_idx)
         elif action == self.ACTION_STEER_RIGHT:
-            steer_rate = 0.35
-            # Target shifting to right lane
-            if self.target_lane_idx < 2:
+            if self.target_lane_idx < self.road.lane_count - 1:
                 self.target_lane_idx += 1
-                self.target_d = self.road.get_lane_center_d(self.target_lane_idx)
         elif action == self.ACTION_CRUISE:
-            # Maintain speed with slight natural air drag
             if self.ego_speed < self.target_speed:
                 accel = 0.8
             elif self.ego_speed > self.target_speed + 1.0:
@@ -545,21 +532,20 @@ class DrivingEnv(BaseEnv):
             else:
                 accel = 0.0
 
-        # Automatic lane centering assistance for steering delta
-        lane_center_d = self.road.get_lane_center_d(self.target_lane_idx)
-        lat_err = self.ego_d - lane_center_d
+        # Automatic lane centering assistance & steering PD controller
+        target_center_d = self.road.get_lane_center_d(self.target_lane_idx)
+        lat_err = self.ego_d - target_center_d
         _, _, road_theta, kappa_now = self.road.get_frenet_point(self.ego_s)
         head_err = self._normalize_angle(self.ego_psi - road_theta)
 
         # Desired steering angle from curvature feedforward + lane P/D feedback
-        steer_target = kappa_now * self.wheelbase - 0.08 * lat_err - 0.25 * head_err
-        if action in (self.ACTION_STEER_LEFT, self.ACTION_STEER_RIGHT):
-            self.ego_steer += steer_rate * self.DT
-        else:
-            # Smoothly damp steering toward target
-            self.ego_steer += 4.0 * (steer_target - self.ego_steer) * self.DT
+        steer_ff = kappa_now * self.wheelbase
+        steer_target = steer_ff - 0.12 * lat_err - 0.65 * head_err
+        steer_target = float(np.clip(steer_target, -0.22, 0.22))
 
-        self.ego_steer = float(np.clip(self.ego_steer, -0.35, 0.35))
+        # Smooth steering transition
+        self.ego_steer += 8.0 * (steer_target - self.ego_steer) * self.DT
+        self.ego_steer = float(np.clip(self.ego_steer, -0.25, 0.25))
 
         # 2. Kinematic Bicycle Update
         # v_dot = a
@@ -634,30 +620,32 @@ class DrivingEnv(BaseEnv):
             self.collision_count += 1
 
         # 6. Terminal Conditions
-        reached_goal = (self.ego_s >= self.road.total_length - 40.0)
+        reached_goal = (self.ego_s >= self.road.total_length - 35.0)
         is_timeout = (self.step_count >= self.MAX_STEPS)
         done = bool(is_collision or is_offroad or reached_goal or is_timeout)
 
         # 7. Reward Formulation
         # Progress bonus
-        reward_progress = 1.2 * (self.ego_speed / self.target_speed)
+        reward_progress = 1.0 * (self.ego_speed / self.target_speed)
 
-        # Lane centering penalty
-        target_center_d = self.road.get_lane_center_d(self.target_lane_idx)
-        lat_dev = abs(self.ego_d - target_center_d)
-        reward_centering = -1.5 * (lat_dev / 2.0) ** 2
+        # Lane centering penalty based on nearest lane
+        cur_lane = int(round((self.ego_d / self.road.lane_width) + 1.0))
+        cur_lane = max(0, min(2, cur_lane))
+        cur_center_d = self.road.get_lane_center_d(cur_lane)
+        lat_dev = abs(self.ego_d - cur_center_d)
+        reward_centering = -0.8 * min(2.0, (lat_dev / 1.5) ** 2)
 
         # Heading alignment penalty
         heading_err = abs(self._normalize_angle(self.ego_psi - road_theta))
-        reward_heading = -1.0 * (heading_err / (math.pi / 4.0)) ** 2
+        reward_heading = -0.4 * min(2.0, (heading_err / 0.3) ** 2)
 
         # Comfort / jerk penalty
-        reward_comfort = -0.1 * abs(self.ego_steer) - 0.05 * (self.last_jerk / 10.0)
+        reward_comfort = -0.05 * abs(self.ego_steer) - 0.05 * (self.last_jerk / 10.0)
 
         # Time-to-collision safety penalty
         reward_ttc = 0.0
-        if self.last_ttc < 2.5:
-            reward_ttc = -3.5 * (2.5 - self.last_ttc)
+        if self.last_ttc < 2.0:
+            reward_ttc = -3.0 * (2.0 - self.last_ttc)
 
         reward = reward_progress + reward_centering + reward_heading + reward_comfort + reward_ttc - 0.01
 
@@ -666,7 +654,7 @@ class DrivingEnv(BaseEnv):
         elif is_offroad:
             reward -= 30.0
         elif reached_goal:
-            reward += 60.0
+            reward += 50.0
 
         self.cum_reward += reward
 

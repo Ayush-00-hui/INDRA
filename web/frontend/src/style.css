@@ -716,3 +716,175 @@ button {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-cyan);
 }
+
+/* =========================================================================
+   AV AUTONOMOUS DRIVING DASHBOARD & HUD DESIGN SYSTEM
+   ========================================================================= */
+
+.av-dashboard-hud {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 10px 24px;
+  background: rgba(9, 15, 29, 0.88);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(0, 240, 255, 0.2);
+  z-index: 25;
+  pointer-events: auto;
+  font-family: var(--font-mono);
+}
+
+.av-speed-cluster {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  padding-right: 18px;
+}
+
+.av-speed-val {
+  font-size: 2.1rem;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--accent-green);
+  text-shadow: 0 0 16px rgba(0, 255, 157, 0.5);
+  letter-spacing: -0.5px;
+}
+
+.av-speed-unit {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.av-speed-limit {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid #ef4444;
+  background: #ffffff;
+  color: #000000;
+  font-family: var(--font-ui);
+  font-weight: 900;
+  font-size: 0.72rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.av-gauge-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 110px;
+}
+
+.av-gauge-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
+.av-gauge-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.av-gauge-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.1s ease-out, background-color 0.2s;
+}
+
+.av-action-chip {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.av-action-chip.accelerate {
+  background: rgba(0, 255, 157, 0.2);
+  border: 1px solid var(--accent-green);
+  color: var(--accent-green);
+}
+
+.av-action-chip.brake {
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid #ef4444;
+  color: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.5);
+}
+
+.av-action-chip.steer-left, .av-action-chip.steer-right {
+  background: rgba(0, 240, 255, 0.2);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+
+.av-action-chip.cruise {
+  background: rgba(56, 189, 248, 0.2);
+  border: 1px solid #38bdf8;
+  color: #38bdf8;
+}
+
+.av-minimap-box {
+  position: absolute;
+  top: 72px;
+  right: 18px;
+  width: 140px;
+  height: 140px;
+  background: rgba(9, 15, 29, 0.88);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+  z-index: 20;
+  overflow: hidden;
+  padding: 6px;
+}
+
+.av-toast-box {
+  position: absolute;
+  top: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.av-toast-item {
+  padding: 8px 18px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.80rem;
+  font-weight: 800;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid var(--accent-cyan);
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+  animation: slideDownToast 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideDownToast {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
