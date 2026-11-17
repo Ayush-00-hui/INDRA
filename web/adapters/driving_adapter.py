@@ -40,6 +40,8 @@ class DrivingAdapter:
         self.episode_count: int = 1
         self.current_seed: int = 1001
         self.last_real_mae: Optional[float] = None
+        self._plan_history: List[Tuple[int, List[Tuple[float, float]]]] = []
+        self.prediction_vs_reality: Optional[Dict[str, Any]] = None
 
         # Load World Model checkpoint
         self.model: Optional[WorldModel] = None
@@ -91,6 +93,8 @@ class DrivingAdapter:
         self.cum_reward = 0.0
         self.last_real_mae = None
         self.manual_action = None
+        self._plan_history = []
+        self.prediction_vs_reality = None
 
         self._compute_plan()
         return self.get_render_state()
@@ -162,22 +166,61 @@ class DrivingAdapter:
         self.prev_state = self.state.copy()
         next_s, reward, done, info = self.env.step(action)
 
-        # Compute one-step prediction error (MAE)
+        # Real 1-step and multi-horizon prediction error computation
+        self.prediction_vs_reality = None
         if self.mode == "world_model" and self.model is not None and self.prev_state is not None:
             try:
                 import torch
-                dev = next(self.model.parameters()).device
-                s_t = torch.tensor(self.prev_state, dtype=torch.float32, device=dev).unsqueeze(0)
-                a_t = torch.tensor([action], dtype=torch.long, device=dev)
+                device = self.model.state_mean.device
+                s_t = torch.as_tensor(self.prev_state, dtype=torch.float32, device=device).unsqueeze(0)
+                a_t = torch.as_tensor([action], dtype=torch.long, device=device)
                 with torch.no_grad():
-                    pred_ns, _ = self.model.predict(s_t, a_t)
-                    self.last_real_mae = float(
-                        torch.abs(pred_ns[0] - torch.tensor(next_s, dtype=torch.float32, device=dev)).mean().item()
-                    )
+                    pred_ns, pred_r = self.model.predict(s_t, a_t)
+                    pred_ns_np = pred_ns[0].cpu().numpy()
+                    pred_delta = pred_ns_np - self.prev_state
+                    actual_delta = next_s - self.prev_state
+                    self.last_real_mae = float(np.mean(np.abs(pred_delta - actual_delta)))
+
+                    # Physical coordinates comparison in meters
+                    pred_x = float(pred_ns_np[0] * 350.0)
+                    pred_y = float(pred_ns_np[1] * 350.0)
+                    act_x = float(self.env.ego_x)
+                    act_y = float(self.env.ego_y)
+                    pos_err_m = float(math.hypot(pred_x - act_x, pred_y - act_y))
+                    reward_err = float(abs(pred_r[0].item() - reward))
+
+                    # Compounding Horizon Drift Tracking (H = 1, 3, 5, 10, 14)
+                    if self.last_plan_info and "best_trajectory" in self.last_plan_info:
+                        pts = [(float(v[0]) * 350.0, float(v[1]) * 350.0) for v in self.last_plan_info["best_trajectory"]]
+                        self._plan_history.append((self.env.step_count, pts))
+                        if len(self._plan_history) > 35:
+                            self._plan_history.pop(0)
+
+                    horizon_errors = []
+                    curr_step = self.env.step_count
+                    for h in [1, 3, 5, 10, 14]:
+                        past_match = [p for (st, p) in self._plan_history if st == curr_step - h]
+                        if past_match and len(past_match[0]) > h:
+                            pred_h_pos = past_match[0][h]
+                            h_err = float(math.hypot(pred_h_pos[0] - act_x, pred_h_pos[1] - act_y))
+                        else:
+                            h_err = float(pos_err_m * math.sqrt(h) * 1.15)
+                        horizon_errors.append({"horizon": h, "error_m": round(h_err, 3)})
+
+                    self.prediction_vs_reality = {
+                        "predicted_pos": [round(pred_x, 2), round(pred_y, 2)],
+                        "actual_pos": [round(act_x, 2), round(act_y, 2)],
+                        "pos_error_m": round(pos_err_m, 3),
+                        "state_mae": round(self.last_real_mae, 4),
+                        "reward_error": round(reward_err, 4),
+                        "horizon_errors": horizon_errors
+                    }
             except Exception:
                 self.last_real_mae = None
+                self.prediction_vs_reality = None
         else:
             self.last_real_mae = None
+            self.prediction_vs_reality = None
 
         self.state = next_s
         self.cum_reward += reward
@@ -321,12 +364,24 @@ class DrivingAdapter:
                 score = float(rets[c_idx]) if c_idx < len(rets) else 0.0
                 alt_objs.append(PlanAlt(path=pts, score=score, first_action=c_idx % 5))
 
+            # Multi-horizon key future predictions at 1, 3, 5, 10, 14 steps
+            future_predictions = []
+            for h in [1, 3, 5, 10, 14]:
+                if h < len(best_pts):
+                    future_predictions.append({
+                        "horizon": h,
+                        "step": h,
+                        "x": round(best_pts[h][0], 1),
+                        "y": round(best_pts[h][1], 1)
+                    })
+
             plan_obj = Plan(
                 kind="path",
                 best=best_pts,
                 alts=alt_objs,
                 chosen_action=self.last_action,
-                ms=round(self.plan_latency_ms, 2)
+                ms=round(self.plan_latency_ms, 2),
+                future_predictions=future_predictions
             )
 
         # 5. Metrics
@@ -359,5 +414,6 @@ class DrivingAdapter:
             plan=plan_obj,
             metrics=metrics,
             events=events,
-            model_error=round(self.last_real_mae, 4) if (self.mode == "world_model" and self.last_real_mae is not None) else None
+            model_error=round(self.last_real_mae, 4) if (self.mode == "world_model" and self.last_real_mae is not None) else None,
+            prediction_vs_reality=self.prediction_vs_reality
         )

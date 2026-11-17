@@ -143,6 +143,18 @@ export class ThreeSimulationScene {
   private leftRailPosArray = new Float32Array(ThreeSimulationScene.MAX_RIBBON_PTS * 3);
   private rightRailPosArray = new Float32Array(ThreeSimulationScene.MAX_RIBBON_PTS * 3);
 
+  // Actual Executed Trajectory Trail (Golden Amber)
+  private executedTrailLine: THREE.Line | null = null;
+  private static readonly MAX_TRAIL_PTS = 600;
+  private executedTrailPosArray = new Float32Array(ThreeSimulationScene.MAX_TRAIL_PTS * 3);
+  private executedTrailCount: number = 0;
+  private lastTrailX: number = -9999;
+  private lastTrailZ: number = -9999;
+
+  // Future State Predictions Waypoint Beacons (H = 1, 3, 5, 10, 14)
+  private futureWaypointBeacons: THREE.Group[] = [];
+  public static readonly HORIZONS = [1, 3, 5, 10, 14];
+
   // GLTF Loader & Model Cache
   private gltfLoader = new GLTFLoader();
   private modelCache: Map<string, THREE.Group> = new Map();
@@ -326,6 +338,10 @@ export class ThreeSimulationScene {
 
     // Initialize Navigation Ribbon & Laser Rails Pool (Zero-allocation best trajectory)
     this.initNavigationRibbonPool();
+
+    // Initialize Executed Trajectory Trail (Golden Amber) & Future Waypoint Beacons (H = 1, 3, 5, 10, 14)
+    this.initExecutedTrailPool();
+    this.initFutureWaypointBeacons();
 
     // Pre-load external GLB models asynchronously
     this.preloadAuthoredModels();
@@ -1048,6 +1064,104 @@ export class ThreeSimulationScene {
     this.scene.add(this.pathEdgeLineRight);
   }
 
+  private initExecutedTrailPool() {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(this.executedTrailPosArray, 3));
+    geo.setDrawRange(0, 0);
+    const mat = new THREE.LineBasicMaterial({
+      color: 0xf59e0b, // Warm golden amber trail
+      transparent: true,
+      opacity: 0.65,
+    });
+    this.executedTrailLine = new THREE.Line(geo, mat);
+    this.scene.add(this.executedTrailLine);
+  }
+
+  private initFutureWaypointBeacons() {
+    const horizonColors: Record<number, number> = {
+      1: 0x38bdf8,  // Sky cyan (+1)
+      3: 0x00f0ff,  // Electric cyan (+3)
+      5: 0x00ff9d,  // Emerald green (+5)
+      10: 0xfbbf24, // Amber warning (+10)
+      14: 0xc084fc  // Purple boundary (+14)
+    };
+
+    ThreeSimulationScene.HORIZONS.forEach((h) => {
+      const g = new THREE.Group();
+      const col = horizonColors[h] || 0x00f0ff;
+
+      // 1. Ground Pulsing Ring
+      const ringGeo = new THREE.RingGeometry(0.10, 0.16, 24);
+      ringGeo.rotateX(-Math.PI / 2);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: col,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.70,
+        depthWrite: false,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.y = 0.015;
+      g.add(ring);
+
+      // 2. Vertical Light Spire
+      const beamGeo = new THREE.CylinderGeometry(0.010, 0.010, 0.5, 8);
+      const beamMat = new THREE.MeshBasicMaterial({
+        color: col,
+        transparent: true,
+        opacity: 0.40,
+        depthWrite: false,
+      });
+      const beam = new THREE.Mesh(beamGeo, beamMat);
+      beam.position.y = 0.25;
+      g.add(beam);
+
+      // 3. Floating Diamond Beacon
+      const octGeo = new THREE.OctahedronGeometry(0.06, 0);
+      const octMat = new THREE.MeshStandardMaterial({
+        color: col,
+        emissive: col,
+        emissiveIntensity: 0.8,
+        metalness: 0.2,
+        roughness: 0.2,
+      });
+      const oct = new THREE.Mesh(octGeo, octMat);
+      oct.position.y = 0.54;
+      g.add(oct);
+
+      // 4. Floating Horizon Label Sprite
+      const canvas = document.createElement("canvas");
+      canvas.width = 128;
+      canvas.height = 40;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "rgba(9, 15, 29, 0.85)";
+        ctx.strokeStyle = `#${col.toString(16).padStart(6, "0")}`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(4, 4, 120, 32, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = `#${col.toString(16).padStart(6, "0")}`;
+        ctx.font = "bold 18px monospace";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`+${h} STEPS`, 64, 20);
+      }
+      const tex = new THREE.CanvasTexture(canvas);
+      const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(spriteMat);
+      sprite.position.y = 0.74;
+      sprite.scale.set(0.65, 0.20, 1.0);
+      g.add(sprite);
+
+      g.visible = false;
+      this.scene.add(g);
+      this.futureWaypointBeacons.push(g);
+    });
+  }
+
   // =========================================================================
   // DECOUPLED 60+ FPS NATIVE RENDER LOOP & CONTINUOUS KINEMATICS
   // =========================================================================
@@ -1336,6 +1450,33 @@ export class ThreeSimulationScene {
         if (frame.step === 0 || !this.dockingStationGroup.userData.positioned) {
           this.dockingStationGroup.position.set(pos.x, 0, pos.z);
           this.dockingStationGroup.userData.positioned = true;
+        }
+
+        // Update Actual Executed Trajectory Trail (Golden Amber)
+        if (frame.step === 0) {
+          this.executedTrailCount = 0;
+          if (this.executedTrailLine) {
+            this.executedTrailLine.geometry.setDrawRange(0, 0);
+          }
+          this.lastTrailX = -9999;
+          this.lastTrailZ = -9999;
+        }
+
+        const distMoved = Math.hypot(pos.x - this.lastTrailX, pos.z - this.lastTrailZ);
+        if (distMoved >= 0.08 && this.executedTrailCount < ThreeSimulationScene.MAX_TRAIL_PTS) {
+          const idx = this.executedTrailCount * 3;
+          this.executedTrailPosArray[idx] = pos.x;
+          this.executedTrailPosArray[idx + 1] = 0.02; // Just above ground
+          this.executedTrailPosArray[idx + 2] = pos.z;
+          this.executedTrailCount++;
+          this.lastTrailX = pos.x;
+          this.lastTrailZ = pos.z;
+
+          if (this.executedTrailLine) {
+            const attr = this.executedTrailLine.geometry.attributes.position as THREE.BufferAttribute;
+            attr.needsUpdate = true;
+            this.executedTrailLine.geometry.setDrawRange(0, this.executedTrailCount);
+          }
         }
 
         this.hasCollision = Boolean(e.extra?.collision);
@@ -1645,6 +1786,25 @@ export class ThreeSimulationScene {
     } else {
       this.candidateLinePool.forEach((l) => (l.visible = false));
     }
+
+    // 3. Render Future State Prediction Waypoint Beacons (H = 1, 3, 5, 10, 14) (Req 2A)
+    const futurePreds = plan?.future_predictions;
+    if (futurePreds && futurePreds.length > 0) {
+      for (let k = 0; k < this.futureWaypointBeacons.length; k++) {
+        const beacon = this.futureWaypointBeacons[k];
+        const h = ThreeSimulationScene.HORIZONS[k];
+        const match = futurePreds.find((fp: any) => fp.horizon === h || fp.step === h);
+        if (match) {
+          const p3d = this.to3D(match.x, match.y);
+          beacon.position.set(p3d.x, 0, p3d.z);
+          beacon.visible = true;
+        } else {
+          beacon.visible = false;
+        }
+      }
+    } else {
+      this.futureWaypointBeacons.forEach((b) => (b.visible = false));
+    }
   }
 
   // =========================================================================
@@ -1844,6 +2004,16 @@ export class ThreeSimulationScene {
       this.pathEdgeLineRight.geometry.dispose();
       (this.pathEdgeLineRight.material as THREE.Material).dispose();
     }
+    if (this.executedTrailLine) {
+      this.scene.remove(this.executedTrailLine);
+      this.executedTrailLine.geometry.dispose();
+      (this.executedTrailLine.material as THREE.Material).dispose();
+      this.executedTrailLine = null;
+    }
+    for (const beacon of this.futureWaypointBeacons) {
+      this.scene.remove(beacon);
+    }
+    this.futureWaypointBeacons = [];
     if (this.renderer) {
       this.renderer.dispose();
       if (this.renderer.domElement && this.renderer.domElement.parentElement) {

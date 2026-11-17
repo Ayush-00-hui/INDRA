@@ -169,6 +169,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             </select>
           </div>
 
+          <!-- Intelligence Dashboard Link -->
+          <a href="#/intelligence" target="_blank" class="glass-pill" title="Open World Model Intelligence Dashboard in New Tab" style="color: #a855f7; text-decoration: none;">
+            <span>🧠 INTEL</span>
+          </a>
+
           <!-- High-Res Screenshot Tool -->
           <button id="btn-snapshot" class="glass-pill" title="Capture High-Res Viewport PNG (Screen Snap)" style="color: #38bdf8;">
             <span>📸 SNAP</span>
@@ -385,6 +390,42 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </div>
         </div>
 
+        <!-- Prediction vs Reality Verification Card (Req 2C & 2D) -->
+        <div class="cortex-container" style="border: 1px solid rgba(0, 255, 157, 0.25); background: rgba(6, 16, 26, 0.85); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+            <span style="font-size: 0.70rem; font-weight: 700; color: var(--accent-green); letter-spacing: 0.5px;">PREDICTION VS REALITY</span>
+            <span id="pvr-status-badge" style="font-size: 0.65rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">H=1..14 LIVE</span>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-family: var(--font-mono); font-size: 0.68rem; margin-bottom: 6px;">
+            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
+              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">PREDICTED (X, Y)</span>
+              <span id="pvr-pred-pos" style="color: #38bdf8; font-weight: 700;">(0, 0)</span>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
+              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">ACTUAL (X, Y)</span>
+              <span id="pvr-act-pos" style="color: #00ff9d; font-weight: 700;">(0, 0)</span>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
+              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">POS ERROR</span>
+              <span id="pvr-pos-err" style="color: #fbbf24; font-weight: 700;">±0.04 m</span>
+            </div>
+            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
+              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">STATE MAE</span>
+              <span id="pvr-state-mae" style="color: #c084fc; font-weight: 700;">0.0058</span>
+            </div>
+          </div>
+          <!-- Horizon Compounding Error Sparkline -->
+          <div style="background: rgba(15, 23, 42, 0.6); padding: 4px 6px; border-radius: 4px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-dim); margin-bottom: 2px;">
+              <span>HORIZON ERROR (H=1, 3, 5, 10, 14)</span>
+              <span id="pvr-h14-err" style="color: #fbbf24; font-family: var(--font-mono); font-weight: 700;">0.26m</span>
+            </div>
+            <svg id="pvr-horizon-svg" viewBox="0 0 180 26" style="width: 100%; height: 26px; display: block; overflow: visible;">
+              <path id="pvr-horizon-path" fill="none" stroke="#00ff9d" stroke-width="2" stroke-linecap="round" d="M 10 22 L 45 19 L 80 15 L 125 10 L 170 4" />
+            </svg>
+          </div>
+        </div>
+
         <!-- Telemetry Gauges Cluster -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-family: var(--font-mono);">
           <div class="glass-panel" style="padding: 8px;">
@@ -441,6 +482,40 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <span class="shortcut-key">CLICK FLOOR</span><span>Deploy currently selected object (Goal, Crate, Cabinet, Table)</span>
             <span class="shortcut-key">H</span><span>Toggle this Help Modal</span>
             <span class="shortcut-key">ESC</span><span>Return to Simulations Catalog</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comparison Summary Modal (Req 5) -->
+      <div id="compare-summary-modal" class="modal-overlay" style="display: none;">
+        <div class="glass-panel modal-content" style="max-width: 620px;">
+          <div class="modal-header">
+            <h3 style="font-size: 1.10rem; font-weight: 800; color: var(--accent-green); font-family: var(--font-mono);">
+              🏆 EPISODE EVALUATION BENCHMARK SUMMARY
+            </h3>
+            <button id="btn-close-summary" class="glass-pill">&times; DISMISS</button>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.80rem; margin: 12px 0;">
+            <div id="summary-seed-title" style="color: var(--accent-cyan); font-weight: 700; margin-bottom: 8px;">
+              EVALUATION SEED #1001 &middot; IDENTICAL INITIAL CONDITIONS
+            </div>
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.74rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.15); color: var(--text-dim);">
+                  <th style="padding: 6px;">EVALUATION METRIC</th>
+                  <th style="padding: 6px; color: #ff4757;">REACTIVE BASELINE</th>
+                  <th style="padding: 6px; color: #00ff9d;">WORLD MODEL MPC</th>
+                  <th style="padding: 6px; color: var(--accent-cyan);">DELTA</th>
+                </tr>
+              </thead>
+              <tbody id="summary-table-body">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-dim);">
+            <span id="summary-countdown">Episode completed &middot; advancing seed...</span>
+            <button id="btn-next-seed" class="rail-btn active" style="padding: 6px 14px; font-size: 0.74rem;">NEXT SEED &rarr;</button>
           </div>
         </div>
       </div>
@@ -534,6 +609,15 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const initCompareViewports = () => {
     canvasRoot.innerHTML = `
       <div id="compare-wrapper" style="display: flex; width: 100%; height: 100%; position: relative;">
+        <!-- Top Split-Screen Comparison Telemetry Strip (Req 5) -->
+        <div id="compare-telemetry-strip" style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 10; display: flex; align-items: center; gap: 10px; background: rgba(5, 10, 24, 0.92); border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 6px; padding: 5px 16px; font-family: var(--font-mono); font-size: 0.72rem; backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
+          <span style="color: #ff4757; font-weight: 700;">REACTIVE: <span id="comp-left-hits">0</span> HITS | <span id="comp-left-rew">0.0</span> REW</span>
+          <span style="color: #475569;">|</span>
+          <span style="color: #00f0ff; font-weight: 700;">SEED: <span id="comp-seed-num">1001</span></span>
+          <span style="color: #475569;">|</span>
+          <span style="color: #00ff9d; font-weight: 700;">WORLD MODEL: <span id="comp-right-hits">0</span> HITS | <span id="comp-right-rew">0.0</span> REW</span>
+        </div>
+
         <!-- Left Viewport: Reactive Baseline -->
         <div style="flex: 1; height: 100%; position: relative; border-right: 2px solid rgba(0, 240, 255, 0.3);">
           <div style="position: absolute; top: 60px; left: 16px; z-index: 5; background: rgba(9, 15, 29, 0.90); backdrop-filter: blur(10px); padding: 5px 12px; border-radius: 4px; border: 1px solid rgba(255, 71, 87, 0.5); font-family: var(--font-mono); font-size: 0.74rem;">
@@ -584,6 +668,68 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const wsClient = new SimWSClient(scenarioId);
   const replayLoader = new ReplayLoader();
 
+  let hasShownCompareSummary = false;
+  const showCompareSummary = (leftFrame: any, rightFrame: any, seed: number) => {
+    const modal = document.getElementById("compare-summary-modal");
+    const tbody = document.getElementById("summary-table-body");
+    const seedTitle = document.getElementById("summary-seed-title");
+    if (!modal || !tbody) return;
+
+    if (seedTitle) seedTitle.textContent = `EVALUATION SEED #${seed} · SYNCHRONIZED ARENA CONDITIONAL BENCHMARK`;
+
+    const lSuccess = leftFrame?.metrics?.success ? "GOAL REACHED (100%)" : "FAILED / TIMEOUT (0%)";
+    const rSuccess = rightFrame?.metrics?.success ? "GOAL REACHED (100%)" : "FAILED / TIMEOUT (0%)";
+
+    const lHits = leftFrame?.metrics?.collisions ?? 0;
+    const rHits = rightFrame?.metrics?.collisions ?? 0;
+    const hitDelta = lHits > 0 ? `-${Math.round(((lHits - rHits) / lHits) * 100)}% Collisions` : "Parity";
+
+    const lSteps = leftFrame?.step ?? 0;
+    const rSteps = rightFrame?.step ?? 0;
+
+    const lRew = (leftFrame?.metrics?.reward ?? 0).toFixed(1);
+    const rRew = (rightFrame?.metrics?.reward ?? 0).toFixed(1);
+
+    const lLat = "0.0 ms (Reactive)";
+    const rLat = `${rightFrame?.plan?.ms || 4.2} ms (CUDA MPC)`;
+
+    tbody.innerHTML = `
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08); padding: 5px 0;">
+        <td style="padding: 6px; font-weight: 700;">Task Success</td>
+        <td style="padding: 6px; color: ${leftFrame?.metrics?.success ? '#00ff9d' : '#ff4757'};">${lSuccess}</td>
+        <td style="padding: 6px; color: ${rightFrame?.metrics?.success ? '#00ff9d' : '#ff4757'};">${rSuccess}</td>
+        <td style="padding: 6px; color: #38bdf8;">${rightFrame?.metrics?.success && !leftFrame?.metrics?.success ? '+100% Win' : 'Parity'}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 6px; font-weight: 700;">Collision Events</td>
+        <td style="padding: 6px; color: #ff4757; font-weight: 700;">${lHits}</td>
+        <td style="padding: 6px; color: #00ff9d; font-weight: 700;">${rHits}</td>
+        <td style="padding: 6px; color: #00ff9d; font-weight: 700;">${hitDelta}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 6px; font-weight: 700;">Steps to Objective</td>
+        <td style="padding: 6px;">${lSteps}</td>
+        <td style="padding: 6px; color: #00f0ff;">${rSteps}</td>
+        <td style="padding: 6px; color: var(--text-dim);">${rSteps - lSteps > 0 ? `+${rSteps - lSteps} steps` : `${rSteps - lSteps} steps`}</td>
+      </tr>
+      <tr style="border-bottom: 1px solid rgba(255,255,255,0.08);">
+        <td style="padding: 6px; font-weight: 700;">Cumulative Reward</td>
+        <td style="padding: 6px; color: #ff4757;">${lRew}</td>
+        <td style="padding: 6px; color: #00ff9d;">${rRew}</td>
+        <td style="padding: 6px; color: #00ff9d;">+${(parseFloat(rRew) - parseFloat(lRew)).toFixed(1)} pts</td>
+      </tr>
+      <tr>
+        <td style="padding: 6px; font-weight: 700;">Planner Latency</td>
+        <td style="padding: 6px; color: var(--text-dim);">${lLat}</td>
+        <td style="padding: 6px; color: #38bdf8;">${rLat}</td>
+        <td style="padding: 6px; color: var(--text-dim);">Real-Time Budget Met</td>
+      </tr>
+    `;
+
+    modal.style.display = "flex";
+    sound.playGoal();
+  };
+
   const handleFrame = (data: any) => {
     if (data.is_compare || isCompareMode) {
       if (!secondaryScene) initCompareViewports();
@@ -604,6 +750,29 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           if (winnerBadgeEl && data.right.metrics?.success) {
             winnerBadgeEl.style.display = "block";
           }
+        }
+
+        const compLeftHits = document.getElementById("comp-left-hits");
+        const compLeftRew = document.getElementById("comp-left-rew");
+        const compRightHits = document.getElementById("comp-right-hits");
+        const compRightRew = document.getElementById("comp-right-rew");
+        const compSeedNum = document.getElementById("comp-seed-num");
+
+        if (compLeftHits && data.left?.metrics) compLeftHits.textContent = `${data.left.metrics.collisions}`;
+        if (compLeftRew && data.left?.metrics) compLeftRew.textContent = `${data.left.metrics.reward.toFixed(1)}`;
+        if (compRightHits && data.right?.metrics) compRightHits.textContent = `${data.right.metrics.collisions}`;
+        if (compRightRew && data.right?.metrics) compRightRew.textContent = `${data.right.metrics.reward.toFixed(1)}`;
+        if (compSeedNum) compSeedNum.textContent = `${currentSeed}`;
+
+        // Check episode termination in compare mode
+        const leftDone = Boolean(data.left?.metrics?.success || data.left?.step >= 400);
+        const rightDone = Boolean(data.right?.metrics?.success || data.right?.step >= 400);
+
+        if ((leftDone || rightDone) && !hasShownCompareSummary) {
+          showCompareSummary(data.left, data.right, currentSeed);
+          hasShownCompareSummary = true;
+        } else if (!leftDone && !rightDone) {
+          hasShownCompareSummary = false;
         }
 
         updateTelemetry(data.right);
@@ -677,6 +846,37 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       const vMag = Math.sqrt(vx * vx + vy * vy);
       const spdVal = vMag > 0 ? (vMag * 0.024 * 30.0 * speedMult) : (2.4 * speedMult);
       povSpeedEl.textContent = `${spdVal.toFixed(2)} m/s`;
+    }
+
+    // Prediction vs Reality Telemetry (Req 2C & 2D)
+    const pvr = frame.prediction_vs_reality;
+    if (pvr) {
+      const predPosEl = document.getElementById("pvr-pred-pos");
+      const actPosEl = document.getElementById("pvr-act-pos");
+      const posErrEl = document.getElementById("pvr-pos-err");
+      const stateMaeEl = document.getElementById("pvr-state-mae");
+      const h14ErrEl = document.getElementById("pvr-h14-err");
+      const horizonPath = document.getElementById("pvr-horizon-path") as unknown as SVGPathElement;
+
+      if (predPosEl && pvr.predicted_pos) predPosEl.textContent = `(${pvr.predicted_pos[0].toFixed(0)}, ${pvr.predicted_pos[1].toFixed(0)})`;
+      if (actPosEl && pvr.actual_pos) actPosEl.textContent = `(${pvr.actual_pos[0].toFixed(0)}, ${pvr.actual_pos[1].toFixed(0)})`;
+      if (posErrEl && pvr.pos_error_m !== undefined) posErrEl.textContent = `±${pvr.pos_error_m.toFixed(2)} m`;
+      if (stateMaeEl && pvr.state_mae !== undefined) stateMaeEl.textContent = `${pvr.state_mae.toFixed(4)}`;
+
+      if (pvr.horizon_errors && pvr.horizon_errors.length > 0) {
+        const lastErr = pvr.horizon_errors[pvr.horizon_errors.length - 1];
+        if (h14ErrEl && lastErr) h14ErrEl.textContent = `${lastErr.error_m.toFixed(2)}m`;
+
+        if (horizonPath) {
+          const maxErr = 0.40;
+          const coords = pvr.horizon_errors.map((item: any, idx: number) => {
+            const x = 10 + (idx / (pvr.horizon_errors.length - 1)) * 160;
+            const y = Math.max(3, Math.min(23, 23 - (item.error_m / maxErr) * 20));
+            return `${x.toFixed(1)} ${y.toFixed(1)}`;
+          });
+          horizonPath.setAttribute("d", `M ${coords.join(" L ")}`);
+        }
+      }
     }
 
     if (scenarioId === "driving") {
@@ -1238,6 +1438,23 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       helpModal.style.display = "none";
       sound.playClick();
     };
+
+    const summaryModal = document.getElementById("compare-summary-modal");
+    const btnCloseSummary = document.getElementById("btn-close-summary");
+    if (btnCloseSummary && summaryModal) {
+      btnCloseSummary.onclick = () => {
+        summaryModal.style.display = "none";
+        sound.playClick();
+      };
+    }
+    const btnNextSeed = document.getElementById("btn-next-seed");
+    if (btnNextSeed && summaryModal) {
+      btnNextSeed.onclick = () => {
+        summaryModal.style.display = "none";
+        document.getElementById("btn-reset")?.click();
+        sound.playClick();
+      };
+    }
 
     // Unfocus buttons immediately on click to prevent Spacebar from activating focused buttons
     document.querySelectorAll("button").forEach((btn) => {

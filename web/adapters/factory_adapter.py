@@ -21,8 +21,13 @@ class FactoryAdapter:
         self.cum_reward = 0.0
         self.episode_count = 1
         self.current_seed = 1001
+        self.prev_state = None
+        self.last_real_mae: Optional[float] = None
 
         self.model = None
+        if model_path is None and os.path.exists("models/factory_model.pt"):
+            model_path = "models/factory_model.pt"
+
         if model_path and os.path.exists(model_path):
             try:
                 from model.world_model import load_model
@@ -44,8 +49,10 @@ class FactoryAdapter:
             self.current_seed = seed
         self.step_count = 0
         self.cum_reward = 0.0
+        self.last_real_mae = None
+        self.prev_state = None
         if self.env is not None:
-            self.env.reset(seed=self.current_seed)
+            self.prev_state = self.env.reset(seed=self.current_seed)
         return self.get_render_state()
 
     def step(self) -> Tuple[RenderState, bool]:
@@ -55,9 +62,30 @@ class FactoryAdapter:
             else:
                 action = self.env.get_baseline_action()
 
+            prev = self.prev_state.copy() if self.prev_state is not None else None
             s, r, done, info = self.env.step(action)
             self.step_count = self.env.step_count
             self.cum_reward += r
+
+            # Real prediction error MAE
+            if self.mode == "world_model" and self.model is not None and prev is not None:
+                try:
+                    import torch
+                    import numpy as np
+                    device = self.model.state_mean.device
+                    s_t = torch.as_tensor(prev, dtype=torch.float32, device=device).unsqueeze(0)
+                    a_t = torch.as_tensor([action], dtype=torch.long, device=device)
+                    with torch.no_grad():
+                        pred_ns, _ = self.model.predict(s_t, a_t)
+                        pred_delta = pred_ns[0].cpu().numpy() - prev
+                        act_delta = s - prev
+                        self.last_real_mae = float(np.mean(np.abs(pred_delta - act_delta)))
+                except Exception:
+                    self.last_real_mae = None
+            else:
+                self.last_real_mae = None
+
+            self.prev_state = s.copy()
             events = info.get("events", [])
             return self.get_render_state(events=events, done=done, info=info), done
         else:
@@ -164,5 +192,5 @@ class FactoryAdapter:
             plan=plan_obj,
             metrics=metrics,
             events=events,
-            model_error=0.015
+            model_error=round(self.last_real_mae, 4) if (self.mode == "world_model" and self.last_real_mae is not None) else None
         )

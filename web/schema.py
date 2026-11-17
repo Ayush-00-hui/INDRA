@@ -44,6 +44,7 @@ class Plan(BaseModel):
     alts: List[PlanAlt] = Field(default_factory=list)
     chosen_action: int = 0
     ms: float = 0.0
+    future_predictions: Optional[List[Dict[str, Any]]] = None  # Key future horizons: 1, 3, 5, 10, 14 steps
 
 
 class WorldLayout(BaseModel):
@@ -75,6 +76,7 @@ class RenderState(BaseModel):
     metrics: Metrics
     events: List[str] = Field(default_factory=list)  # "bonk", "goal", "breakdown", "maintain"
     model_error: Optional[float] = None
+    prediction_vs_reality: Optional[Dict[str, Any]] = None  # Live prediction vs empirical reality telemetry
 
 
 class CompareRenderState(BaseModel):

@@ -122,7 +122,7 @@ sequenceDiagram
 
 | Domain | Description | Action Space | State Dimension | Performance |
 | :--- | :--- | :---: | :---: | :---: |
-| **🤖 Autonomous Robotics** | TurtleBot3 navigating cluttered indoor rooms with static furniture & walking humans | 5 (Up, Down, Left, Right, Stay) | 16-D (Pose, Goal Vector, 3x Obstacles) | **96.0%** Success Rate |
+| **🤖 Autonomous Robotics** | TurtleBot3 navigating cluttered indoor rooms with static furniture & walking humans | 5 (Up, Down, Left, Right, Stay) | 16-D (Pose, Goal Vector, 3x Obstacles) | **94.0% – 97.0%** Success Rate |
 | **🚗 Autonomous Driving** | Curved clothoid highway with multi-agent IDM traffic, emergency lead braking & overtaking | 5 (Accelerate, Brake, Steer L, Steer R, Cruise) | 16-D (Pose, Kinematics, Curvatures, Traffic Gaps, TTC) | **98% Collision Reduction** (0.02 / 100 steps) |
 | **🏭 Factory Digital Twin** | Predictive plant monitoring, machine health, and preventative breakdown mitigation | 3 (Normal, Maintenance, Throttle) | Multi-sensor telemetry | Anticipatory Intervention |
 
@@ -137,25 +137,25 @@ sequenceDiagram
 
 ## 📊 Empirical Performance Benchmarks
 
-All models were evaluated across **50 unseen seeded environments** per scenario using identical evaluation seeds (1000–1049):
+All models were rigorously evaluated across **100 held-out unseen seeded environments** per scenario using identical evaluation seeds (5000–5099) with ground truth recorded in `results/final_results.csv`:
 
 ### Scenario 1: Static Obstacle Navigation (Blocking Chair)
 | Navigation Policy | Success Rate (%) | Mean Collisions / Ep | Collisions / 100 Steps | Mean Steps to Goal | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Random Policy** | 0.0% | 3.42 | 1.71 | N/A | Baseline |
-| **Reactive Greedy** | 20.0% | 146.40 | 86.02 | 51.0 | Fails (Pinned) |
-| **Greedy with Unstick** | 50.0% | 70.82 | 54.98 | 57.6 | Sub-optimal |
-| **World Model MPC (Ours)** | **90.0%** | **1.42** | **2.00** | **56.7** | **Production Ready** |
-| **Oracle-MPC (Upper Bound)** | 96.0% | 0.00 | 0.00 | 58.5 | Theoretical Limit |
+| **Random Policy** | 0.0% | 4.14 | 2.07 | N/A | Baseline |
+| **Reactive Greedy** | 34.0% | 120.24 | 80.32 | 52.1 | Fails (Pinned in U-trap) |
+| **Greedy with Unstick** | 58.0% | 59.79 | 51.43 | 55.6 | Sub-optimal |
+| **World Model MPC (Ours)** | **94.0%** | **8.48** | **13.53** | **53.9** | **Production Ready (+60.0%)** |
+| **Oracle-MPC (Upper Bound)** | 96.0% | 0.00 | 0.00 | 56.4 | Theoretical Limit |
 
 ### Scenario 2: Dynamic Obstacle Avoidance (Moving Pedestrian)
 | Navigation Policy | Success Rate (%) | Mean Collisions / Ep | Collisions / 100 Steps | Mean Steps to Goal | Status |
 | :--- | :---: | :---: | :---: | :---: | :---: |
-| **Random Policy** | 0.0% | 3.50 | 1.75 | N/A | Baseline |
-| **Reactive Greedy** | 20.0% | 147.84 | 86.13 | 58.2 | Fails (Pinned) |
-| **Greedy with Unstick** | 50.0% | 72.68 | 55.89 | 60.1 | Sub-optimal |
-| **World Model MPC (Ours)** | **96.0%** | **0.04** | **0.05** | **68.6** | **Production Ready** |
-| **Oracle-MPC (Upper Bound)** | 98.0% | 0.96 | 1.54 | 59.7 | Theoretical Limit |
+| **Random Policy** | 0.0% | 4.06 | 2.03 | N/A | Baseline |
+| **Reactive Greedy** | 34.0% | 121.00 | 80.42 | 54.3 | Fails (Pinned) |
+| **Greedy with Unstick** | 57.0% | 62.49 | 52.50 | 57.9 | Sub-optimal |
+| **World Model MPC (Ours)** | **97.0%** | **5.55** | **9.12** | **56.6** | **Production Ready (+63.0%)** |
+| **Oracle-MPC (Upper Bound)** | 99.0% | 0.20 | 0.32 | 61.3 | Theoretical Limit |
 
 ### Autonomous Driving Scenario 2: Emergency Lead Vehicle Sudden Braking
 | Driving Policy | Success Rate (%) | Collisions / 100 Steps | Mean TTC (s) | Mean Reward | Status |
@@ -224,7 +224,12 @@ run_web.bat
 # Or directly with Python:
 python -m web.server --host 127.0.0.1 --port 8000
 ```
-Open **`http://127.0.0.1:8000`** in your browser.  
+Open **`http://127.0.0.1:8000`** in your browser:
+- **`#/`**: 3D Simulation Showcase (Robotics, Autonomous Driving, Factory Digital Twin with future waypoints at $H \in [1, 3, 5, 10, 14]$, golden executed trail, and real-time prediction-vs-reality HUD telemetry).
+- **`#/intelligence`**: Dedicated World Model Intelligence Dashboard (Live neural dynamics, compounding multi-horizon drift curves $H=1 \to 14$, checkpoint diagnostics, and empirical ablations).
+- **`#/results`**: Official Accreditation Held-Out Test Benchmark (Seeds 5000–5099, 100 episodes).
+- **`#/about`**: Mathematical formulations, Bellman value recursion, and architecture guide.
+
 *(Use `--lan` or `--host 0.0.0.0` to display a QR code for multi-device tablet presentations).*
 
 ---

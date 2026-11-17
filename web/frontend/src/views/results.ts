@@ -15,6 +15,7 @@ export function renderResults(container: HTMLElement) {
       </div>
       <nav class="nav-links">
         <a href="#/">Simulations</a>
+        <a href="#/intelligence">Intelligence Dashboard</a>
         <a href="#/results" class="active">Accreditation Results</a>
         <a href="#/about">Architecture & Tech</a>
       </nav>

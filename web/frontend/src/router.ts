@@ -7,6 +7,7 @@ import { renderHome } from "./views/home";
 import { renderSim } from "./views/sim";
 import { renderResults } from "./views/results";
 import { renderAbout } from "./views/about";
+import { renderIntelligence } from "./views/intelligence";
 
 export class Router {
   private container: HTMLElement;
@@ -37,6 +38,8 @@ export class Router {
     if (hash.startsWith("/sim/")) {
       const scenarioId = hash.replace("/sim/", "").split("?")[0];
       renderSim(this.container, scenarioId);
+    } else if (hash === "/intelligence") {
+      renderIntelligence(this.container);
     } else if (hash === "/results") {
       renderResults(this.container);
     } else if (hash === "/about") {

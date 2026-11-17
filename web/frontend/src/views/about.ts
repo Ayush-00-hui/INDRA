@@ -13,6 +13,7 @@ export function renderAbout(container: HTMLElement) {
       </div>
       <nav class="nav-links">
         <a href="#/">Simulations</a>
+        <a href="#/intelligence">Intelligence Dashboard</a>
         <a href="#/results">Accreditation Results</a>
         <a href="#/about" class="active">Architecture & Tech</a>
       </nav>
