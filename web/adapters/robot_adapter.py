@@ -65,11 +65,12 @@ class RobotAdapter:
                     model=self.model,
                     state=self.state,
                     action_size=self.env.get_action_size(),
-                    horizon=14,
+                    horizon=18,
                     n_samples=300,
                     gamma=0.95,
                     return_trajectories=True,
-                    last_action=self.last_action
+                    last_action=self.last_action,
+                    step_size=getattr(self.env, "STEP_SIZE", 8.0)
                 )
                 self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
                 self.last_action = best_act
@@ -147,11 +148,12 @@ class RobotAdapter:
                     model=self.model,
                     state=self.state,
                     action_size=self.env.get_action_size(),
-                    horizon=14,
+                    horizon=18,
                     n_samples=300,
                     gamma=0.95,
                     return_trajectories=True,
-                    last_action=self.last_action
+                    last_action=self.last_action,
+                    step_size=getattr(self.env, "STEP_SIZE", 8.0)
                 )
                 self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
                 if self.last_plan_info and "best_trajectory" in self.last_plan_info:
@@ -309,6 +311,7 @@ class RobotAdapter:
             collisions=self.env.collision_count,
             step_count=self.env.step_count,
             extra={
+                "max_steps": self.env.MAX_STEPS,
                 "success_count": self.env.success_count,
                 "remaining_steps": self.env.MAX_STEPS - self.env.step_count,
                 "dist_to_goal": round(float(np.hypot(self.env.robot_x - self.env.goal_x, self.env.robot_y - self.env.goal_y)), 1)

@@ -370,7 +370,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </div>
           <div class="glass-panel" style="padding: 8px;">
             <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">STEPS / MAX</div>
-            <div id="metric-steps" style="font-size: 1.10rem; font-weight: 800; color: #ffffff;">0 / 200</div>
+            <div id="metric-steps" style="font-size: 1.10rem; font-weight: 800; color: #ffffff;">0 / 400</div>
           </div>
           <div class="glass-panel" style="padding: 8px;">
             <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">GOAL DISTANCE</div>
@@ -565,14 +565,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         if (secondaryScene && data.left) {
           secondaryScene.update(data.left);
           if (leftTelemetryEl && data.left.metrics) {
-            leftTelemetryEl.textContent = `Hits: ${data.left.metrics.collisions} | Steps: ${data.left.step}/200`;
+            leftTelemetryEl.textContent = `Hits: ${data.left.metrics.collisions} | Steps: ${data.left.step}/400`;
           }
         }
 
         if (primaryScene && data.right) {
           primaryScene.update(data.right);
           if (rightTelemetryEl && data.right.metrics) {
-            rightTelemetryEl.textContent = `Hits: ${data.right.metrics.collisions} | Steps: ${data.right.step}/200`;
+            rightTelemetryEl.textContent = `Hits: ${data.right.metrics.collisions} | Steps: ${data.right.step}/400`;
           }
           if (winnerBadgeEl && data.right.metrics?.success) {
             winnerBadgeEl.style.display = "block";
@@ -639,7 +639,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       const winRatePct = ((succCount / epCount) * 100).toFixed(1);
       metricWinrate.textContent = `${winRatePct}% (n=${epCount})`;
       metricCollisions.textContent = `${frame.metrics.collisions}`;
-      metricSteps.textContent = `${currentStep} / 200`;
+      const maxSteps = frame.metrics?.extra?.max_steps ?? frame.metrics?.max_steps ?? 400;
+      metricSteps.textContent = `${currentStep} / ${maxSteps}`;
     }
 
     if (scenarioId === "driving") {

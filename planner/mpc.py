@@ -126,7 +126,8 @@ def plan(
     use_primitives: bool = True,
     last_action: Optional[int] = None,
     method: str = "random",
-    uncertainty_penalty: float = 0.0
+    uncertainty_penalty: float = 0.0,
+    step_size: float = 8.0
 ) -> Union[int, Tuple[int, Dict[str, Any]]]:
     """
     Random-Shooting / CEM / MPPI Model Predictive Control (MPC) planner.
@@ -223,7 +224,7 @@ def plan(
         # Goal progress & precision docking
         if has_goal_coords:
             # Reward progress based on the closest approach achieved during the rollout
-            progress = (init_dist - min_dist_along_traj) / 15.0
+            progress = (init_dist - min_dist_along_traj) / max(1.0, float(step_size))
             returns += 3.0 * progress
             returns += arrival_bonus
 
