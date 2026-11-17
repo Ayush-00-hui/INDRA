@@ -1,47 +1,103 @@
 """
-Driving Simulation Web Adapter.
-Translates DrivingEnv (Gurudutt's placeholder or real env) into RenderState.
-Reads only public BaseEnv methods and attributes without modifying Gurudutt's code.
+Autonomous Driving Simulation Web Adapter.
+Interfaces DrivingEnv and WorldModel MPC planner with the FastAPI/WebSocket server.
+Serializes rich RenderState with vehicle telemetry, road curves, traffic, and imagined MPC rollout ribbons.
 """
 
+import os
 import time
-import numpy as np
+import math
 from typing import Dict, Any, Optional, Tuple, List
+import numpy as np
 
 from envs.driving_env import DrivingEnv
+from model.world_model import load_model, WorldModel
+from planner.mpc import plan
 from web.schema import Entity, Goal, Plan, PlanAlt, WorldLayout, Metrics, RenderState
 
 
 class DrivingAdapter:
     """
-    Adapter interfacing DrivingEnv with the web server.
+    Adapter interfacing DrivingEnv and WorldModel MPC planner with the web server.
     """
 
-    def __init__(self, scenario_variant: int = 1, mode: str = "baseline", model_path: Optional[str] = None):
-        self.scenario_variant = scenario_variant
+    def __init__(
+        self,
+        scenario_variant: int = 1,
+        mode: str = "world_model",
+        model_path: Optional[str] = None
+    ):
+        self.scenario_variant = int(scenario_variant)
         self.mode = mode  # "world_model" or "baseline"
-        self.env = DrivingEnv()
+        self.env = DrivingEnv(scenario_variant=self.scenario_variant)
         self.state: Optional[np.ndarray] = None
+        self.prev_state: Optional[np.ndarray] = None
+        self.last_action: int = DrivingEnv.ACTION_CRUISE
+        self.manual_action: Optional[int] = None
+        self.last_plan_info: Optional[Dict[str, Any]] = None
+        self.plan_latency_ms: float = 0.0
         self.cum_reward: float = 0.0
         self.episode_count: int = 1
         self.current_seed: int = 1001
-        self.model = None
+        self.last_real_mae: Optional[float] = None
 
-        if model_path and __import__("os").path.exists(model_path):
+        # Load World Model checkpoint
+        self.model: Optional[WorldModel] = None
+        if model_path is None:
+            default_path = "models/driving_model.pt"
+            if os.path.exists(default_path):
+                model_path = default_path
+
+        if model_path and os.path.exists(model_path):
             try:
-                from model.world_model import load_model
-                self.model = load_model(model_path, state_size=self.env.get_state_size(), action_size=self.env.get_action_size())
+                self.model = load_model(
+                    model_path,
+                    state_size=self.env.get_state_size(),
+                    action_size=self.env.get_action_size()
+                )
             except Exception:
                 self.model = None
 
         self.reset(seed=self.current_seed)
 
+    def _compute_plan(self) -> None:
+        """Compute instantaneous MPC rollout plan for live mind view visualization."""
+        if self.mode == "world_model" and self.model is not None and self.state is not None:
+            try:
+                t0 = time.perf_counter()
+                best_act, self.last_plan_info = plan(
+                    model=self.model,
+                    state=self.state,
+                    action_size=self.env.get_action_size(),
+                    horizon=14,
+                    n_samples=300,
+                    gamma=0.95,
+                    return_trajectories=True,
+                    last_action=self.last_action
+                )
+                self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+                self.last_action = best_act
+            except Exception:
+                self.last_plan_info = None
+
     def reset(self, seed: Optional[int] = None) -> RenderState:
         if seed is not None:
             self.current_seed = seed
         self.state = self.env.reset(seed=self.current_seed)
+        self.prev_state = None
+        self.last_action = DrivingEnv.ACTION_CRUISE
+        self.last_plan_info = None
+        self.plan_latency_ms = 0.0
         self.cum_reward = 0.0
+        self.last_real_mae = None
+        self.manual_action = None
+
+        self._compute_plan()
         return self.get_render_state()
+
+    def set_manual_action(self, action: int) -> None:
+        """Allow human keyboard control to override AI planner."""
+        self.manual_action = int(action)
 
     def step(self) -> Tuple[RenderState, bool]:
         """Advance one simulation step."""
@@ -49,143 +105,259 @@ class DrivingAdapter:
             self.reset(self.current_seed)
 
         events: List[str] = []
-        action = 1  # default: maintain center
+        action = DrivingEnv.ACTION_CRUISE
 
-        # Check if model available for MPC
-        if self.mode == "world_model" and self.model is not None:
+        # Check for manual user override
+        if self.manual_action is not None:
+            action = self.manual_action
+            self.manual_action = None
+            self.last_action = action
+            self.last_plan_info = None
+            self.plan_latency_ms = 0.0
+
+        elif self.mode == "world_model" and self.model is not None:
             try:
-                from planner.mpc import plan
-                action = plan(self.model, self.state, action_size=self.env.get_action_size(), horizon=12, n_samples=100)
+                t0 = time.perf_counter()
+                action, self.last_plan_info = plan(
+                    model=self.model,
+                    state=self.state,
+                    action_size=self.env.get_action_size(),
+                    horizon=14,
+                    n_samples=300,
+                    gamma=0.95,
+                    return_trajectories=True,
+                    last_action=self.last_action
+                )
+                self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+                self.last_action = action
             except Exception:
-                action = 1
+                action = DrivingEnv.ACTION_CRUISE
         else:
-            # Simple proportional lane centering baseline
-            offset = getattr(self.env, "offset", 0.0)
-            if offset > 0.08:
-                action = 0  # steer left
-            elif offset < -0.08:
-                action = 2  # steer right
-            else:
-                action = 1  # maintain
+            # Reactive rule-based baseline
+            lead_gap = 100.0
+            for npc in self.env.traffic:
+                if abs(npc.d - self.env.ego_d) < 2.0 and npc.s > self.env.ego_s:
+                    gap = npc.s - self.env.ego_s - (self.env.car_length + npc.length) / 2.0
+                    if gap < lead_gap:
+                        lead_gap = gap
 
+            if self.env.last_ttc < 1.2 or lead_gap < 10.0:
+                action = DrivingEnv.ACTION_BRAKE
+            else:
+                target_d = self.env.road.get_lane_center_d(self.env.target_lane_idx)
+                lat_dev = self.env.ego_d - target_d
+                if lat_dev > 0.40:
+                    action = DrivingEnv.ACTION_STEER_LEFT
+                elif lat_dev < -0.40:
+                    action = DrivingEnv.ACTION_STEER_RIGHT
+                elif self.env.ego_speed < self.env.target_speed:
+                    action = DrivingEnv.ACTION_ACCELERATE
+                else:
+                    action = DrivingEnv.ACTION_CRUISE
+            self.last_action = action
+            self.last_plan_info = None
+            self.plan_latency_ms = 0.0
+
+        # Physical transition
+        self.prev_state = self.state.copy()
         next_s, reward, done, info = self.env.step(action)
+
+        # Compute one-step prediction error (MAE)
+        if self.mode == "world_model" and self.model is not None and self.prev_state is not None:
+            try:
+                import torch
+                dev = next(self.model.parameters()).device
+                s_t = torch.tensor(self.prev_state, dtype=torch.float32, device=dev).unsqueeze(0)
+                a_t = torch.tensor([action], dtype=torch.long, device=dev)
+                with torch.no_grad():
+                    pred_ns, _ = self.model.predict(s_t, a_t)
+                    self.last_real_mae = float(
+                        torch.abs(pred_ns[0] - torch.tensor(next_s, dtype=torch.float32, device=dev)).mean().item()
+                    )
+            except Exception:
+                self.last_real_mae = None
+        else:
+            self.last_real_mae = None
+
         self.state = next_s
         self.cum_reward += reward
 
-        if info.get("offroad", False):
+        # Emit visual & audio events
+        if info.get("collision", False) or info.get("offroad", False):
             events.append("bonk")
+        if info.get("reached_goal", False):
+            events.append("goal")
+        if action == DrivingEnv.ACTION_BRAKE or info.get("jerk", 0.0) > 3.0:
+            events.append("brake")
+        if action in (DrivingEnv.ACTION_STEER_LEFT, DrivingEnv.ACTION_STEER_RIGHT):
+            events.append("lane_change")
+        if info.get("ttc", 10.0) < 1.8 and not info.get("collision", False):
+            events.append("near_miss")
 
-        rs = self.get_render_state(events=events, done=done, info=info, action=action)
+        rs = self.get_render_state(events=events, done=done, info=info)
         return rs, done
 
     def get_render_state(
         self,
         events: Optional[List[str]] = None,
         done: bool = False,
-        info: Optional[Dict[str, Any]] = None,
-        action: int = 1
+        info: Optional[Dict[str, Any]] = None
     ) -> RenderState:
         events = events or []
         info = info or {}
 
-        # If Gurudutt's env already implemented custom get_render_state, check if rich
-        if hasattr(self.env, "get_render_state"):
-            custom = self.env.get_render_state()
-            if custom.get("entities"):
-                return RenderState(**custom)
-
-        # Standard extraction from DrivingEnv properties
-        offset = float(getattr(self.env, "offset", 0.0))
-        heading = float(getattr(self.env, "heading", 0.0))
-        speed = float(getattr(self.env, "speed", 0.6))
-        curvature = float(getattr(self.env, "curvature", 0.0))
-        step_count = int(getattr(self.env, "step_count", 0))
-
-        # Coordinate mapping: Road center at x=450, y from 0 to 600
-        # Car is at y=480, x = 450 + offset * 180
-        car_x = 450.0 + offset * 180.0
-        car_y = 480.0
-
+        # 1. World layout with road coordinates and lane markers
         world = WorldLayout(
-            bounds=[0.0, 0.0, 900.0, 600.0],
-            units="px",
+            bounds=[0.0, 0.0, float(self.env.road.total_length), 200.0],
+            units="m",
             scale=1.0,
             layout={
-                "type": "highway",
-                "road_width": 400.0,
-                "lane_count": 2,
-                "curvature": curvature,
-                "scroll_offset": step_count * 12.0
+                "road_width": self.env.road.road_width,
+                "lane_count": self.env.road.lane_count,
+                "lane_width": self.env.road.lane_width,
+                "shoulder_width": self.env.road.shoulder_width,
+                "speed_limit": float(self.env.speed_limit * 3.6),
+                "centerline": self.env.road.centerline_polyline,
+                "scenery_seed": 42
             }
         )
 
-        entities: List[Entity] = [
-            Entity(
-                id="car_ego",
-                kind="car",
-                x=car_x,
-                y=car_y,
-                heading=heading * 57.2958,  # rad to deg
-                vx=heading * speed * 10.0,
-                vy=-speed * 15.0,
-                w=36.0,
-                h=60.0,
-                extra={
-                    "offset": offset,
-                    "action": action,
-                    "speed": speed
-                }
-            )
-        ]
+        # 2. Entities
+        entities: List[Entity] = []
 
-        # Add simulated lead car ahead
-        lead_y = (car_y - 250.0 + (step_count * 2) % 300)
+        # Ego Vehicle Entity
+        ego_status_color = "#00ff9d" if self.mode == "world_model" else "#38bdf8"
+        if info.get("collision", False) or info.get("offroad", False):
+            ego_status_color = "#ef4444"
+
         entities.append(Entity(
-            id="car_lead",
+            id="ego_car",
             kind="car",
-            x=450.0,
-            y=lead_y,
-            heading=0.0,
-            w=36.0,
-            h=60.0,
-            extra={"is_lead": True}
+            x=float(self.env.ego_x),
+            y=float(self.env.ego_y),
+            heading=float(math.degrees(self.env.ego_psi)),
+            vx=float(self.env.ego_speed * math.cos(self.env.ego_psi)),
+            vy=float(self.env.ego_speed * math.sin(self.env.ego_psi)),
+            w=float(self.env.car_width),
+            h=float(self.env.car_length),
+            r=float(self.env.car_length / 2.0),
+            extra={
+                "is_ego": True,
+                "speed_kmh": float(self.env.ego_speed * 3.6),
+                "steer_deg": float(math.degrees(self.env.ego_steer)),
+                "lane_idx": self.env.target_lane_idx,
+                "lane_offset": float(self.env.last_lane_offset),
+                "brake_lights": self.last_action == DrivingEnv.ACTION_BRAKE,
+                "indicator": "left" if self.last_action == DrivingEnv.ACTION_STEER_LEFT else ("right" if self.last_action == DrivingEnv.ACTION_STEER_RIGHT else "off"),
+                "color": ego_status_color
+            }
         ))
 
-        # Plan representation
-        plan_obj: Optional[Plan] = None
-        if self.mode == "world_model":
-            # Projected trajectory ahead
-            pred_pts = [[car_x + (i * heading * 15.0), car_y - i * 20.0] for i in range(10)]
+        # NPC Traffic Entities
+        for npc in self.env.traffic:
+            entities.append(Entity(
+                id=npc.vehicle_id,
+                kind=npc.kind,
+                x=float(npc.x),
+                y=float(npc.y),
+                heading=float(math.degrees(npc.heading)),
+                vx=float(npc.speed * math.cos(npc.heading)),
+                vy=float(npc.speed * math.sin(npc.heading)),
+                w=float(npc.width),
+                h=float(npc.length),
+                r=float(npc.length / 2.0),
+                extra={
+                    "is_ego": False,
+                    "speed_kmh": float(npc.speed * 3.6),
+                    "brake_lights": bool(npc.brake_lights),
+                    "indicator": str(npc.indicator),
+                    "color": npc.color
+                }
+            ))
+
+        # Pedestrians
+        for ped in self.env.pedestrians:
+            entities.append(Entity(
+                id=ped["id"],
+                kind="person",
+                x=float(ped.get("x", 0.0)),
+                y=float(ped.get("y", 0.0)),
+                heading=90.0,
+                vx=0.0,
+                vy=float(ped["speed"]),
+                w=0.6,
+                h=0.6,
+                r=float(ped["r"]),
+                extra={
+                    "is_ego": False,
+                    "color": ped["color"]
+                }
+            ))
+
+        # 3. Terminal Goal Position
+        goal_s = self.env.road.total_length - 30.0
+        gx, gy, _ = self.env.road.to_cartesian(goal_s, 0.0)
+        goal = Goal(
+            x=float(gx),
+            y=float(gy),
+            r=8.0,
+            extra={"target_s": goal_s}
+        )
+
+        # 4. MPC Trajectory Plan (Imagined Futures in Metric World Coordinates)
+        plan_obj = None
+        if self.mode == "world_model" and self.last_plan_info is not None:
+            best_pts: List[List[float]] = []
+            best_traj = self.last_plan_info.get("best_trajectory", [])
+            for pt in best_traj:
+                if len(pt) >= 2:
+                    best_pts.append([float(pt[0]) * 350.0, float(pt[1]) * 350.0])
+
+            alt_objs: List[PlanAlt] = []
+            cands = self.last_plan_info.get("candidate_trajectories", [])
+            rets = self.last_plan_info.get("candidate_returns", [])
+            for c_idx, traj in enumerate(cands[:16]):
+                pts = [[float(v[0]) * 350.0, float(v[1]) * 350.0] for v in traj if len(v) >= 2]
+                score = float(rets[c_idx]) if c_idx < len(rets) else 0.0
+                alt_objs.append(PlanAlt(path=pts, score=score, first_action=c_idx % 5))
+
             plan_obj = Plan(
                 kind="path",
-                best=pred_pts,
-                chosen_action=action,
-                ms=4.2
+                best=best_pts,
+                alts=alt_objs,
+                chosen_action=self.last_action,
+                ms=round(self.plan_latency_ms, 2)
             )
 
+        # 5. Metrics
         metrics = Metrics(
-            reward=round(self.cum_reward, 2),
+            reward=round(float(self.cum_reward), 2),
             episode=self.episode_count,
-            success=not info.get("offroad", False) and step_count >= getattr(self.env, "MAX_STEPS", 200),
-            collisions=1 if info.get("offroad", False) else 0,
-            step_count=step_count,
+            success=bool(info.get("reached_goal", False)),
+            collisions=int(self.env.collision_count),
+            step_count=int(self.env.step_count),
             extra={
-                "lane_offset": round(offset, 3),
-                "is_offroad": info.get("offroad", False)
+                "speed_kmh": round(float(self.env.ego_speed * 3.6), 1),
+                "ttc": round(float(self.env.last_ttc), 2),
+                "lane_offset": round(float(self.env.last_lane_offset), 2),
+                "jerk": round(float(self.env.last_jerk), 2),
+                "remaining_steps": self.env.MAX_STEPS - self.env.step_count,
+                "dist_to_goal": round(max(0.0, float(goal_s - self.env.ego_s)), 1),
+                "scenario_variant": self.scenario_variant
             }
         )
 
         return RenderState(
             v=1,
             scenario="driving",
-            step=step_count,
-            dt=1.0 / 30.0,
+            step=self.env.step_count,
+            dt=self.env.DT,
             mode=self.mode,
             world=world,
             entities=entities,
-            goal=None,
+            goal=goal,
             plan=plan_obj,
             metrics=metrics,
             events=events,
-            model_error=None
+            model_error=round(self.last_real_mae, 4) if (self.mode == "world_model" and self.last_real_mae is not None) else None
         )

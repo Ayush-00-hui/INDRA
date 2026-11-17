@@ -98,3 +98,7 @@ class ClientCommand(BaseModel):
     kind: Optional[str] = None   # "crate", "cabinet", "workstation", "chair"
     w: Optional[float] = None
     h: Optional[float] = None
+    weather: Optional[str] = None       # "sunny", "sunset", "night", "rain"
+    time_of_day: Optional[str] = None   # "day", "sunset", "night"
+    camera: Optional[Union[str, int]] = None
+    manual_action: Optional[int] = None # 0..4 for manual keyboard driving

@@ -259,6 +259,11 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                         needs_reinit = True
                     if cmd.speed is not None:
                         speed = max(0.25, min(4.0, float(cmd.speed)))
+                    if cmd.manual_action is not None:
+                        if adapter_right and hasattr(adapter_right, "set_manual_action"):
+                            adapter_right.set_manual_action(cmd.manual_action)
+                        if adapter_left and hasattr(adapter_left, "set_manual_action"):
+                            adapter_left.set_manual_action(cmd.manual_action)
                     if needs_reinit:
                         init_adapters()
 
