@@ -168,6 +168,27 @@ class IndraAdapter:
         self.env.hazards.append(hz)
         self._compute_plan()
 
+    def set_weather(self, weather_str: str) -> None:
+        """Dynamically update weather and environmental conditions during simulation."""
+        from indra.core.conditions import WeatherType, RoadCondition, TimeOfDay
+        w_lower = (weather_str or "").lower()
+        if w_lower in ("rain", "monsoon", "heavy_rain", "light_rain"):
+            self.env.env_state.weather = WeatherType.HEAVY_RAIN
+            self.env.env_state.road = RoadCondition.WATERLOGGED
+        elif w_lower in ("fog", "fog_smog", "smog"):
+            self.env.env_state.weather = WeatherType.FOG_SMOG
+            self.env.env_state.road = RoadCondition.WET
+        elif w_lower in ("night",):
+            self.env.env_state.weather = WeatherType.CLEAR
+            self.env.env_state.road = RoadCondition.DRY
+            self.env.env_state.time_of_day = TimeOfDay.NIGHT
+        else: # clear / dry / sunny
+            self.env.env_state.weather = WeatherType.CLEAR
+            self.env.env_state.road = RoadCondition.DRY
+            self.env.env_state.time_of_day = TimeOfDay.AFTERNOON
+        self.env.env_state.update_derived_effects()
+        self._compute_plan()
+
     def get_render_state(self, events: Optional[List[str]] = None, done: bool = False, info: Optional[Dict[str, Any]] = None) -> RenderState:
         """Construct the universal RenderState JSON for Three.js."""
         events = events or []

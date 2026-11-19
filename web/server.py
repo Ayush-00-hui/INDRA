@@ -409,6 +409,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
     mode = "world_model"
     speed = 1.0
     is_paused = False  # Start actively running autonomous navigation
+    do_single_step = False
     current_seed = 1001
 
     adapter_left = None   # for baseline or compare
@@ -489,6 +490,7 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     is_paused = False
                 elif cmd.cmd == "step":
                     is_paused = True  # Step single frame below
+                    do_single_step = True
                 elif cmd.cmd == "set_goal":
                     if cmd.x is not None and cmd.y is not None:
                         if adapter_left and hasattr(adapter_left, "set_goal"):
@@ -521,6 +523,12 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                     if cmd.scenario_variant is not None:
                         variant = cmd.scenario_variant
                     init_adapters()
+                elif cmd.cmd == "set_weather":
+                    if cmd.weather:
+                        if adapter_left and hasattr(adapter_left, "set_weather"):
+                            adapter_left.set_weather(cmd.weather)
+                        if adapter_right and hasattr(adapter_right, "set_weather"):
+                            adapter_right.set_weather(cmd.weather)
                 elif cmd.cmd == "set":
                     needs_reinit = False
                     if cmd.mode is not None and cmd.mode != mode:
@@ -539,6 +547,11 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                             adapter_left.set_speed(speed)
                         if adapter_right and hasattr(adapter_right, "set_speed"):
                             adapter_right.set_speed(speed)
+                    if cmd.weather is not None:
+                        if adapter_left and hasattr(adapter_left, "set_weather"):
+                            adapter_left.set_weather(cmd.weather)
+                        if adapter_right and hasattr(adapter_right, "set_weather"):
+                            adapter_right.set_weather(cmd.weather)
                     if cmd.manual_action is not None:
                         if adapter_right and hasattr(adapter_right, "set_manual_action"):
                             adapter_right.set_manual_action(cmd.manual_action)
@@ -555,14 +568,24 @@ async def websocket_simulation(websocket: WebSocket, scenario: str):
                 server_stats["tick_intervals"].pop(0)
             server_stats["tick_intervals"].append(jitter_ms)
 
-            if is_paused:
-                if adapter_left and hasattr(adapter_left, "get_render_state"):
-                    rs = adapter_left.get_render_state()
-                    rs.metrics.extra["is_paused"] = True
-                    await websocket.send_text(rs.model_dump_json())
+            if is_paused and not do_single_step:
+                if mode == "compare":
+                    if adapter_left and adapter_right:
+                        l_rs = adapter_left.get_render_state()
+                        r_rs = adapter_right.get_render_state()
+                        l_rs.metrics.extra["is_paused"] = True
+                        r_rs.metrics.extra["is_paused"] = True
+                        comp_pkt = CompareRenderState(scenario=scenario, left=l_rs, right=r_rs)
+                        await websocket.send_text(comp_pkt.model_dump_json())
+                else:
+                    if adapter_left and hasattr(adapter_left, "get_render_state"):
+                        rs = adapter_left.get_render_state()
+                        rs.metrics.extra["is_paused"] = True
+                        await websocket.send_text(rs.model_dump_json())
                 next_frame_time = time.perf_counter() + 0.08
                 await asyncio.sleep(0.08)
             else:
+                do_single_step = False
                 target_dt = 1.0 / natural_rate if speed >= 1.0 else (1.0 / natural_rate) / speed
                 now = time.perf_counter()
                 if next_frame_time < now - target_dt * 2:

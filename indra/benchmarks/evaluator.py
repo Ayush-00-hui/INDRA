@@ -108,3 +108,81 @@ class IndraBenchmarkEvaluator:
         }
 
         return summary
+
+    def evaluate_suite(
+        self,
+        scenarios: List[int],
+        num_seeds: int = 3,
+        start_seed: int = 1001,
+        max_steps: int = 250
+    ) -> Dict[str, Any]:
+        """Run benchmark evaluation across multiple scenario variants."""
+        suite_start_t = time.time()
+        results_by_scenario = []
+        overall_successes = 0
+        overall_trials = 0
+        overall_collisions = 0
+
+        for sc_id in scenarios:
+            res = self.evaluate_scenario(
+                scenario_variant=sc_id,
+                num_seeds=num_seeds,
+                start_seed=start_seed,
+                max_steps=max_steps
+            )
+            results_by_scenario.append(res)
+            succ_count = sum(1 for ep in res["trial_details"] if ep["success"])
+            coll_count = sum(ep["collisions"] for ep in res["trial_details"])
+            overall_successes += succ_count
+            overall_trials += len(res["trial_details"])
+            overall_collisions += coll_count
+
+        total_duration_s = round(time.time() - suite_start_t, 2)
+        suite_summary = {
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "total_duration_seconds": total_duration_s,
+            "overall_trials": overall_trials,
+            "overall_success_rate_pct": round((overall_successes / max(1, overall_trials)) * 100.0, 1),
+            "overall_mean_collisions": round(overall_collisions / max(1, overall_trials), 2),
+            "world_model": self.world_model.get_model_metadata(),
+            "scenarios": results_by_scenario
+        }
+        return suite_summary
+
+    @staticmethod
+    def export_json(report: Dict[str, Any], filepath: str) -> None:
+        """Export benchmark summary to formatted JSON."""
+        import os
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+        with open(filepath, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2)
+
+    @staticmethod
+    def export_csv(report: Dict[str, Any], filepath: str) -> None:
+        """Export scenario performance rows to CSV."""
+        import os
+        import csv
+        os.makedirs(os.path.dirname(os.path.abspath(filepath)), exist_ok=True)
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+            writer.writerow([
+                "scenario_variant",
+                "scenario_name",
+                "trials",
+                "success_rate_pct",
+                "mean_collisions",
+                "mean_steps",
+                "mean_plan_latency_ms",
+                "min_clearance_m"
+            ])
+            for sc in report.get("scenarios", []):
+                writer.writerow([
+                    sc["scenario_variant"],
+                    sc["scenario_name"],
+                    sc["num_trials"],
+                    sc["success_rate_pct"],
+                    sc["mean_collisions"],
+                    sc["mean_steps"],
+                    sc["mean_plan_latency_ms"],
+                    sc["min_obstacle_clearance_m"]
+                ])
