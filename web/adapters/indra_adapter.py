@@ -168,6 +168,27 @@ class IndraAdapter:
         self.env.hazards.append(hz)
         self._compute_plan()
 
+    def set_weather(self, weather_str: str) -> None:
+        """Dynamically update weather and environmental conditions during simulation."""
+        from indra.core.conditions import WeatherType, RoadCondition, TimeOfDay
+        w_lower = (weather_str or "").lower()
+        if w_lower in ("rain", "monsoon", "heavy_rain", "light_rain"):
+            self.env.env_state.weather = WeatherType.HEAVY_RAIN
+            self.env.env_state.road = RoadCondition.WATERLOGGED
+        elif w_lower in ("fog", "fog_smog", "smog"):
+            self.env.env_state.weather = WeatherType.FOG_SMOG
+            self.env.env_state.road = RoadCondition.WET
+        elif w_lower in ("night",):
+            self.env.env_state.weather = WeatherType.CLEAR
+            self.env.env_state.road = RoadCondition.DRY
+            self.env.env_state.time_of_day = TimeOfDay.NIGHT
+        else: # clear / dry / sunny
+            self.env.env_state.weather = WeatherType.CLEAR
+            self.env.env_state.road = RoadCondition.DRY
+            self.env.env_state.time_of_day = TimeOfDay.AFTERNOON
+        self.env.env_state.update_derived_effects()
+        self._compute_plan()
+
     def get_render_state(self, events: Optional[List[str]] = None, done: bool = False, info: Optional[Dict[str, Any]] = None) -> RenderState:
         """Construct the universal RenderState JSON for Three.js."""
         events = events or []
@@ -183,9 +204,10 @@ class IndraAdapter:
             "road_condition": self.env.env_state.road.value,
             "time_of_day": self.env.env_state.time_of_day.value,
             "waterlog_depth_cm": round(self.env.env_state.waterlog_depth_cm, 1),
-            "lidar_distances": [round(float(d), 2) for d in self.obs[8:16]],
+            "lidar_distances": [round(float(d), 2) for d in getattr(self.env, "last_lidar_16", self.obs[8:16])],
             "is_recovering": self.watchdog.is_recovering,
-            "recoveries": self.watchdog.total_recoveries
+            "recoveries": self.watchdog.total_recoveries,
+            "recovery_metrics": self.watchdog.get_metrics()
         }
         entities.append(Entity(
             id="indra_robot",

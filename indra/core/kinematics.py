@@ -66,16 +66,24 @@ class UrbanRobotKinematics:
 
         effective_max_accel = self.specs.max_linear_accel_mps2 * friction
         effective_max_ang_accel = self.specs.max_angular_accel_radps2 * friction
+        effective_max_speed = self.specs.max_linear_speed_mps * (0.4 + 0.6 * friction)
+
+        # Apply surface drag on wet / degraded surfaces
+        if self.v > effective_max_speed:
+            self.v = max(effective_max_speed, self.v - 2.0 * (1.0 - friction) * dt)
 
         # Linear acceleration ramp
         dv = self.target_v - self.v
         max_dv = effective_max_accel * dt
         self.v += max(-max_dv, min(max_dv, dv))
 
-        # Angular acceleration ramp
+        # Angular acceleration ramp with low-friction slip damping
         dw = self.target_w - self.w
         max_dw = effective_max_ang_accel * dt
         self.w += max(-max_dw, min(max_dw, dw))
+        if friction < 0.5:
+            # Lateral slip damping under severe waterlogging / mud
+            self.w *= (0.80 + 0.20 * friction)
 
         # Unicycle kinematic integration
         if abs(self.w) < 1e-4:

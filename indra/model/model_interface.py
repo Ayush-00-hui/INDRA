@@ -124,6 +124,14 @@ class BaselineKinematicWorldModel(BaseWorldModelInterface):
             trajectory.append(np.copy(curr))
         return trajectory
 
+    def predict_trajectories_batch(
+        self,
+        current_state: np.ndarray,
+        action_sequences: List[List[int]]
+    ) -> List[List[np.ndarray]]:
+        """Roll out multiple candidate sequences."""
+        return [self.predict_trajectory(current_state, seq) for seq in action_sequences]
+
     def get_model_metadata(self) -> Dict[str, Any]:
         return {
             "model_type": "baseline_kinematic",

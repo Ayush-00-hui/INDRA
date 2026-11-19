@@ -56,6 +56,7 @@ class IndraEnv(BaseEnv):
         self.goal_y: float = 0.0
         self.bounds: Tuple[float, float, float, float] = (-15.0, -10.0, 45.0, 10.0)
 
+        self.last_lidar_16: List[float] = [12.0] * 16
         self.step_count: int = 0
         self.collision_count: int = 0
         self.prev_goal_dist: float = 0.0
@@ -228,6 +229,7 @@ class IndraEnv(BaseEnv):
             self.actors + self.hazards, self.bounds,
             attenuation=self.env_state.lidar_attenuation
         )
+        self.last_lidar_16 = list(lidar_all)
         # Average into 8 sectors
         for i in range(8):
             obs[8 + i] = min(lidar_all[i * 2], lidar_all[i * 2 + 1]) if len(lidar_all) >= 16 else 10.0

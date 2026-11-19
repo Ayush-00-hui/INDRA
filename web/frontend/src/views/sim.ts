@@ -27,7 +27,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
   // Mission Clock
   const sessionStartTime = Date.now();
-  let setDockingState: (docked: boolean, sendCmd?: boolean) => void = () => {};
+  let setDockingState: (docked: boolean, sendCmd?: boolean) => void = () => { };
   let cleanupKeydown: (() => void) | null = null;
   let isDocked: boolean = false;
 
@@ -108,10 +108,10 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </a>
           <div style="width: 1px; height: 18px; background: var(--border-subtle);"></div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
+            <div class="nav-logo-icon">WM</div>
             <div style="display: flex; flex-direction: column; line-height: 1.15;">
               <span style="font-weight: 700; font-size: 0.88rem; letter-spacing: 0.02em; color: var(--text-main); font-family: var(--font-ui);">${simTitle}</span>
-              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Entropy Indian Urban Autonomy</span>
+              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Fidelity Robotics Arena</span>
             </div>
           </div>
           <span id="badge-connection" class="badge badge-live">
@@ -200,10 +200,43 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
       <!-- Left Control Rail -->
       <aside class="glass-panel control-rail">
-        <div class="rail-group-title">Robot Control</div>
-        <button id="btn-dock-launch" class="rail-btn dock-launch-btn active" title="Press SPACE or ENTER to hold/launch robot">
-          <span id="lbl-dock-launch">⏸ Hold Robot [SPACE]</span>
-        </button>
+        <div class="rail-group-title">Simulation Controls</div>
+        <div style="display: flex; gap: 4px;">
+          <button id="btn-sim-play" class="rail-btn active" style="flex: 1; justify-content: center; font-weight: 600;" title="Run autonomous navigation [SPACE]">
+            <span>▶ Play</span>
+          </button>
+          <button id="btn-sim-pause" class="rail-btn" style="flex: 1; justify-content: center; font-weight: 600;" title="Pause simulation [SPACE]">
+            <span>⏸ Pause</span>
+          </button>
+          <button id="btn-sim-step" class="rail-btn" style="flex: 1; justify-content: center; font-weight: 600;" title="Single frame step [.]">
+            <span>⏭ Step</span>
+          </button>
+        </div>
+
+        <div style="display: flex; gap: 4px; margin-top: 4px;">
+          <button id="btn-sim-reset" class="rail-btn" style="flex: 1; justify-content: center;" title="Reset scenario layout [R]">
+            <span>↺ Reset</span>
+          </button>
+          <button id="btn-sim-seed-next" class="rail-btn" style="flex: 1.3; justify-content: center; font-family: var(--font-mono); font-size: 0.68rem;" title="Advance to next seed">
+            <span id="lbl-sim-seed">🎲 Seed 1001</span>
+          </button>
+        </div>
+
+        ${
+          scenarioId === "indra"
+            ? `
+            <div class="rail-group-title" style="margin-top: 8px;">Environment & Weather</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <button id="btn-weather-dry" class="rail-btn active" style="justify-content: center; font-size: 0.68rem;" title="Dry Delhi road conditions">
+                <span>☀ Dry / Clear</span>
+              </button>
+              <button id="btn-weather-monsoon" class="rail-btn" style="justify-content: center; font-size: 0.68rem;" title="Delhi Monsoon heavy rain & waterlogging">
+                <span>🌧 Monsoon</span>
+              </button>
+            </div>
+            `
+            : ""
+        }
 
         <div class="rail-group-title">Simulation Model</div>
         <button id="btn-mode-wm" class="rail-btn active" title="Model Predictive Control with Deep Neural World Model">
@@ -219,9 +252,39 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           <span style="font-size: 0.68rem; color: #34d399; font-family: var(--font-mono);">[S]</span>
         </button>
 
-        ${
-          scenarioId === "indra"
-            ? `
+        ${scenarioId === "driving"
+      ? `
+          <div class="rail-group-title">Highway Scenarios</div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}">S1: Highway Curves</button>
+            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}">S2: Sudden Braking</button>
+            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}">S3: Overtaking</button>
+            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}">S4: Pedestrian Hazard</button>
+          </div>
+
+          <div class="rail-group-title">Camera Perspectives</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="cam-chase" class="rail-btn active" style="justify-content: center;">Chase</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Cockpit</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Fly-By</button>
+          </div>
+
+          <div class="rail-group-title">Time of Day</div>
+          <div style="display: flex; gap: 4px;">
+            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center;">Day</button>
+            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center;">Sunset</button>
+            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center;">Night</button>
+          </div>
+
+          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; font-weight: 600;">
+            <span id="lbl-manual-drive">Manual Drive [WASD]</span>
+          </button>
+        `
+      : `
+          ${scenarioId === "indra"
+        ? `
             <div class="rail-group-title">INDRA Urban Scenarios (10)</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
               <button id="btn-indra-s1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S1: Arterial Urban Corridor">S1: Arterial</button>
@@ -236,88 +299,72 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
               <button id="btn-indra-s10" class="rail-btn ${currentVariant === 10 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S10: Dense Traffic Gridlock">S10: Gridlock</button>
             </div>
           `
-            : scenarioId === "robotics"
-              ? `
+        : scenarioId === "robotics"
+          ? `
             <div class="rail-group-title">Scenario Arena</div>
             <div style="display: flex; gap: 4px;">
               <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center;">S1: Chair</button>
               <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center;">S2: Person</button>
             </div>
-
-            <div class="rail-group-title">Sandbox Tools</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-              <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
-                <span>Goal Dock</span>
-              </button>
-              <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
-                <span>Crate</span>
-              </button>
-              <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
-                <span>Cabinet</span>
-              </button>
-              <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
-                <span>Table</span>
-              </button>
-              <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
-                <span>Barrels</span>
-              </button>
-              <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
-                <span>Barrier</span>
-              </button>
-            </div>
-
-            <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-              <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
-                <span>Slalom</span>
-              </button>
-              <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
-                <span>U-Trap</span>
-              </button>
-              <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
-                <span>Maze</span>
-              </button>
-            </div>
-
-            <div style="display: flex; gap: 4px; margin-top: 4px;">
-              <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
-                <span>Clear All</span>
-              </button>
-              <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
-                <span>Randomize</span>
-              </button>
-            </div>
           `
-              : ""
-        }
+          : ""
+      }
 
-        <div class="rail-group-title">Camera Perspectives</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-          <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
-          <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
-          <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
-          <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
-          <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
-          <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
-        </div>
+          <div class="rail-group-title">Camera Perspectives</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
+            <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
+          </div>
 
-        <div class="rail-group-title">Sensors & Overlays</div>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-          <button id="btn-toggle-lidar" class="rail-btn active" style="justify-content: center;" title="Toggle 16-beam LiDAR radial laser rays [L]">
-            <span>LiDAR Rays</span>
-          </button>
-          <button id="btn-toggle-ribbons" class="rail-btn active" style="justify-content: center;" title="Toggle MPC candidate trajectory ribbons [M]">
-            <span>Mind View</span>
-          </button>
-        </div>
-        <div style="display: flex; gap: 4px; margin-top: 4px;">
-          <button id="btn-toggle-footprint" class="rail-btn active" style="flex: 1; justify-content: center;" title="Toggle robot dynamic safety boundary">
-            <span>Safety Hull</span>
-          </button>
-          <button id="btn-cycle-quality" class="rail-btn" style="flex: 1; justify-content: center;" title="Cycle Graphics Tier: High / Med / Low [Q]">
-            <span id="lbl-graphics-tier">Tier: High</span>
-          </button>
-        </div>
+          <div class="rail-group-title">Sandbox Tools</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
+              <span>Goal Dock</span>
+            </button>
+            <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
+              <span>Crate</span>
+            </button>
+            <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
+              <span>Cabinet</span>
+            </button>
+            <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
+              <span>Table</span>
+            </button>
+            <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
+              <span>Barrels</span>
+            </button>
+            <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
+              <span>Barrier</span>
+            </button>
+          </div>
+
+          <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+            <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
+              <span>Slalom</span>
+            </button>
+            <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
+              <span>U-Trap</span>
+            </button>
+            <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
+              <span>Maze</span>
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 4px; margin-top: 4px;">
+            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
+              <span>Clear All</span>
+            </button>
+            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
+              <span>Randomize</span>
+            </button>
+          </div>
+        `
+    }
 
         <div class="rail-group-title">System & Audio</div>
         <div style="display: flex; gap: 4px;">
@@ -463,6 +510,20 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
             <path id="sparkline-dist-path" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M 0 14 L 200 14" />
           </svg>
         </div>
+
+        ${
+          scenarioId === "indra"
+            ? `
+        <!-- INDRA Autonomy & Stagnation Watchdog -->
+        <div class="glass-panel" style="padding: 6px 10px; margin-top: 6px; font-family: var(--font-mono);">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; color: var(--text-dim);">
+            <span style="font-weight: 600; letter-spacing: 0.04em;">WATCHDOG RECOVERY</span>
+            <span id="metric-recovery-status" style="color: #34d399; font-weight: 700;">NOMINAL (0 RECOVERIES)</span>
+          </div>
+        </div>
+            `
+            : ""
+        }
       </aside>
 
       <!-- Bottom Status Pill -->
@@ -947,12 +1008,31 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
     const povSpeedEl = document.getElementById("pov-speed");
     if (povSpeedEl) {
-      const speedMult = currentSpeed || 1.0;
-      const vx = frame.robot?.vx ?? 0;
-      const vy = frame.robot?.vy ?? 0;
-      const vMag = Math.sqrt(vx * vx + vy * vy);
-      const spdVal = vMag > 0 ? (vMag * 0.024 * 30.0 * speedMult) : (2.4 * speedMult);
-      povSpeedEl.textContent = `${spdVal.toFixed(2)} m/s`;
+      if (frame.metrics?.extra?.speed_kmh !== undefined) {
+        povSpeedEl.textContent = `${(frame.metrics.extra.speed_kmh / 3.6).toFixed(2)} m/s (${frame.metrics.extra.speed_kmh} km/h)`;
+      } else {
+        const speedMult = currentSpeed || 1.0;
+        const vx = frame.robot?.vx ?? 0;
+        const vy = frame.robot?.vy ?? 0;
+        const vMag = Math.sqrt(vx * vx + vy * vy);
+        const spdVal = vMag > 0 ? (vMag * 0.024 * 30.0 * speedMult) : (2.4 * speedMult);
+        povSpeedEl.textContent = `${spdVal.toFixed(2)} m/s`;
+      }
+    }
+
+    // INDRA Watchdog Recovery Telemetry
+    const recStatusEl = document.getElementById("metric-recovery-status");
+    if (recStatusEl) {
+      const robotEnt = frame.entities?.find((e: any) => e.id === "indra_robot" || e.kind === "robot");
+      const isRec = robotEnt?.extra?.is_recovering;
+      const recTotal = robotEnt?.extra?.recoveries || 0;
+      if (isRec) {
+        recStatusEl.textContent = "RECOVERING (3-PT TURN)";
+        recStatusEl.style.color = "#f59e0b";
+      } else {
+        recStatusEl.textContent = `NOMINAL (${recTotal} RECOVERIES)`;
+        recStatusEl.style.color = "#34d399";
+      }
     }
 
     // Impassable Blocked Area Detection Banner & Dock HUD Update
@@ -1073,17 +1153,19 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
 
     if (frame.goal && frame.entities) {
-      const robot = frame.entities.find((e: any) => e.id === "robot" || e.kind === "robot");
+      const robot = frame.entities.find((e: any) => e.id === "indra_robot" || e.id === "robot" || e.kind === "robot");
       if (robot && metricGoalDist && sparklineDistPath && sparklineDistVal) {
         const distPx = Math.hypot(frame.goal.x - robot.x, frame.goal.y - robot.y);
-        const distM = distPx / 100.0;
+        const distM = frame.metrics?.extra?.goal_distance_m !== undefined
+          ? frame.metrics.extra.goal_distance_m
+          : (distPx / 100.0);
         metricGoalDist.textContent = `${distM.toFixed(2)} m`;
         sparklineDistVal.textContent = `${distM.toFixed(2)} m`;
         if (povTargetDist) povTargetDist.textContent = `${distM.toFixed(2)} m`;
 
-        if (povHeadingVal && robot.angle !== undefined) {
-          const deg = Math.round(((robot.angle * 180) / Math.PI + 360) % 360);
-          povHeadingVal.textContent = `HDG ${deg.toString().padStart(3, "0")}°`;
+        if (povHeadingVal) {
+          const headingDeg = robot.extra?.heading_deg ?? (robot.angle !== undefined ? Math.round(((robot.angle * 180) / Math.PI + 360) % 360) : (robot.heading ?? 0));
+          povHeadingVal.textContent = `HDG ${Math.round((headingDeg + 360) % 360).toString().padStart(3, "0")}°`;
         }
 
         distHistory.push(distM);
@@ -1211,7 +1293,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           metricLatency.textContent = `${diag.plan_ms} ms`;
         }
       }
-    } catch (e) {}
+    } catch (e) { }
   };
   fetchDiagnostics();
   const diagPollId = window.setInterval(fetchDiagnostics, 3000);
@@ -1363,14 +1445,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.speak("Cinematic director mode active.");
     };
 
-    // Sandbox Object Tools (for warehouse robotics baseline)
-    const toolGoal = document.getElementById("tool-goal");
-    const toolCrate = document.getElementById("tool-crate");
-    const toolCabinet = document.getElementById("tool-cabinet");
-    const toolWorkstation = document.getElementById("tool-workstation");
-    const toolBarrels = document.getElementById("tool-barrels");
-    const toolBarrier = document.getElementById("tool-barrier");
-    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier].filter(Boolean) as HTMLElement[];
+    // Sandbox Object Tools
+    const toolGoal = document.getElementById("tool-goal")!;
+    const toolCrate = document.getElementById("tool-crate")!;
+    const toolCabinet = document.getElementById("tool-cabinet")!;
+    const toolWorkstation = document.getElementById("tool-workstation")!;
+    const toolBarrels = document.getElementById("tool-barrels")!;
+    const toolBarrier = document.getElementById("tool-barrier")!;
+    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier];
 
     const setActiveTool = (btn: HTMLElement, tool: any) => {
       allTools.forEach((b) => b.classList.remove("active"));
@@ -1379,12 +1461,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.playToolSelect();
     };
 
-    if (toolGoal) toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
-    if (toolCrate) toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
-    if (toolCabinet) toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
-    if (toolWorkstation) toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
-    if (toolBarrels) toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
-    if (toolBarrier) toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
+    toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
+    toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
+    toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
+    toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
+    toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
+    toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
 
     // Course Preset Loaders
     const btnPresetSlalom = document.getElementById("btn-preset-slalom");
@@ -1439,14 +1521,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     }
 
-    const btnRandomObs = document.getElementById("btn-random-obs");
-    if (btnRandomObs) {
-      btnRandomObs.onclick = () => {
-        currentSeed = Math.floor(Math.random() * 9000) + 1000;
-        wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
-        sound.playToolSelect();
-      };
-    }
+    document.getElementById("btn-random-obs")!.onclick = () => {
+      currentSeed = Math.floor(Math.random() * 9000) + 1000;
+      wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
+      sound.playToolSelect();
+    };
 
     // Sound Controls (Whisper-Quiet Motor Glide Only)
     const btnMute = document.getElementById("btn-mute")!;
@@ -1457,67 +1536,31 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       btnMute.classList.toggle("active", !isMuted);
     };
 
-    // Sensor & Overlay toggles
-    const btnLidar = document.getElementById("btn-toggle-lidar");
-    if (btnLidar) {
-      btnLidar.onclick = () => {
-        if (primaryScene && typeof (primaryScene as any).toggleLidar === "function") {
-          const visible = (primaryScene as any).toggleLidar();
-          btnLidar.classList.toggle("active", visible);
-        }
-      };
-    }
-
-    const btnRibbons = document.getElementById("btn-toggle-ribbons");
-    if (btnRibbons) {
-      btnRibbons.onclick = () => {
-        if (primaryScene && typeof (primaryScene as any).toggleTrajectories === "function") {
-          const visible = (primaryScene as any).toggleTrajectories();
-          btnRibbons.classList.toggle("active", visible);
-        }
-      };
-    }
-
-    const btnFootprint = document.getElementById("btn-toggle-footprint");
-    if (btnFootprint) {
-      btnFootprint.onclick = () => {
-        if (primaryScene && typeof (primaryScene as any).toggleFootprint === "function") {
-          const visible = (primaryScene as any).toggleFootprint();
-          btnFootprint.classList.toggle("active", visible);
-        }
-      };
-    }
-
-    let currentGraphicsTier: "high" | "medium" | "low" = "high";
-    const btnQuality = document.getElementById("btn-cycle-quality");
-    const lblQuality = document.getElementById("lbl-graphics-tier");
-    if (btnQuality && lblQuality) {
-      btnQuality.onclick = () => {
-        if (currentGraphicsTier === "high") currentGraphicsTier = "medium";
-        else if (currentGraphicsTier === "medium") currentGraphicsTier = "low";
-        else currentGraphicsTier = "high";
-
-        lblQuality.textContent = `Tier: ${currentGraphicsTier.charAt(0).toUpperCase() + currentGraphicsTier.slice(1)}`;
-        if (primaryScene && typeof (primaryScene as any).setGraphicsTier === "function") {
-          (primaryScene as any).setGraphicsTier(currentGraphicsTier);
-        }
-      };
-    }
-
-    // Robot Docking & Deployment Control
+    // Simulation Controls: Play, Pause, Step, Reset, Seed & Docking
     isDocked = false;
-    const btnDockLaunch = document.getElementById("btn-dock-launch")!;
-    const lblDockLaunch = document.getElementById("lbl-dock-launch")!;
+    const btnSimPlay = document.getElementById("btn-sim-play");
+    const btnSimPause = document.getElementById("btn-sim-pause");
+    const btnSimStep = document.getElementById("btn-sim-step");
+    const btnSimReset = document.getElementById("btn-sim-reset");
+    const btnSimSeedNext = document.getElementById("btn-sim-seed-next");
+    const lblSimSeed = document.getElementById("lbl-sim-seed");
+    const btnDockLaunch = document.getElementById("btn-dock-launch");
+    const lblDockLaunch = document.getElementById("lbl-dock-launch");
 
     setDockingState = (docked: boolean, sendCmd: boolean = true) => {
       isDocked = docked;
       if (primaryScene && typeof primaryScene.setDockStatus === "function") {
         primaryScene.setDockStatus(docked ? "docked" : "released");
       }
+      if (btnSimPlay) btnSimPlay.classList.toggle("active", !docked);
+      if (btnSimPause) btnSimPause.classList.toggle("active", docked);
+
       if (docked) {
         if (sendCmd) wsClient.sendCommand({ cmd: "pause" });
-        btnDockLaunch.className = "rail-btn dock-launch-btn docked";
-        lblDockLaunch.textContent = "▶ Resume Robot [SPACE]";
+        if (btnDockLaunch) {
+          btnDockLaunch.className = "rail-btn dock-launch-btn docked";
+          if (lblDockLaunch) lblDockLaunch.textContent = "▶ Resume Robot [SPACE]";
+        }
         if (dockHudDot) {
           dockHudDot.style.background = "#f59e0b";
           dockHudDot.style.boxShadow = "0 0 6px rgba(245, 158, 11, 0.6)";
@@ -1533,8 +1576,10 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         }
       } else {
         if (sendCmd) wsClient.sendCommand({ cmd: "start" });
-        btnDockLaunch.className = "rail-btn dock-launch-btn active";
-        lblDockLaunch.textContent = "⏸ Hold Robot [SPACE]";
+        if (btnDockLaunch) {
+          btnDockLaunch.className = "rail-btn dock-launch-btn active";
+          if (lblDockLaunch) lblDockLaunch.textContent = "⏸ Hold Robot [SPACE]";
+        }
         if (dockHudDot) {
           dockHudDot.style.background = "#10b981";
           dockHudDot.style.boxShadow = "0 0 6px rgba(16, 185, 129, 0.6)";
@@ -1567,12 +1612,72 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       };
     }
 
-    // Reset Layout Button
-    document.getElementById("btn-reset")!.onclick = () => {
-      wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
-      setDockingState(true);
+    if (btnSimPlay) {
+      btnSimPlay.onclick = () => {
+        setDockingState(false, true);
+        sound.playToolSelect();
+      };
+    }
+
+    if (btnSimPause) {
+      btnSimPause.onclick = () => {
+        setDockingState(true, true);
+        sound.playClick();
+      };
+    }
+
+    if (btnSimStep) {
+      btnSimStep.onclick = () => {
+        setDockingState(true, false);
+        wsClient.sendCommand({ cmd: "step" });
+        sound.playClick();
+      };
+    }
+
+    const handleReset = () => {
+      wsClient.sendCommand({ cmd: "reset", seed: currentSeed, scenario_variant: currentVariant });
       sound.playToolSelect();
     };
+
+    if (btnSimReset) {
+      btnSimReset.onclick = handleReset;
+    }
+
+    if (btnSimSeedNext && lblSimSeed) {
+      btnSimSeedNext.onclick = () => {
+        currentSeed += 1;
+        lblSimSeed.textContent = `🎲 Seed ${currentSeed}`;
+        wsClient.sendCommand({ cmd: "reset", seed: currentSeed, scenario_variant: currentVariant });
+        sound.playToolSelect();
+      };
+    }
+
+    // Weather Toggles
+    const btnWeatherDry = document.getElementById("btn-weather-dry");
+    const btnWeatherMonsoon = document.getElementById("btn-weather-monsoon");
+    if (btnWeatherDry && btnWeatherMonsoon) {
+      btnWeatherDry.onclick = () => {
+        btnWeatherDry.classList.add("active");
+        btnWeatherMonsoon.classList.remove("active");
+        wsClient.sendCommand({ cmd: "set_weather", weather: "clear" });
+        sound.playToolSelect();
+      };
+      btnWeatherMonsoon.onclick = () => {
+        btnWeatherMonsoon.classList.add("active");
+        btnWeatherDry.classList.remove("active");
+        wsClient.sendCommand({ cmd: "set_weather", weather: "monsoon" });
+        sound.playToolSelect();
+      };
+    }
+
+    // Reset Layout Button (Bottom)
+    const btnResetBottom = document.getElementById("btn-reset");
+    if (btnResetBottom) {
+      btnResetBottom.onclick = () => {
+        handleReset();
+        setDockingState(true);
+      };
+    }
 
     // Speed Selector
     const selectSpeed = document.getElementById("select-speed") as HTMLSelectElement;
@@ -1634,9 +1739,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     // Fullscreen Toggle
     document.getElementById("btn-fullscreen")!.onclick = () => {
       if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
+        document.documentElement.requestFullscreen().catch(() => { });
       } else {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
       sound.playClick();
     };
@@ -1712,6 +1817,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           const next = primaryScene.cycleCamera();
           setCameraActive(next as any);
         }
+      } else if (e.key === "." || e.key === ">") {
+        btnSimStep?.click();
       } else if (e.key === "r" || e.key === "R") {
         document.getElementById("btn-reset")!.click();
       } else if (e.key === "h" || e.key === "H") {

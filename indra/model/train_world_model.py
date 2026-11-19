@@ -122,6 +122,43 @@ class IndraNeuralWorldModel(nn.Module, BaseWorldModelInterface):
             curr = next_s
         return trajectory
 
+    def predict_trajectories_batch(
+        self,
+        current_state: np.ndarray,
+        action_sequences: List[List[int]]
+    ) -> List[List[np.ndarray]]:
+        """
+        Batched multi-trajectory parallel rollout on GPU/CPU.
+        Rolls out N candidate trajectories of length H in exactly H batched forward passes
+        instead of N * H individual calls.
+        """
+        N = len(action_sequences)
+        if N == 0:
+            return []
+        H = len(action_sequences[0])
+
+        self.eval()
+        device = next(self.parameters()).device
+
+        with torch.no_grad():
+            curr_states = torch.from_numpy(current_state).float().unsqueeze(0).expand(N, -1).to(device)
+            trajectories: List[List[np.ndarray]] = [[] for _ in range(N)]
+
+            for step in range(H):
+                step_actions = torch.tensor([seq[step] for seq in action_sequences], dtype=torch.long, device=device)
+                a_onehot = torch.zeros((N, self.action_dim), dtype=torch.float32, device=device)
+                a_onehot.scatter_(1, step_actions.unsqueeze(1), 1.0)
+
+                pred_next_states, _, _ = self(curr_states, a_onehot)
+                pred_next_np = pred_next_states.cpu().numpy()
+
+                for i in range(N):
+                    trajectories[i].append(pred_next_np[i])
+
+                curr_states = pred_next_states
+
+        return trajectories
+
     def predict_batch(self, current_states: np.ndarray, actions: np.ndarray) -> np.ndarray:
         self.eval()
         with torch.no_grad():

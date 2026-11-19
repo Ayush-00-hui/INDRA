@@ -42,7 +42,13 @@ class StagnationWatchdog:
         self.is_recovering: bool = False
         self.recovery_queue: List[int] = []
         self.total_recoveries: int = 0
+        self.recovery_attempts: int = 0
+        self.recovery_successes: int = 0
+        self.recovery_failures: int = 0
+        self.total_recovery_steps: int = 0
         self.last_escape_reason: str = "nominal"
+        self._post_recovery_check_pos: Optional[Tuple[float, float]] = None
+        self._post_recovery_steps_left: int = 0
 
     def reset(self) -> None:
         """Reset watchdog state on episode change."""
@@ -52,6 +58,19 @@ class StagnationWatchdog:
         self.is_recovering = False
         self.recovery_queue.clear()
         self.last_escape_reason = "nominal"
+        self._post_recovery_check_pos = None
+        self._post_recovery_steps_left = 0
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Return quantitative recovery diagnostic metrics."""
+        return {
+            "attempts": self.recovery_attempts,
+            "successes": self.recovery_successes,
+            "failures": self.recovery_failures,
+            "is_recovering": self.is_recovering,
+            "total_recovery_steps": self.total_recovery_steps,
+            "last_reason": self.last_escape_reason
+        }
 
     def update(
         self,
@@ -68,20 +87,36 @@ class StagnationWatchdog:
         curr_pos = (float(robot_x), float(robot_y))
         self.pos_history.append(curr_pos)
 
+        # Monitor post-recovery displacement for success/failure accounting
+        if self._post_recovery_steps_left > 0 and self._post_recovery_check_pos is not None:
+            self._post_recovery_steps_left -= 1
+            if self._post_recovery_steps_left == 0:
+                dist = math.hypot(curr_pos[0] - self._post_recovery_check_pos[0],
+                                  curr_pos[1] - self._post_recovery_check_pos[1])
+                if dist >= 0.5:
+                    self.recovery_successes += 1
+                else:
+                    self.recovery_failures += 1
+                self._post_recovery_check_pos = None
+
         # 1. If currently executing an active escape maneuver, consume from recovery queue
         if self.is_recovering and len(self.recovery_queue) > 0:
+            self.total_recovery_steps += 1
             override_action = self.recovery_queue.pop(0)
             if len(self.recovery_queue) == 0:
                 self.is_recovering = False
                 self.stagnant_step_count = 0
                 self.head_on_block_count = 0
                 self.pos_history.clear()
+                self._post_recovery_check_pos = curr_pos
+                self._post_recovery_steps_left = 12
             return {
                 "is_stuck": True,
                 "is_recovering": True,
                 "override_action": override_action,
                 "reason": self.last_escape_reason,
-                "steps_remaining": len(self.recovery_queue)
+                "steps_remaining": len(self.recovery_queue),
+                "metrics": self.get_metrics()
             }
 
         # 2. Check displacement over window
@@ -105,17 +140,32 @@ class StagnationWatchdog:
 
         # 4. Trigger recovery if stuck threshold exceeded or blocked against obstacle
         if is_stagnation_trigger or is_head_on_trigger:
+            if self._post_recovery_steps_left > 0:
+                # Immediate re-trigger during monitoring window counts as failure
+                self.recovery_failures += 1
+                self._post_recovery_steps_left = 0
+                self._post_recovery_check_pos = None
+
             self.is_recovering = True
             self.total_recoveries += 1
+            self.recovery_attempts += 1
+            self.total_recovery_steps += 1
             self.last_escape_reason = "head_on_obstacle" if is_head_on_trigger else "position_stagnation"
 
             # Construct escape sequence: reverse k steps, then turn away
-            # Alternate turn direction to prevent repeated bias
+            # For head-on dead ends, execute a 3-point turnaround (extended reverse + strong pivot + forward clear)
             turn_action = self.ACTION_LEFT if (self.total_recoveries % 2 == 1) else self.ACTION_RIGHT
-            self.recovery_queue = (
-                [self.ACTION_BRAKE] * self.escape_reverse_steps +
-                [turn_action] * self.escape_turn_steps
-            )
+            if is_head_on_trigger:
+                self.recovery_queue = (
+                    [self.ACTION_BRAKE] * (self.escape_reverse_steps + 1) +
+                    [turn_action] * (self.escape_turn_steps + 1) +
+                    [self.ACTION_FORWARD] * 2
+                )
+            else:
+                self.recovery_queue = (
+                    [self.ACTION_BRAKE] * self.escape_reverse_steps +
+                    [turn_action] * self.escape_turn_steps
+                )
 
             override_action = self.recovery_queue.pop(0)
             return {
@@ -123,7 +173,8 @@ class StagnationWatchdog:
                 "is_recovering": True,
                 "override_action": override_action,
                 "reason": self.last_escape_reason,
-                "steps_remaining": len(self.recovery_queue)
+                "steps_remaining": len(self.recovery_queue),
+                "metrics": self.get_metrics()
             }
 
         return {
@@ -131,5 +182,6 @@ class StagnationWatchdog:
             "is_recovering": False,
             "override_action": None,
             "reason": "nominal",
-            "steps_remaining": 0
+            "steps_remaining": 0,
+            "metrics": self.get_metrics()
         }
