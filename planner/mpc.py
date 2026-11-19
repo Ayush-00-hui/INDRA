@@ -56,7 +56,24 @@ def _build_and_cache_primitives(action_size: int, horizon: int, device: torch.de
     if two_turns:
         prims.append(torch.stack(two_turns))
 
-    # 4. Docking & deceleration maneuvers (action a for k steps, then STAY action 4)
+    # 4. U-turn & Backtrack pocket-escape maneuvers (a_back for k1, a_perp for k2, then a_fwd)
+    backtracks = []
+    opp_map = {0: 1, 1: 0, 2: 3, 3: 2}
+    for a_fwd in range(min(action_size, 4)):
+        a_back = opp_map.get(a_fwd, 0)
+        perps = [2, 3] if a_fwd in (0, 1) else [0, 1]
+        for a_perp in perps:
+            for k1 in [3, 5, 7]:
+                for k2 in [4, 6, 8]:
+                    if k1 + k2 < horizon:
+                        seq = torch.full((horizon,), a_fwd, device=device, dtype=torch.long)
+                        seq[:k1] = a_back
+                        seq[k1:k1 + k2] = a_perp
+                        backtracks.append(seq)
+    if backtracks:
+        prims.append(torch.stack(backtracks))
+
+    # 5. Docking & deceleration maneuvers (action a for k steps, then STAY action 4)
     if action_size > 4:
         docking = []
         for a in range(action_size - 1):
@@ -125,6 +142,7 @@ def plan(
     return_trajectories: bool = False,
     use_primitives: bool = True,
     last_action: Optional[int] = None,
+    last_collided_action: Optional[int] = None,
     method: str = "random",
     uncertainty_penalty: float = 0.0,
     step_size: float = 8.0
@@ -187,6 +205,17 @@ def plan(
             min_dist_along_traj = init_dist.clone()
             arrival_bonus = torch.zeros(n_samples, device=device, dtype=torch.float32)
 
+        # Obstacle avoidance tracking from observed relative positions
+        obs_coords = []
+        if s_batch.shape[-1] >= 6:
+            stride = 6 if s_batch.shape[-1] >= 22 else 4
+            for obs_idx in range(4, min(s_batch.shape[-1], 4 + 3 * stride), stride):
+                # Valid obstacles have normalized relative offset < 1.8 (2.0 is dummy)
+                if torch.abs(s_batch[0, obs_idx]) < 1.8 and torch.abs(s_batch[0, obs_idx + 1]) < 1.8:
+                    ox = (s_batch[:, 0] + s_batch[:, obs_idx]) * 450.0 + 450.0
+                    oy = (s_batch[:, 1] + s_batch[:, obs_idx + 1]) * 300.0 + 300.0
+                    obs_coords.append((ox, oy))
+
         # Rollout through imagined future steps (fully batched across samples)
         for t in range(horizon):
             act_t = actions[:, t]
@@ -204,8 +233,6 @@ def plan(
                 step_reward = pred_rewards
 
             returns += discount * step_reward
-            discount *= gamma
-            curr_states = next_states
 
             if has_goal_coords:
                 step_x_px = curr_states[:, 0] * 450.0 + 450.0
@@ -217,6 +244,24 @@ def plan(
                 arrived_step = (step_dist < 40.0) & (arrival_bonus == 0.0)
                 if torch.any(arrived_step):
                     arrival_bonus[arrived_step] = 45.0 * (gamma ** t)
+
+                # Room boundary repulsion (900x600, robot radius 18 -> safety margin 32px)
+                wall_pen = (
+                    torch.clamp(32.0 - step_x_px, min=0.0)
+                    + torch.clamp(step_x_px - 868.0, min=0.0)
+                    + torch.clamp(32.0 - step_y_px, min=0.0)
+                    + torch.clamp(step_y_px - 568.0, min=0.0)
+                )
+                returns -= (discount * 3.0) * wall_pen
+
+                # Known obstacle proximity penalty
+                for ox, oy in obs_coords:
+                    d_obs = torch.hypot(step_x_px - ox, step_y_px - oy)
+                    obs_pen = torch.clamp(68.0 - d_obs, min=0.0)
+                    returns -= (discount * 4.0) * obs_pen
+
+            discount *= gamma
+            curr_states = next_states
 
             if return_trajectories:
                 traj_states[t + 1] = curr_states
@@ -236,20 +281,24 @@ def plan(
             overshoot_penalty = torch.clamp(term_dist - 40.0, min=0.0) / 20.0
             returns[close_mask] -= 1.5 * overshoot_penalty[close_mask]
 
-            # Penalize idle STAY action (action 4) when goal is not yet reached
+            # Penalize idle STAY action (action 4) when goal is not reached (anti-hovering)
             not_at_goal = (init_dist > 40.0)
-            returns[(actions[:, 0] == 4) & not_at_goal] -= 4.0
+            returns[(actions[:, 0] == 4) & not_at_goal] -= 50.0
 
         # Action momentum / continuity bonus: encourage continuing current direction of movement
         # unless an alternative action has a clearly higher expected return (stops 1-step policy chattering)
         if last_action is not None and 0 <= last_action < 4:
-            returns[actions[:, 0] == last_action] += 2.20
+            returns[actions[:, 0] == last_action] += 4.50
 
         # Anti-immediate-reversal penalty (strongly prevents 2-state back-and-forth oscillations)
         if last_action is not None and 0 <= last_action < 4:
             opposite = {0: 1, 1: 0, 2: 3, 3: 2}.get(last_action, -1)
             if opposite != -1:
-                returns[actions[:, 0] == opposite] -= 4.00
+                returns[actions[:, 0] == opposite] -= 16.00
+
+        # Severe penalty on repeating the action that caused a physical collision
+        if last_collided_action is not None and 0 <= last_collided_action < action_size:
+            returns[actions[:, 0] == last_collided_action] -= 100.0
 
         best_idx = torch.argmax(returns).item()
         best_action = int(actions[best_idx, 0].item())
@@ -276,6 +325,7 @@ def plan(
 
         info = {
             "best_trajectory": best_trajectory,
+            "best_actions": actions[best_idx].cpu().numpy().tolist(),
             "candidate_trajectories": candidate_trajectories,
             "best_return": float(returns[best_idx].item()),
             "candidate_returns": candidate_returns,

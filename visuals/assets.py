@@ -182,22 +182,23 @@ class SpriteManager:
         self._cache: Dict[str, pygame.Surface] = {}
         self._rotation_cache: Dict[Tuple[str, int], pygame.Surface] = {}
 
-    def get_robot_sprite(self, angle_deg: int = 0, status: str = "moving") -> pygame.Surface:
+    def get_robot_sprite(self, angle_deg: int = 0, status: str = "moving", step_count: int = 0) -> pygame.Surface:
         """
         Generates/returns a 36x36 robot sprite matching ROBOT_RADIUS=18.0.
         Features:
-        - Outer treads
+        - Animated rolling outer treads
         - Metallic chassis with bevel
         - Directional arrow / headlight indicators
         - Status LED (blue=thinking, green=moving, red=collision)
         """
         # Quantize angle to nearest 5 degrees to avoid unbounded rotation caching
         quantized_angle = int(round(angle_deg / 5.0) * 5) % 360
-        cache_key = (f"robot_{status}", quantized_angle)
+        tread_phase = (step_count // 2) % 4 if status == "moving" else 0
+        cache_key = (f"robot_{status}_{tread_phase}", quantized_angle)
         if cache_key in self._rotation_cache:
             return self._rotation_cache[cache_key]
 
-        base_key = f"robot_{status}_base"
+        base_key = f"robot_{status}_{tread_phase}_base"
         if base_key not in self._cache:
             size = 36
             surf = pygame.Surface((size, size), pygame.SRCALPHA)
@@ -206,10 +207,12 @@ class SpriteManager:
             # 1. Outer treads (left and right dark bands)
             pygame.draw.rect(surf, (35, 42, 52), (1, 4, 6, 28), border_radius=2)
             pygame.draw.rect(surf, (35, 42, 52), (size - 7, 4, 6, 28), border_radius=2)
-            # Tread ridges
-            for ty in range(6, 30, 4):
-                pygame.draw.line(surf, (20, 25, 32), (1, ty), (6, ty), 1)
-                pygame.draw.line(surf, (20, 25, 32), (size - 7, ty), (size - 2, ty), 1)
+            # Animated tread ridges
+            for ty in range(5, 31, 4):
+                line_y = ty + tread_phase
+                if 4 <= line_y <= 29:
+                    pygame.draw.line(surf, (20, 25, 32), (1, line_y), (6, line_y), 1)
+                    pygame.draw.line(surf, (20, 25, 32), (size - 7, line_y), (size - 2, line_y), 1)
 
             # 2. Main circular chassis (radius 14)
             pygame.draw.circle(surf, Colors.ROBOT_BODY, (cx, cy), 14)

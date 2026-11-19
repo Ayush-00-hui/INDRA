@@ -100,6 +100,20 @@ class RobotEnv(BaseEnv):
         self.success_count = 0
         self.collision_count = 0
 
+        # Kinetic & Drive Mechanics
+        self.vx = 0.0
+        self.vy = 0.0
+        self.heading = 0.0
+        self.drive_mode = "NORMAL"
+
+        # Anti-Hovering Sentinel Mechanics (Strict max 2.0s hover constraint)
+        self.hover_anchor_x = 0.0
+        self.hover_anchor_y = 0.0
+        self.hover_steps = 0
+        self.hover_radius_threshold = 28.0  # detects micro-oscillations within ~1.5 robot radii
+        self.max_hover_steps = 55           # ~1.83s at 30 FPS (strict <2.0s dwell guarantee)
+        self.anti_hover_thrust_active = False
+
         # UI / Display helpers
         self.mode_str = "WITH WORLD MODEL"
         self._font = None
@@ -210,6 +224,16 @@ class RobotEnv(BaseEnv):
         self.goal_x = float(np.random.uniform(self.WIDTH - 180, self.WIDTH - 70))
         self.goal_y = float(np.random.uniform(75, 150))
 
+        # Reset kinetic dynamics and anti-hover sentinel anchor
+        self.vx = 0.0
+        self.vy = 0.0
+        self.heading = float(math.degrees(math.atan2(self.goal_x - self.robot_x, -(self.goal_y - self.robot_y))) % 360.0)
+        self.drive_mode = "NORMAL"
+        self.hover_anchor_x = self.robot_x
+        self.hover_anchor_y = self.robot_y
+        self.hover_steps = 0
+        self.anti_hover_thrust_active = False
+
         self.obstacles = []
 
         # 1. The "Chair": always placed directly between robot and goal
@@ -282,16 +306,155 @@ class RobotEnv(BaseEnv):
 
         return False
 
+    def get_lidar_distances(self, n_beams: int = 16, max_range: float = 250.0) -> np.ndarray:
+        """
+        Fast 360-degree vector LiDAR distance scanner.
+        Casts n_beams rays from (robot_x, robot_y) around 360 degrees.
+        Returns distance in pixels to nearest wall or obstacle AABB for each beam.
+        """
+        angles = np.linspace(0, 2 * math.pi, n_beams, endpoint=False)
+        distances = np.full(n_beams, max_range, dtype=np.float32)
+        rx, ry = self.robot_x, self.robot_y
+
+        for i, angle in enumerate(angles):
+            dx = math.cos(angle)
+            dy = math.sin(angle)
+
+            # 1. Distance to room walls (margin 10px)
+            d_wall = max_range
+            if dx > 1e-4:
+                d_wall = min(d_wall, (self.WIDTH - 10.0 - rx) / dx)
+            elif dx < -1e-4:
+                d_wall = min(d_wall, (10.0 - rx) / dx)
+
+            if dy > 1e-4:
+                d_wall = min(d_wall, (self.HEIGHT - 10.0 - ry) / dy)
+            elif dy < -1e-4:
+                d_wall = min(d_wall, (10.0 - ry) / dy)
+
+            min_dist = max(0.0, d_wall)
+
+            # 2. Distance to each obstacle (Ray vs AABB slab intersection)
+            for obs in self.obstacles:
+                x1, x2 = obs.x, obs.x + obs.width
+                y1, y2 = obs.y, obs.y + obs.height
+
+                # Point inside box
+                if x1 <= rx <= x2 and y1 <= ry <= y2:
+                    min_dist = 0.0
+                    break
+
+                tmin = 0.0
+                tmax = min_dist
+
+                if abs(dx) > 1e-6:
+                    tx1 = (x1 - rx) / dx
+                    tx2 = (x2 - rx) / dx
+                    tmin = max(tmin, min(tx1, tx2))
+                    tmax = min(tmax, max(tx1, tx2))
+                elif rx < x1 or rx > x2:
+                    continue
+
+                if abs(dy) > 1e-6:
+                    ty1 = (y1 - ry) / dy
+                    ty2 = (y2 - ry) / dy
+                    tmin = max(tmin, min(ty1, ty2))
+                    tmax = min(tmax, max(ty1, ty2))
+                elif ry < y1 or ry > y2:
+                    continue
+
+                if tmax >= tmin and tmin >= 0.0:
+                    min_dist = min(min_dist, tmin)
+
+            distances[i] = min(max_range, max(0.0, min_dist))
+
+        return distances
+
+    def _compute_anti_hover_escape_action(self) -> int:
+        """
+        Anti-Hover Sentinel: Evaluates directional clearance and goal orientation
+        to pick an immediate breakaway escape direction when hovering >= 2.0 seconds.
+        """
+        lidar = self.get_lidar_distances(n_beams=16, max_range=200.0)
+        action_angles = {
+            0: 3 * math.pi / 2,
+            1: math.pi / 2,
+            2: math.pi,
+            3: 0.0
+        }
+
+        gdx = self.goal_x - self.robot_x
+        gdy = self.goal_y - self.robot_y
+        g_len = math.hypot(gdx, gdy)
+        gu_x = gdx / max(1e-4, g_len)
+        gu_y = gdy / max(1e-4, g_len)
+
+        best_score = -1e9
+        best_act = 0
+
+        for act, angle in action_angles.items():
+            adx, ady = self.ACTION_DELTAS[act]
+            cand_x = self.robot_x + adx
+            cand_y = self.robot_y + ady
+
+            if self._check_collision(cand_x, cand_y):
+                continue
+
+            beam_idx = int(round((angle / (2 * math.pi)) * 16)) % 16
+            clearance = float(lidar[beam_idx])
+
+            # Forward alignment with goal
+            mv_len = math.hypot(adx, ady)
+            alignment = (adx * gu_x + ady * gu_y) / max(1e-4, mv_len)
+
+            score = clearance + 15.0 * alignment
+            if score > best_score:
+                best_score = score
+                best_act = act
+
+        return best_act
+
     def step(self, action: int) -> Tuple[np.ndarray, float, bool, Dict[str, Any]]:
-        """Advance simulation by one discrete action step."""
+        """Advance simulation by one discrete action step with anti-hover sentinel & kinetic drive."""
         self.step_count += 1
-        dx, dy = self.ACTION_DELTAS.get(int(action), (0.0, 0.0))
+        prev_rx, prev_ry = self.robot_x, self.robot_y
 
         # Update moving obstacles
         for obs in self.obstacles:
             obs.update(self.WIDTH, self.HEIGHT)
 
-        # Compute candidate position
+        # Kinetic drive mode based on 360-degree LiDAR clearance
+        lidar_16 = self.get_lidar_distances(n_beams=16, max_range=200.0)
+        min_clearance = float(np.min(lidar_16))
+        if min_clearance > 75.0:
+            self.drive_mode = "TURBO_CRUISE"
+        elif min_clearance < 32.0:
+            self.drive_mode = "PRECISION_CREEP"
+        else:
+            self.drive_mode = "NORMAL"
+
+        # Anti-Hovering Displacement Tracking (Enforcing strict 2.0s max hover)
+        disp_from_anchor = math.hypot(self.robot_x - self.hover_anchor_x, self.robot_y - self.hover_anchor_y)
+        if disp_from_anchor < self.hover_radius_threshold:
+            self.hover_steps += 1
+        else:
+            self.hover_anchor_x = self.robot_x
+            self.hover_anchor_y = self.robot_y
+            self.hover_steps = 0
+
+        self.anti_hover_thrust_active = False
+
+        # 2-SECOND HARD ENFORCEMENT: If hovering >= 55 steps (~1.8-2.0s), override action with breakaway escape!
+        if self.hover_steps >= self.max_hover_steps:
+            escape_act = self._compute_anti_hover_escape_action()
+            if escape_act is not None:
+                action = escape_act
+                self.anti_hover_thrust_active = True
+                self.hover_steps = 0
+                self.hover_anchor_x = self.robot_x
+                self.hover_anchor_y = self.robot_y
+
+        dx, dy = self.ACTION_DELTAS.get(int(action), (0.0, 0.0))
         candidate_x = self.robot_x + dx
         candidate_y = self.robot_y + dy
 
@@ -314,6 +477,10 @@ class RobotEnv(BaseEnv):
         progress = (prev_dist - curr_dist) / self.STEP_SIZE
         reward = progress - 0.01  # small step penalty
 
+        # Progressive stagnation penalty if hovering >= 1.2s (35 steps)
+        if self.hover_steps >= 35:
+            reward -= 0.30 * (self.hover_steps - 34)
+
         if is_collision:
             reward -= 10.0
 
@@ -328,6 +495,16 @@ class RobotEnv(BaseEnv):
         elif timeout:
             done = True
 
+        # Kinetic velocity smoothing & heading update
+        actual_dx = self.robot_x - prev_rx
+        actual_dy = self.robot_y - prev_ry
+        self.vx = 0.75 * self.vx + 0.25 * actual_dx
+        self.vy = 0.75 * self.vy + 0.25 * actual_dy
+        if abs(actual_dx) > 0.05 or abs(actual_dy) > 0.05:
+            self.heading = float(math.degrees(math.atan2(actual_dx, -actual_dy)) % 360.0)
+
+        is_blocked, blocked_reason = self.is_path_blocked()
+
         info = {
             "collision": is_collision,
             "reached_goal": reached_goal,
@@ -336,6 +513,13 @@ class RobotEnv(BaseEnv):
             "collisions_total": self.collision_count,
             "robot_pos": (self.robot_x, self.robot_y),
             "goal_pos": (self.goal_x, self.goal_y),
+            "path_blocked": is_blocked,
+            "blocked_reason": blocked_reason,
+            "hover_steps": self.hover_steps,
+            "hover_duration_sec": round(self.hover_steps / 30.0, 2),
+            "anti_hover_thrust": self.anti_hover_thrust_active,
+            "drive_mode": self.drive_mode,
+            "lidar_min_clearance": round(min_clearance, 1),
         }
 
         self.last_step_info = info
@@ -471,10 +655,122 @@ class RobotEnv(BaseEnv):
             )
             screen.blit(scen_txt, (25, 64))
 
+        # Impassable blocked area warning message banner
+        is_blocked = getattr(self, "last_step_info", {}).get("path_blocked", False)
+        if not is_blocked and self.obstacles:
+            is_blocked, _ = self.is_path_blocked()
+
+        if is_blocked:
+            banner_w = 640
+            banner_h = 50
+            bx = (self.WIDTH - banner_w) // 2
+            by = 16
+            banner_rect = pygame.Rect(bx, by, banner_w, banner_h)
+            pygame.draw.rect(screen, (38, 10, 16), banner_rect, border_radius=8)
+            pygame.draw.rect(screen, (239, 68, 68), banner_rect, 3, border_radius=8)
+            warn_txt = self._font.render("WARNING: AREA BLOCKED BY OBSTACLES — NO VIABLE PATH TO GOAL", True, (255, 230, 230))
+            screen.blit(warn_txt, (bx + (banner_w - warn_txt.get_width()) // 2, by + 14))
+
+    def is_path_blocked(self) -> Tuple[bool, str]:
+        """
+        Fast sub-millisecond BFS grid reachability check (15px cells) between robot and goal.
+        Evaluates whether obstacles completely seal or disconnect all traversable routes
+        for a circular agent with ROBOT_RADIUS.
+        
+        Returns:
+            (is_blocked: bool, reason: str)
+        """
+        if not self.obstacles:
+            return False, ""
+
+        from collections import deque
+
+        r_margin = self.ROBOT_RADIUS + 1.0
+        cell_size = 15.0
+        grid_w = int(self.WIDTH // cell_size)    # 60
+        grid_h = int(self.HEIGHT // cell_size)   # 40
+
+        sgx = int(np.clip(self.robot_x // cell_size, 0, grid_w - 1))
+        sgy = int(np.clip(self.robot_y // cell_size, 0, grid_h - 1))
+        tgx = int(np.clip(self.goal_x // cell_size, 0, grid_w - 1))
+        tgy = int(np.clip(self.goal_y // cell_size, 0, grid_h - 1))
+
+        blocked = np.zeros((grid_h, grid_w), dtype=bool)
+
+        # Boundary perimeter
+        wall_cells_x = int(math.ceil((self.ROBOT_RADIUS + 4.0) / cell_size))
+        wall_cells_y = int(math.ceil((self.ROBOT_RADIUS + 4.0) / cell_size))
+        blocked[:wall_cells_y, :] = True
+        blocked[-wall_cells_y:, :] = True
+        blocked[:, :wall_cells_x] = True
+        blocked[:, -wall_cells_x:] = True
+
+        for obs in self.obstacles:
+            x1 = max(0, int((obs.x - r_margin) // cell_size))
+            x2 = min(grid_w - 1, int((obs.x + obs.width + r_margin) // cell_size))
+            y1 = max(0, int((obs.y - r_margin) // cell_size))
+            y2 = min(grid_h - 1, int((obs.y + obs.height + r_margin) // cell_size))
+            for gy in range(y1, y2 + 1):
+                cy = gy * cell_size + cell_size * 0.5
+                closest_y = max(obs.y, min(cy, obs.y + obs.height))
+                dy = cy - closest_y
+                for gx in range(x1, x2 + 1):
+                    cx = gx * cell_size + cell_size * 0.5
+                    closest_x = max(obs.x, min(cx, obs.x + obs.width))
+                    dx = cx - closest_x
+                    if (dx * dx + dy * dy) < (r_margin * r_margin):
+                        blocked[gy, gx] = True
+
+        # Check if robot starting cell is trapped
+        if blocked[sgy, sgx]:
+            found = False
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = sgy + dy, sgx + dx
+                    if 0 <= ny < grid_h and 0 <= nx < grid_w and not blocked[ny, nx]:
+                        sgy, sgx = ny, nx
+                        found = True
+                        break
+                if found:
+                    break
+            if not found:
+                return True, "AREA BLOCKED: ROBOT IS ENCLOSED BY OBSTACLES"
+
+        # Check if goal target cell is sealed off
+        if blocked[tgy, tgx]:
+            found_target = False
+            for dy in (-1, 0, 1):
+                for dx in (-1, 0, 1):
+                    ny, nx = tgy + dy, tgx + dx
+                    if 0 <= ny < grid_h and 0 <= nx < grid_w and not blocked[ny, nx]:
+                        found_target = True
+                        break
+            if not found_target:
+                return True, "AREA BLOCKED: GOAL IS ENCLOSED BY OBSTACLES"
+
+        # 8-connected BFS queue
+        q = deque([(sgx, sgy)])
+        visited = {(sgx, sgy)}
+        goal_reach_radius = max(1, int(self.GOAL_RADIUS // cell_size))
+
+        while q:
+            cx, cy = q.popleft()
+            if abs(cx - tgx) <= goal_reach_radius and abs(cy - tgy) <= goal_reach_radius:
+                return False, ""
+
+            for dx, dy in ((0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (-1, 1), (1, -1), (-1, -1)):
+                nx, ny = cx + dx, cy + dy
+                if 0 <= nx < grid_w and 0 <= ny < grid_h:
+                    if not blocked[ny, nx] and (nx, ny) not in visited:
+                        visited.add((nx, ny))
+                        q.append((nx, ny))
+
+        return True, "AREA BLOCKED: NO NAVIGABLE ROUTE TO GOAL"
+
     def place_obstacle(self, x: float, y: float, kind: str = "crate", w: Optional[float] = None, h: Optional[float] = None) -> bool:
         """
         Interactive Edit Mode: Add custom obstacle to environment.
-        Supports up to 12 dynamic obstacles (crates, cabinets, workstations, blocks).
+        Supports up to 36 dynamic obstacles (crates, cabinets, workstations, blocks).
         """
         if w is None or h is None:
             if kind in ("chair", "workstation"):
@@ -495,7 +791,7 @@ class RobotEnv(BaseEnv):
         if math.hypot(cx - self.goal_x, cy - self.goal_y) < (self.GOAL_RADIUS + 25.0):
             return False
 
-        if len(self.obstacles) >= 12:
+        if len(self.obstacles) >= 36:
             self.obstacles.pop(0)  # Rotate oldest obstacle out to make room
 
         obs = Obstacle(x=x, y=y, width=w, height=h, kind=kind)

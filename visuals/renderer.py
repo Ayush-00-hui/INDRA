@@ -336,6 +336,12 @@ class RobotRenderer:
             dx, dy = p1[0] - p0[0], p1[1] - p0[1]
             if abs(dx) > 0.01 or abs(dy) > 0.01:
                 heading_angle = int(math.degrees(math.atan2(dy, dx))) + 90
+        elif getattr(env, "heading", None) is not None and (abs(getattr(env, "vx", 0.0)) > 0.01 or abs(getattr(env, "vy", 0.0)) > 0.01):
+            heading_angle = int(env.heading)
+        elif abs(getattr(env, "vx", 0.0)) > 0.01 or abs(getattr(env, "vy", 0.0)) > 0.01:
+            heading_angle = int(math.degrees(math.atan2(env.vy, env.vx))) + 90
+        elif abs(env.goal_x - env.robot_x) > 1.0 or abs(env.goal_y - env.robot_y) > 1.0:
+            heading_angle = int(math.degrees(math.atan2(env.goal_y - env.robot_y, env.goal_x - env.robot_x))) + 90
 
         robot_status = "moving"
         if last_info and last_info.get("collision", False):
@@ -343,9 +349,26 @@ class RobotRenderer:
         elif plan_info is not None:
             robot_status = "thinking"
 
-        robot_sprite = self.sprites.get_robot_sprite(angle_deg=heading_angle, status=robot_status)
+        robot_sprite = self.sprites.get_robot_sprite(angle_deg=heading_angle, status=robot_status, step_count=env.step_count)
         rx = int(self.display_robot_x - robot_sprite.get_width() // 2)
         ry = int(self.display_robot_y - robot_sprite.get_height() // 2)
+
+        # -------------------------------------------------------------
+        # LAYER 4.5: 360-DEGREE VECTOR LIDAR SCANNER SWEEPS
+        # -------------------------------------------------------------
+        if hasattr(env, "get_lidar_distances") and self.quality != QualityLevel.LOW:
+            lidar_beams = env.get_lidar_distances(n_beams=16, max_range=130.0)
+            angles = np.linspace(0, 2 * math.pi, 16, endpoint=False)
+            lidar_surf = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
+            for i, ang in enumerate(angles):
+                ldist = float(lidar_beams[i])
+                lx = int(env.robot_x + math.cos(ang) * ldist)
+                ly = int(env.robot_y + math.sin(ang) * ldist)
+                beam_col = (0, 240, 255, 30) if ldist > 35 else (255, 90, 90, 55)
+                pygame.draw.line(lidar_surf, beam_col, (int(env.robot_x), int(env.robot_y)), (lx, ly), 1)
+                pygame.draw.circle(lidar_surf, (0, 255, 220, 65), (lx, ly), 2)
+            surface.blit(lidar_surf, (0, 0))
+
         surface.blit(robot_sprite, (rx, ry))
 
         # Floating "BONK!" popup badge on collision
@@ -400,6 +423,28 @@ class RobotRenderer:
         # -------------------------------------------------------------
         if draw_hud:
             self._render_hud(env, surface, method_title, fps)
+
+        # -------------------------------------------------------------
+        # LAYER 12: IMPASSABLE BLOCKED AREA WARNING BANNER
+        # -------------------------------------------------------------
+        is_blocked = getattr(env, "last_step_info", {}).get("path_blocked", False)
+        if not is_blocked and hasattr(env, "is_path_blocked") and getattr(env, "obstacles", None):
+            is_blocked, _ = env.is_path_blocked()
+
+        if is_blocked:
+            banner_w = 660
+            banner_h = 54
+            bx = (self.width - banner_w) // 2
+            by = 88  # Floating right below the top status panel
+            b_rect = pygame.Rect(bx, by, banner_w, banner_h)
+            draw_glass_panel(surface, b_rect, bg_color=(38, 10, 16), alpha=235, border_color=(239, 68, 68), radius=8)
+            pygame.draw.rect(surface, (255, 60, 70), b_rect, 2, border_radius=8)
+            warn_icon = self.font_title.render("[!]", True, (255, 200, 60))
+            warn_title = self.font_title.render("AREA BLOCKED BY OBSTACLES", True, (255, 80, 80))
+            warn_sub = self.font_body.render("NO VIABLE PATH TO GOAL — ALL TRAJECTORIES IMPASSABLE", True, (255, 210, 210))
+            surface.blit(warn_icon, (bx + 16, by + 16))
+            surface.blit(warn_title, (bx + 52, by + 8))
+            surface.blit(warn_sub, (bx + 52, by + 30))
 
     def _render_holographic_paths(self, env: Any, surface: pygame.Surface, plan_info: Dict[str, Any]) -> None:
         """
@@ -556,8 +601,11 @@ class RobotRenderer:
         hit_str = f"Collisions: {env.collision_count}"
         ep_str = f"Ep: {env.episode_count}"
         scen_str = f"Scenario {env.scenario}"
+        drive_str = getattr(env, "drive_mode", "NORMAL")
+        hover_s = getattr(env, "hover_steps", 0) / 30.0
+        hover_tag = f"Hover: {hover_s:.1f}s" if hover_s < 1.4 else "⚠️ ANTI-HOVER"
 
-        stats_line = f"{scen_str}  |  {ep_str}  |  {step_str}  |  {hit_str}"
+        stats_line = f"{scen_str} | {ep_str} | {step_str} | {hit_str} | [{drive_str}] | {hover_tag}"
         st_surf = self.font_body.render(stats_line, True, (215, 228, 242))
         surface.blit(st_surf, (hud_rect.x + 12, hud_rect.y + 36))
 

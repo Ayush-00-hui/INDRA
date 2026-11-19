@@ -44,46 +44,54 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       <!-- 3D Canvas / Viewports Container -->
       <div id="sim-canvas-root" class="canvas-container" style="position: relative; width: 100%; height: 100%; overflow: hidden;"></div>
 
-      <!-- Advanced Cyberpunk / Military Robot POV Visor HUD -->
+      <!-- Advanced Robot POV Visor HUD -->
       <div id="pov-sensor-overlay" style="display: none; position: absolute; inset: 0; pointer-events: none; z-index: 10;">
-        <!-- Visor Border Brackets & Scanlines -->
-        <div style="position: absolute; inset: 12px; border: 2px solid rgba(0, 240, 255, 0.35); box-shadow: inset 0 0 120px rgba(0, 0, 0, 0.9);">
+        <div style="position: absolute; inset: 16px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; box-shadow: inset 0 0 100px rgba(0, 0, 0, 0.8);">
           <!-- Top Compass Ribbon -->
-          <div style="position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 340px; height: 28px; background: rgba(5, 10, 20, 0.85); border: 1px solid rgba(0, 240, 255, 0.4); border-radius: 4px; display: flex; align-items: center; justify-content: space-around; font-family: var(--font-mono); font-size: 0.72rem; color: #00f0ff; letter-spacing: 2px;">
-            <span>W</span><span>|</span><span style="color: #00ff9d; font-weight: 700;" id="pov-heading-val">N 000°</span><span>|</span><span>E</span>
+          <div style="position: absolute; top: 16px; left: 50%; transform: translateX(-50%); width: 320px; height: 26px; background: rgba(14, 18, 28, 0.85); border: 1px solid var(--border-subtle); border-radius: 6px; display: flex; align-items: center; justify-content: space-around; font-family: var(--font-mono); font-size: 0.70rem; color: var(--text-muted); letter-spacing: 2px;">
+            <span>W</span><span>|</span><span style="color: #38bdf8; font-weight: 600;" id="pov-heading-val">N 000°</span><span>|</span><span>E</span>
           </div>
 
-          <!-- Artificial Horizon Center Crosshair -->
-          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90px; height: 90px; pointer-events: none;">
-            <div style="position: absolute; top: 50%; left: 0; width: 26px; height: 2px; background: #00f0ff;"></div>
-            <div style="position: absolute; top: 50%; right: 0; width: 26px; height: 2px; background: #00f0ff;"></div>
-            <div style="position: absolute; top: 0; left: 50%; width: 2px; height: 26px; background: #00f0ff;"></div>
-            <div style="position: absolute; bottom: 0; left: 50%; width: 2px; height: 26px; background: #00f0ff;"></div>
-            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 6px; height: 6px; border-radius: 50%; background: #00ff9d; box-shadow: 0 0 8px #00ff9d;"></div>
+          <!-- Center Crosshair -->
+          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; pointer-events: none;">
+            <div style="position: absolute; top: 50%; left: 0; width: 22px; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
+            <div style="position: absolute; top: 50%; right: 0; width: 22px; height: 1px; background: rgba(255, 255, 255, 0.3);"></div>
+            <div style="position: absolute; top: 0; left: 50%; width: 1px; height: 22px; background: rgba(255, 255, 255, 0.3);"></div>
+            <div style="position: absolute; bottom: 0; left: 50%; width: 1px; height: 22px; background: rgba(255, 255, 255, 0.3);"></div>
+            <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 4px; height: 4px; border-radius: 50%; background: #38bdf8;"></div>
           </div>
 
           <!-- Left Flight Telemetry Data Box -->
-          <div style="position: absolute; left: 32px; top: 40%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 0.75rem; color: #00f0ff; display: flex; flex-direction: column; gap: 6px; background: rgba(5, 10, 20, 0.75); padding: 8px 12px; border-left: 3px solid #00f0ff; border-radius: 2px;">
-            <div style="color: #64748b; font-size: 0.65rem;">TELEMETRY</div>
-            <div>SPD: <span id="pov-speed" style="color: #00ff9d; font-weight: 700;">0.45 m/s</span></div>
-            <div>STATUS: <span style="color: #00ff9d; font-weight: 700;">NOMINAL</span></div>
-            <div>LIDAR: <span style="color: #38bdf8;">ACTIVE (360°)</span></div>
+          <div style="position: absolute; left: 24px; top: 40%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; background: rgba(14, 18, 28, 0.85); padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: 6px;">
+            <div style="color: var(--text-dim); font-size: 0.62rem; font-weight: 600;">TELEMETRY</div>
+            <div>SPD: <span id="pov-speed" style="color: #34d399; font-weight: 600;">0.45 m/s</span></div>
+            <div>STATUS: <span style="color: #38bdf8; font-weight: 600;">NOMINAL</span></div>
+            <div>LIDAR: <span style="color: #94a3b8;">ACTIVE (360°)</span></div>
           </div>
 
           <!-- Right Goal Distance & Target Tracking Box -->
-          <div style="position: absolute; right: 32px; top: 40%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 0.75rem; color: #00f0ff; display: flex; flex-direction: column; gap: 6px; background: rgba(5, 10, 20, 0.75); padding: 8px 12px; border-right: 3px solid #ffb703; border-radius: 2px; text-align: right;">
-            <div style="color: #64748b; font-size: 0.65rem;">TARGET TRACKING</div>
-            <div>GOAL DIST: <span id="pov-target-dist" style="color: #ffb703; font-weight: 700;">- m</span></div>
-            <div>HORIZON: <span style="color: #38bdf8;">14 STEPS</span></div>
-            <div>LOCK: <span style="color: #00ff9d; font-weight: 700;">CONFIRMED</span></div>
+          <div style="position: absolute; right: 24px; top: 40%; transform: translateY(-50%); font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 4px; background: rgba(14, 18, 28, 0.85); padding: 8px 12px; border: 1px solid var(--border-subtle); border-radius: 6px; text-align: right;">
+            <div style="color: var(--text-dim); font-size: 0.62rem; font-weight: 600;">TARGET TRACKING</div>
+            <div>GOAL DIST: <span id="pov-target-dist" style="color: #f59e0b; font-weight: 600;">- m</span></div>
+            <div>HORIZON: <span style="color: #94a3b8;">14 STEPS</span></div>
+            <div>LOCK: <span style="color: #34d399; font-weight: 600;">CONFIRMED</span></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Impassable / Blocked Area Warning Banner -->
+      <div id="area-blocked-banner" class="area-blocked-banner">
+        <span style="font-size: 1.25rem; line-height: 1;">⚠️</span>
+        <div style="display: flex; flex-direction: column; gap: 2px;">
+          <div style="color: #ef4444; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; font-size: 0.82rem;">AREA BLOCKED BY OBSTACLES</div>
+          <div id="area-blocked-subtitle" style="color: #fca5a5; font-size: 0.72rem; font-weight: 500;">No viable path to goal — all trajectories impassable</div>
         </div>
       </div>
 
       ${
         scenarioId === "driving"
           ? `
-        <!-- AV Autonomous Driving Premium Glassmorphic HUD -->
+        <!-- AV Autonomous Driving Premium HUD -->
         <div id="av-hud" class="av-dashboard-hud">
           <div class="av-speed-cluster">
             <div id="av-speed-val" class="av-speed-val">0</div>
@@ -93,29 +101,29 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           <div class="av-gauge-item">
             <div class="av-gauge-header"><span>LANE OFFSET</span><span id="av-offset-val">0.0 m</span></div>
             <div class="av-gauge-bar-bg">
-              <div id="av-offset-fill" class="av-gauge-bar-fill" style="width: 50%; background: #00ff9d;"></div>
+              <div id="av-offset-fill" class="av-gauge-bar-fill" style="width: 50%; background: #10b981;"></div>
             </div>
           </div>
           <div class="av-gauge-item">
             <div class="av-gauge-header"><span>HEADWAY TTC</span><span id="av-ttc-val">10.0 s</span></div>
             <div class="av-gauge-bar-bg">
-              <div id="av-ttc-fill" class="av-gauge-bar-fill" style="width: 100%; background: #00ff9d;"></div>
+              <div id="av-ttc-fill" class="av-gauge-bar-fill" style="width: 100%; background: #10b981;"></div>
             </div>
           </div>
           <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 90px;">
             <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">ACTION</div>
             <div id="av-action-chip" class="av-action-chip cruise">CRUISE</div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 4px; border-left: 1px solid rgba(255,255,255,0.12); padding-left: 14px;">
+          <div style="display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--border-subtle); padding-left: 14px;">
             <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">MODEL MAE</div>
-            <div id="av-mae-val" style="color: var(--accent-cyan); font-weight: 800; font-size: 0.95rem;">0.019</div>
+            <div id="av-mae-val" style="color: #38bdf8; font-weight: 700; font-size: 0.92rem;">0.019</div>
           </div>
         </div>
 
         <!-- Radar Mini-map -->
         <div id="av-minimap-box" class="av-minimap-box">
-          <div style="font-size: 0.60rem; color: var(--text-dim); font-weight: 800; margin-bottom: 2px;">RADAR MAP</div>
-          <canvas id="av-minimap-canvas" width="128" height="110" style="display: block; width: 100%; height: 100%; border-radius: 4px; background: #020617;"></canvas>
+          <div style="font-size: 0.60rem; color: var(--text-dim); font-weight: 700; margin-bottom: 2px;">RADAR MAP</div>
+          <canvas id="av-minimap-canvas" width="128" height="110" style="display: block; width: 100%; height: 100%; border-radius: 4px; background: #080c14;"></canvas>
         </div>
 
         <!-- Toast Notifications -->
@@ -123,305 +131,349 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       `
           : `
         <!-- Floating Docking Bay HUD Banner -->
-        <div id="dock-hud-banner" style="position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%); background: rgba(5, 10, 25, 0.92); border: 1px solid #00ff9d; border-radius: 6px; padding: 8px 18px; display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 0.78rem; pointer-events: none; z-index: 15; box-shadow: 0 0 24px rgba(0, 255, 157, 0.35);">
-          <span id="dock-hud-dot" style="width: 10px; height: 10px; border-radius: 50%; background: #00ff9d; box-shadow: 0 0 10px #00ff9d; display: inline-block;"></span>
-          <span id="dock-hud-text" style="color: #f8fafc; font-weight: 700;">ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD</span>
+        <div id="dock-hud-banner" class="dock-hud-banner">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span id="dock-hud-dot" class="dock-hud-dot"></span>
+            <span id="dock-hud-mode-badge" class="dock-hud-badge">NORMAL</span>
+          </div>
+          <div class="dock-hud-divider"></div>
+          <span id="dock-hud-text" class="dock-hud-text">Robot Active &mdash; Executing Trajectory</span>
+          <div class="dock-hud-divider"></div>
+          <span class="dock-hud-shortcut">[SPACE] TO HOLD</span>
         </div>
       `
       }
 
-      <!-- Top Mission Control Navigation Header -->
+      <!-- Premium Enterprise Navigation Header -->
       <header class="top-nav">
-        <div style="display: flex; align-items: center; gap: 14px;">
-          <a href="#/" class="glass-pill" style="padding: 4px 10px; font-weight: 700; color: var(--accent-cyan);">
-            <span>&larr; CATALOG</span>
+        <!-- Left: Brand, Title & System Indicator -->
+        <div style="display: flex; align-items: center; gap: 12px;">
+          <a href="#/" class="glass-pill" style="padding: 4px 10px; font-weight: 600; color: var(--text-muted);" title="Return to Simulations Catalog">
+            <span>&larr; Catalog</span>
           </a>
+          <div style="width: 1px; height: 18px; background: var(--border-subtle);"></div>
           <div style="display: flex; align-items: center; gap: 8px;">
             <div class="nav-logo-icon">WM</div>
-            <span style="font-weight: 800; font-size: 0.95rem; letter-spacing: 0.05em; font-family: var(--font-mono);">${simTitle}</span>
+            <div style="display: flex; flex-direction: column; line-height: 1.15;">
+              <span style="font-weight: 700; font-size: 0.88rem; letter-spacing: 0.02em; color: var(--text-main); font-family: var(--font-ui);">${simTitle}</span>
+              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Fidelity Robotics Arena</span>
+            </div>
           </div>
-          <span id="badge-connection" class="badge badge-live">● LIVE FEED</span>
+          <span id="badge-connection" class="badge badge-live">
+            <span style="width: 6px; height: 6px; border-radius: 50%; background: #10b981; display: inline-block;"></span>
+            LIVE FEED
+          </span>
+          <span class="glass-pill nav-chip-badge" style="padding: 3px 8px; font-size: 0.68rem; color: var(--text-muted); border-color: var(--border-subtle);">
+            GeForce RTX 5070 &middot; 1.1M Params
+          </span>
         </div>
 
-        <div style="display: flex; align-items: center; gap: 12px;">
-          <!-- Mission Elapsed Clock -->
-          <div class="glass-pill" style="padding: 3px 8px; color: var(--text-dim);">
+        <!-- Center: Mission Time & Speed Controller -->
+        <div style="display: flex; align-items: center; gap: 8px; background: rgba(16, 21, 33, 0.7); border: 1px solid var(--border-subtle); border-radius: 20px; padding: 2px 10px;">
+          <div style="display: flex; align-items: center; gap: 6px; font-size: 0.72rem; color: var(--text-dim); font-family: var(--font-mono);">
             <span>MISSION:</span>
-            <span id="mission-clock" style="color: var(--accent-cyan); font-weight: 700;">T+00:00:00</span>
+            <span id="mission-clock" style="color: var(--text-main); font-weight: 600;">T+00:00:00</span>
           </div>
-
-          <!-- Live Audio Oscilloscope Canvas -->
-          <div class="glass-pill" style="padding: 2px 6px; display: flex; align-items: center; gap: 6px;" title="Live Audio Waveform Oscilloscope">
-            <span style="font-size: 0.68rem; color: var(--text-dim);">AUDIO:</span>
-            <canvas id="audio-visualizer-canvas" width="80" height="18" style="display: block;"></canvas>
-          </div>
-
-          <!-- Speed selector -->
-          <div class="glass-pill" style="padding: 3px 8px;">
-            <span style="font-size: 0.70rem; color: var(--text-dim);">SPEED:</span>
-            <select id="select-speed" style="background: transparent; border: none; color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.78rem; cursor: pointer;">
-              <option value="0.5" style="background: #090f1d;">0.5x</option>
-              <option value="1.0" selected style="background: #090f1d;">1.0x</option>
-              <option value="1.5" style="background: #090f1d;">1.5x</option>
-              <option value="2.0" style="background: #090f1d;">2.0x</option>
-              <option value="3.0" style="background: #090f1d;">3.0x</option>
-              <option value="4.0" style="background: #090f1d;">4.0x</option>
+          <div style="width: 1px; height: 12px; background: var(--border-subtle);"></div>
+          <div style="display: flex; align-items: center; gap: 4px; font-size: 0.72rem;">
+            <span style="color: var(--text-dim); font-size: 0.68rem;">SPEED:</span>
+            <select id="select-speed" style="background: transparent; border: none; color: #93c5fd; font-family: var(--font-mono); font-size: 0.74rem; cursor: pointer; outline: none; font-weight: 600;">
+              <option value="0.5" style="background: #111724;">0.5x</option>
+              <option value="1.0" selected style="background: #111724;">1.0x</option>
+              <option value="1.5" style="background: #111724;">1.5x</option>
+              <option value="2.0" style="background: #111724;">2.0x</option>
+              <option value="3.0" style="background: #111724;">3.0x</option>
+              <option value="4.0" style="background: #111724;">4.0x</option>
             </select>
           </div>
+        </div>
 
-          <!-- Intelligence Dashboard Link -->
-          <a href="#/intelligence" target="_blank" class="glass-pill" title="Open World Model Intelligence Dashboard in New Tab" style="color: #a855f7; text-decoration: none;">
-            <span>🧠 INTEL</span>
-          </a>
-
-          <!-- High-Res Screenshot Tool -->
-          <button id="btn-snapshot" class="glass-pill" title="Capture High-Res Viewport PNG (Screen Snap)" style="color: #38bdf8;">
-            <span>📸 SNAP</span>
-          </button>
-
-          <!-- Presentation Mode Toggle -->
-          <button id="btn-presentation" class="glass-pill" title="Toggle Clean Presentation Mode for Projectors (P)" style="color: var(--accent-cyan);">
-            <span>[P] PRESENT</span>
-          </button>
-
-          <!-- Fullscreen Toggle -->
-          <button id="btn-fullscreen" class="glass-pill" title="Toggle Fullscreen" style="color: var(--text-main);">
-            <span>⛶ FULL</span>
-          </button>
+        <!-- Right: Audio, FPS, and Tool Actions -->
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <!-- Audio Oscilloscope Canvas -->
+          <div class="glass-pill" style="padding: 2px 8px; display: flex; align-items: center; gap: 6px;" title="Audio Waveform">
+            <span style="font-size: 0.65rem; color: var(--text-dim);">AUDIO</span>
+            <canvas id="audio-visualizer-canvas" width="60" height="14" style="display: block; opacity: 0.8;"></canvas>
+          </div>
 
           <!-- Live FPS Gauge -->
-          <span id="fps-display" class="glass-pill" style="font-size: 0.78rem; color: var(--accent-green); font-weight: 700;">
+          <span id="fps-display" class="glass-pill" style="font-size: 0.72rem; color: #34d399; font-weight: 600; font-family: var(--font-mono); padding: 4px 8px;">
             60.0 FPS
           </span>
 
-          <button id="btn-help" class="glass-pill" title="Keyboard Guide (H)">
-            <span>HELP [H]</span>
+          <div style="width: 1px; height: 16px; background: var(--border-subtle); margin: 0 2px;"></div>
+
+          <!-- Intelligence Dashboard Link -->
+          <a href="#/intelligence" target="_blank" class="glass-pill" title="World Model Intelligence Dashboard" style="padding: 4px 10px; color: var(--text-muted); font-size: 0.76rem;">
+            <span>Intel</span>
+          </a>
+
+          <!-- Screenshot Tool -->
+          <button id="btn-snapshot" class="glass-pill" title="Capture High-Res Viewport PNG" style="padding: 4px 10px; color: var(--text-muted); font-size: 0.76rem;">
+            <span>Snap</span>
+          </button>
+
+          <!-- Presentation Mode Toggle -->
+          <button id="btn-presentation" class="glass-pill" title="Presentation Mode (P)" style="padding: 4px 10px; color: var(--text-muted); font-size: 0.76rem;">
+            <span>Present [P]</span>
+          </button>
+
+          <!-- Fullscreen Toggle -->
+          <button id="btn-fullscreen" class="glass-pill" title="Toggle Fullscreen" style="padding: 4px 8px; color: var(--text-muted); font-size: 0.76rem;">
+            <span>⛶</span>
+          </button>
+
+          <!-- Help Modal -->
+          <button id="btn-help" class="glass-pill" title="Keyboard Guide (H)" style="padding: 4px 8px; color: var(--text-muted); font-size: 0.76rem;">
+            <span>?</span>
           </button>
         </div>
       </header>
 
-      <!-- Minimal Cinematic Presentation Mode Broadcast Badge -->
-      <div id="presentation-badge" style="display: none; position: absolute; top: 16px; left: 16px; z-index: 50; padding: 8px 16px; font-size: 0.80rem; font-family: var(--font-mono); background: rgba(5, 10, 24, 0.92); border: 1px solid var(--accent-cyan); border-radius: 6px; box-shadow: 0 0 20px rgba(0, 240, 255, 0.35); align-items: center; gap: 10px;">
-        <span style="color: var(--accent-cyan); font-weight: 700;">[P] PRESENTATION</span>
-        <span style="color: #475569;">|</span>
-        <span id="pres-mode-tag" style="color: var(--accent-green); font-weight: 700;">WORLD MODEL</span>
-        <span style="color: #475569;">|</span>
+      <!-- Minimal Presentation Mode Broadcast Badge -->
+      <div id="presentation-badge" style="display: none; position: absolute; top: 16px; left: 16px; z-index: 50; padding: 6px 14px; font-size: 0.75rem; font-family: var(--font-mono); background: rgba(14, 18, 28, 0.92); border: 1px solid var(--border-subtle); border-radius: 6px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5); align-items: center; gap: 8px;">
+        <span style="color: var(--text-main); font-weight: 600;">PRESENTATION</span>
+        <span style="color: var(--text-dim);">|</span>
+        <span id="pres-mode-tag" style="color: #34d399; font-weight: 600;">WORLD MODEL</span>
+        <span style="color: var(--text-dim);">|</span>
         <span id="pres-step-tag" style="color: #e2e8f0;">STEP: 0</span>
-        <span style="color: #475569;">|</span>
-        <span id="pres-dist-tag" style="color: var(--accent-cyan);">DIST: 0.0m</span>
-        <span style="color: #475569;">|</span>
-        <span id="pres-speed-tag" style="color: #38bdf8;">1.0x</span>
-        <span style="color: #475569;">|</span>
-        <span style="color: #fbbf24;">★★★★★ HONEST</span>
+        <span style="color: var(--text-dim);">|</span>
+        <span id="pres-dist-tag" style="color: #38bdf8;">DIST: 0.0m</span>
+        <span style="color: var(--text-dim);">|</span>
+        <span id="pres-speed-tag" style="color: #93c5fd;">1.0x</span>
       </div>
 
-      <!-- Left Heavy Tactical Control Rail -->
+      <!-- Left Control Rail -->
       <aside class="glass-panel control-rail">
-        <div class="rail-group-title">Robot Docking Station</div>
-        <button id="btn-dock-launch" class="rail-btn active" style="justify-content: center; background: rgba(0, 255, 157, 0.22); border: 2px solid #00ff9d; box-shadow: 0 0 18px rgba(0, 255, 157, 0.5); font-weight: 800; font-size: 0.82rem; padding: 10px 8px; margin-bottom: 6px;" title="Press SPACE or ENTER to hold/launch robot">
-          <span id="lbl-dock-launch" style="color: #00ff9d; letter-spacing: 0.5px;">⏸️ HOLD / PAUSE [SPACE]</span>
+        <div class="rail-group-title">Robot Control</div>
+        <button id="btn-dock-launch" class="rail-btn dock-launch-btn active" title="Press SPACE or ENTER to hold/launch robot">
+          <span id="lbl-dock-launch">⏸ Hold Robot [SPACE]</span>
         </button>
 
-        <div class="rail-group-title">Simulation Control</div>
+        <div class="rail-group-title">Simulation Model</div>
         <button id="btn-mode-wm" class="rail-btn active" title="Model Predictive Control with Deep Neural World Model">
           <span>Neural World Model</span>
-          <span style="font-size: 0.70rem; color: var(--accent-cyan);">[TAB]</span>
+          <span style="font-size: 0.68rem; color: #93c5fd; font-family: var(--font-mono);">[TAB]</span>
         </button>
         <button id="btn-mode-base" class="rail-btn" title="Reactive Greedy Agent without planning (repeatedly crashes into traps)">
           <span>Reactive Greedy</span>
-          <span style="font-size: 0.70rem; color: var(--text-dim);">[T]</span>
+          <span style="font-size: 0.68rem; color: var(--text-dim); font-family: var(--font-mono);">[T]</span>
         </button>
         <button id="btn-mode-compare" class="rail-btn" title="Side-by-side synchronized evaluation: Reactive vs World Model">
           <span>Dual Split Compare</span>
-          <span style="font-size: 0.70rem; color: var(--accent-green);">[S]</span>
+          <span style="font-size: 0.68rem; color: #34d399; font-family: var(--font-mono);">[S]</span>
         </button>
 
         ${
           scenarioId === "driving"
             ? `
-          <div class="rail-group-title" style="margin-top: 4px;">Highway Scenarios</div>
+          <div class="rail-group-title">Highway Scenarios</div>
           <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="font-size: 0.73rem;">S1: Highway Curves</button>
-            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}" style="font-size: 0.73rem;">S2: Sudden Braking</button>
-            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}" style="font-size: 0.73rem;">S3: Overtaking</button>
-            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}" style="font-size: 0.73rem;">S4: Pedestrian Hazard</button>
+            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}">S1: Highway Curves</button>
+            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}">S2: Sudden Braking</button>
+            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}">S3: Overtaking</button>
+            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}">S4: Pedestrian Hazard</button>
           </div>
 
-          <div class="rail-group-title" style="margin-top: 4px;">Camera Perspectives</div>
+          <div class="rail-group-title">Camera Perspectives</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-chase" class="rail-btn active" style="justify-content: center; font-size: 0.72rem;">1: Chase</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #38bdf8;">2: Cockpit</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">3: Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">4: Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #c084fc;">5: Fly-By</button>
+            <button id="cam-chase" class="rail-btn active" style="justify-content: center;">Chase</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Cockpit</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Fly-By</button>
           </div>
 
-          <div class="rail-group-title" style="margin-top: 4px;">Time of Day & Atmosphere</div>
+          <div class="rail-group-title">Time of Day</div>
           <div style="display: flex; gap: 4px;">
-            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.70rem;">☀️ Day</button>
-            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;">🌅 Sunset</button>
-            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;">🌙 Night</button>
+            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center;">Day</button>
+            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center;">Sunset</button>
+            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center;">Night</button>
           </div>
 
-          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 6px; justify-content: center; background: rgba(56, 189, 248, 0.15); border: 1px solid #38bdf8; color: #38bdf8; font-weight: 700; font-size: 0.75rem;">
-            <span id="lbl-manual-drive">🎮 MANUAL DRIVE [WASD]</span>
+          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; font-weight: 600;">
+            <span id="lbl-manual-drive">Manual Drive [WASD]</span>
           </button>
         `
             : `
           ${
             scenarioId === "robotics"
               ? `
-            <div class="rail-group-title" style="margin-top: 4px;">Scenario Arena</div>
+            <div class="rail-group-title">Scenario Arena</div>
             <div style="display: flex; gap: 4px;">
-              <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.75rem;">S1: Chair</button>
-              <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.75rem;">S2: Person</button>
+              <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center;">S1: Chair</button>
+              <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center;">S2: Person</button>
             </div>
           `
               : ""
           }
 
-          <div class="rail-group-title" style="margin-top: 4px;">Camera & Perspective</div>
+          <div class="rail-group-title">Camera Perspectives</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-overview" class="rail-btn active" style="justify-content: center; font-size: 0.72rem;">Overview</button>
-            <button id="cam-chase" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Chase Cam</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #38bdf8;">Robot POV</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center; font-size: 0.72rem;">Free Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center; font-size: 0.72rem; color: #c084fc;">Director</button>
+            <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
+            <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
+            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
+            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
           </div>
 
-          <div class="rail-group-title" style="margin-top: 4px;">Interactive Sandbox Tools</div>
-          <div style="font-size: 0.68rem; color: var(--text-dim);">Pick tool, then click arena floor:</div>
+          <div class="rail-group-title">Sandbox Tools</div>
           <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="tool-goal" class="rail-btn active" style="justify-content: center; font-size: 0.74rem;" title="Move target docking beacon">
-              <span>🎯 Goal Dock</span>
+            <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
+              <span>Goal Dock</span>
             </button>
-            <button id="tool-crate" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Wooden Shipping Crate">
-              <span>📦 Crate</span>
+            <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
+              <span>Crate</span>
             </button>
-            <button id="tool-cabinet" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Metal Tool Cabinet">
-              <span>🧰 Cabinet</span>
+            <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
+              <span>Cabinet</span>
             </button>
-            <button id="tool-workstation" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Workbench Desk">
-              <span>🛠️ Table</span>
+            <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
+              <span>Table</span>
             </button>
-            <button id="tool-barrels" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop 55-Gal Oil Drum Cluster">
-              <span>🛢️ Barrels</span>
+            <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
+              <span>Barrels</span>
             </button>
-            <button id="tool-barrier" class="rail-btn" style="justify-content: center; font-size: 0.74rem;" title="Drop Heavy Crash Barrier">
-              <span>🚧 Barrier</span>
+            <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
+              <span>Barrier</span>
             </button>
           </div>
-          <div style="display: flex; gap: 4px; margin-top: 2px;">
-            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #ff4757; border-color: rgba(255, 71, 87, 0.4); font-size: 0.70rem;" title="Clear all obstacles from arena">
-              <span>✕ Clear All</span>
+
+          <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+            <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
+              <span>Slalom</span>
             </button>
-            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center; font-size: 0.70rem;" title="Generate random obstacle course">
-              <span>🎲 Randomize</span>
+            <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
+              <span>U-Trap</span>
+            </button>
+            <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
+              <span>Maze</span>
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 4px; margin-top: 4px;">
+            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
+              <span>Clear All</span>
+            </button>
+            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
+              <span>Randomize</span>
             </button>
           </div>
         `
         }
 
-        <div class="rail-group-title" style="margin-top: 4px;">Acoustics & Audio</div>
+        <div class="rail-group-title">System & Audio</div>
         <div style="display: flex; gap: 4px;">
-          <button id="btn-mute" class="rail-btn active" style="flex: 1; justify-content: center; font-size: 0.72rem;">
-            <span id="lbl-sound">🔊 MOTOR GLIDE: ON</span>
+          <button id="btn-mute" class="rail-btn active" style="flex: 1; justify-content: center;">
+            <span id="lbl-sound">Glide Audio: ON</span>
           </button>
         </div>
 
-        <button id="btn-reset" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(0, 240, 255, 0.08); border-color: rgba(0, 240, 255, 0.3); font-weight: 700;">
-          <span>⚡ RESET LAYOUT [R]</span>
+        <button id="btn-reset" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(255, 255, 255, 0.04); font-weight: 600;">
+          <span>Reset Layout [R]</span>
         </button>
       </aside>
 
-      <!-- Right Neural Telemetry & Diagnostics Panel -->
+      <!-- Right Telemetry & Diagnostics Panel -->
       <aside class="glass-panel brain-panel">
         <div class="brain-header">
           <div class="brain-title">
-            <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); display: inline-block;"></span>
-            <span>WORLD MODEL INFERENCE</span>
+            <span class="brain-chip-beacon"></span>
+            <span>WORLD MODEL TELEMETRY</span>
           </div>
-          <span id="metric-latency" style="font-family: var(--font-mono); font-size: 0.76rem; color: var(--accent-green); font-weight: 700;">4.8 ms</span>
+          <span id="metric-latency" style="font-family: var(--font-mono); font-size: 0.74rem; color: #34d399; font-weight: 600;">4.2 ms</span>
         </div>
 
         <!-- 4-Step Pipeline Strip -->
         <div class="pipeline-strip">
           <div class="pipeline-node active">
-            <span class="node-label">Sensors</span>
+            <span class="node-label">1. Sensors</span>
             <span class="node-metric">16-Dim</span>
           </div>
           <div class="pipeline-node active">
-            <span class="node-label">Imagine</span>
-            <span class="node-metric" id="metric-plan-samples">300x18</span>
+            <span class="node-label">2. Imagine</span>
+            <span class="node-metric" id="metric-plan-samples">300x14</span>
           </div>
           <div class="pipeline-node active">
-            <span class="node-label">Planner</span>
-            <span class="node-metric">Optimal</span>
+            <span class="node-label">3. Planner</span>
+            <span class="node-metric">Vector MPC</span>
           </div>
           <div class="pipeline-node active">
-            <span class="node-label">Action</span>
-            <span id="lbl-chosen-action" class="node-metric" style="color: var(--accent-green);">STAY</span>
+            <span class="node-label">4. Action</span>
+            <span id="lbl-chosen-action" class="node-metric" style="color: #34d399; font-weight: 700;">STAY</span>
           </div>
         </div>
 
-        <!-- Honest Live Model Architecture Card -->
-        <div class="cortex-container" style="border: 1px solid rgba(0, 240, 255, 0.2); background: rgba(8, 14, 28, 0.75); border-radius: 6px; padding: 8px 10px;">
-          <div class="cortex-header" style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-size: 0.70rem; font-weight: 700; color: var(--accent-cyan);">MODEL ARCHITECTURE</span>
-            <span id="card-param-count" style="font-size: 0.72rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">288,884 PARAMS</span>
+        <!-- Model Architecture Card -->
+        <div class="cortex-container">
+          <div class="cortex-header">
+            <span>MODEL ARCHITECTURE</span>
+            <span id="card-param-count" style="font-size: 0.70rem; color: #93c5fd; font-family: var(--font-mono); font-weight: 600;">1,101,874 PARAMS</span>
           </div>
-          <div style="font-size: 0.71rem; line-height: 1.45; color: #94a3b8; font-family: var(--font-mono);">
-            <div id="arch-model-name" style="color: #f1f5f9; font-weight: 700;">Distilled Residual Student</div>
-            <div style="color: #64748b; font-size: 0.68rem;">State [10] &rarr; 3&times; ResBlocks [256] &rarr; [128] &rarr; [4]</div>
-            <div id="arch-device-line" style="color: var(--accent-green); margin-top: 2px;">GPU: NVIDIA RTX 5070 (CUDA)</div>
-            <div id="arch-plan-line" style="color: var(--text-dim); font-size: 0.68rem; margin-top: 1px;">Vectorized MPC &middot; 300 rollouts / tick</div>
+          <div style="font-size: 0.70rem; line-height: 1.45; color: var(--text-muted); font-family: var(--font-mono);">
+            <div id="arch-model-name" style="color: var(--text-main); font-weight: 600;">Deep Residual Student (512h)</div>
+            <div id="arch-layers-line" style="color: var(--text-dim); font-size: 0.66rem;">State [10] &rarr; 3&times; ResBlocks [512] + LN &rarr; [128] &rarr; [4]</div>
+            <div id="arch-device-line" style="color: #34d399; margin-top: 2px;">GPU: NVIDIA GeForce RTX 5070 (CUDA 12.8)</div>
+            <div id="arch-plan-line" style="color: var(--text-dim); font-size: 0.66rem; margin-top: 1px;">Vectorized PyTorch MPC &middot; 300 rollouts / tick</div>
           </div>
         </div>
 
-        <!-- Why This Move? Candidate Card -->
+        <!-- Real-Time 360° LiDAR Clearance Radar -->
+        <div class="cortex-container">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em;">360° LIDAR CLEARANCE</span>
+            <span id="lidar-min-badge" style="font-size: 0.65rem; color: #34d399; font-family: var(--font-mono); font-weight: 600;">CLEAR (&gt;2.0m)</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: center; position: relative; height: 90px; width: 100%;">
+            <canvas id="lidar-radar-canvas" width="160" height="90" style="display: block; width: 160px; height: 90px;"></canvas>
+          </div>
+        </div>
+
+        <!-- Model Predictive Rollouts Card -->
         <div class="why-card">
           <div class="why-title">Model Predictive Rollouts</div>
           <div id="candidates-container">
-            <div style="color: var(--text-dim); font-size: 0.72rem;">Evaluating candidate trajectories...</div>
+            <div style="color: var(--text-dim); font-size: 0.70rem;">Evaluating candidate trajectories...</div>
           </div>
           <div id="why-explanation" class="why-reason">
             Vectorized MPC simulating 300 imagined trajectories in parallel...
           </div>
         </div>
 
-        <!-- Prediction vs Reality Verification Card (Req 2C & 2D) -->
-        <div class="cortex-container" style="border: 1px solid rgba(0, 255, 157, 0.25); background: rgba(6, 16, 26, 0.85); border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <span style="font-size: 0.70rem; font-weight: 700; color: var(--accent-green); letter-spacing: 0.5px;">PREDICTION VS REALITY</span>
-            <span id="pvr-status-badge" style="font-size: 0.65rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 700;">H=1..14 LIVE</span>
+        <!-- Prediction vs Reality Verification Card -->
+        <div class="cortex-container">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.68rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.04em;">PREDICTION VS REALITY</span>
+            <span id="pvr-status-badge" style="font-size: 0.65rem; color: #93c5fd; font-family: var(--font-mono); font-weight: 600;">H=1..14 LIVE</span>
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-family: var(--font-mono); font-size: 0.68rem; margin-bottom: 6px;">
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
-              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">PREDICTED (X, Y)</span>
-              <span id="pvr-pred-pos" style="color: #38bdf8; font-weight: 700;">(0, 0)</span>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-family: var(--font-mono); font-size: 0.68rem; margin: 4px 0;">
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+              <span style="color: var(--text-dim); display: block; font-size: 0.58rem;">PREDICTED (X, Y)</span>
+              <span id="pvr-pred-pos" style="color: #93c5fd; font-weight: 600;">(0, 0)</span>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
-              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">ACTUAL (X, Y)</span>
-              <span id="pvr-act-pos" style="color: #00ff9d; font-weight: 700;">(0, 0)</span>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+              <span style="color: var(--text-dim); display: block; font-size: 0.58rem;">ACTUAL (X, Y)</span>
+              <span id="pvr-act-pos" style="color: #34d399; font-weight: 600;">(0, 0)</span>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
-              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">POS ERROR</span>
-              <span id="pvr-pos-err" style="color: #fbbf24; font-weight: 700;">±0.04 m</span>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+              <span style="color: var(--text-dim); display: block; font-size: 0.58rem;">POS ERROR</span>
+              <span id="pvr-pos-err" style="color: #f59e0b; font-weight: 600;">±0.04 m</span>
             </div>
-            <div style="background: rgba(15, 23, 42, 0.7); padding: 4px 6px; border-radius: 4px;">
-              <span style="color: var(--text-dim); display: block; font-size: 0.60rem;">STATE MAE</span>
-              <span id="pvr-state-mae" style="color: #c084fc; font-weight: 700;">0.0058</span>
+            <div style="background: rgba(255, 255, 255, 0.03); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+              <span style="color: var(--text-dim); display: block; font-size: 0.58rem;">STATE MAE</span>
+              <span id="pvr-state-mae" style="color: #c084fc; font-weight: 600;">0.0058</span>
             </div>
           </div>
           <!-- Horizon Compounding Error Sparkline -->
-          <div style="background: rgba(15, 23, 42, 0.6); padding: 4px 6px; border-radius: 4px;">
-            <div style="display: flex; justify-content: space-between; font-size: 0.62rem; color: var(--text-dim); margin-bottom: 2px;">
+          <div style="background: rgba(255, 255, 255, 0.02); padding: 4px 6px; border-radius: 4px; border: 1px solid var(--border-subtle);">
+            <div style="display: flex; justify-content: space-between; font-size: 0.60rem; color: var(--text-dim); margin-bottom: 2px;">
               <span>HORIZON ERROR (H=1, 3, 5, 10, 14)</span>
-              <span id="pvr-h14-err" style="color: #fbbf24; font-family: var(--font-mono); font-weight: 700;">0.26m</span>
+              <span id="pvr-h14-err" style="color: #f59e0b; font-family: var(--font-mono); font-weight: 600;">0.26m</span>
             </div>
             <svg id="pvr-horizon-svg" viewBox="0 0 180 26" style="width: 100%; height: 26px; display: block; overflow: visible;">
-              <path id="pvr-horizon-path" fill="none" stroke="#00ff9d" stroke-width="2" stroke-linecap="round" d="M 10 22 L 45 19 L 80 15 L 125 10 L 170 4" />
+              <path id="pvr-horizon-path" fill="none" stroke="#10b981" stroke-width="1.5" stroke-linecap="round" d="M 10 22 L 45 19 L 80 15 L 125 10 L 170 4" />
             </svg>
           </div>
         </div>
@@ -429,31 +481,31 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         <!-- Telemetry Gauges Cluster -->
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-family: var(--font-mono);">
           <div class="glass-panel" style="padding: 8px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">SUCCESS RATE</div>
-            <div id="metric-winrate" style="font-size: 1.10rem; font-weight: 800; color: var(--accent-green);">- (n=0)</div>
+            <div style="font-size: 0.62rem; color: var(--text-dim); font-weight: 600;">SUCCESS RATE</div>
+            <div id="metric-winrate" style="font-size: 1.05rem; font-weight: 700; color: #34d399;">- (n=0)</div>
           </div>
           <div class="glass-panel" style="padding: 8px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">COLLISIONS</div>
-            <div id="metric-collisions" style="font-size: 1.10rem; font-weight: 800; color: var(--accent-orange);">0</div>
+            <div style="font-size: 0.62rem; color: var(--text-dim); font-weight: 600;">COLLISIONS</div>
+            <div id="metric-collisions" style="font-size: 1.05rem; font-weight: 700; color: #f43f5e;">0</div>
           </div>
           <div class="glass-panel" style="padding: 8px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">STEPS / MAX</div>
-            <div id="metric-steps" style="font-size: 1.10rem; font-weight: 800; color: #ffffff;">0 / 400</div>
+            <div style="font-size: 0.62rem; color: var(--text-dim); font-weight: 600;">STEPS / MAX</div>
+            <div id="metric-steps" style="font-size: 1.05rem; font-weight: 700; color: var(--text-main);">0 / 400</div>
           </div>
           <div class="glass-panel" style="padding: 8px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">GOAL DISTANCE</div>
-            <div id="metric-goal-dist" style="font-size: 1.10rem; font-weight: 800; color: var(--accent-cyan);">- m</div>
+            <div style="font-size: 0.62rem; color: var(--text-dim); font-weight: 600;">GOAL DISTANCE</div>
+            <div id="metric-goal-dist" style="font-size: 1.05rem; font-weight: 700; color: #38bdf8;">- m</div>
           </div>
         </div>
 
         <!-- Real-Time Distance Sparkline -->
         <div class="glass-panel" style="padding: 6px 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.65rem; color: var(--text-dim); margin-bottom: 2px;">
-            <span style="font-weight: 700; letter-spacing: 0.5px;">DISTANCE TO DOCK BEACON</span>
-            <span id="sparkline-dist-val" style="color: var(--accent-cyan); font-family: var(--font-mono); font-weight: 700;">- m</span>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.62rem; color: var(--text-dim); margin-bottom: 2px;">
+            <span style="font-weight: 600; letter-spacing: 0.04em;">DISTANCE TO DOCK BEACON</span>
+            <span id="sparkline-dist-val" style="color: #38bdf8; font-family: var(--font-mono); font-weight: 600;">- m</span>
           </div>
           <svg id="sparkline-dist" viewBox="0 0 200 28" style="width: 100%; height: 28px; display: block; overflow: visible;">
-            <path id="sparkline-dist-path" fill="none" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M 0 14 L 200 14" />
+            <path id="sparkline-dist-path" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M 0 14 L 200 14" />
           </svg>
         </div>
       </aside>
@@ -542,6 +594,95 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const metricGoalDist = document.getElementById("metric-goal-dist");
   const sparklineDistPath = document.getElementById("sparkline-dist-path");
   const sparklineDistVal = document.getElementById("sparkline-dist-val");
+  const lidarRadarCanvas = document.getElementById("lidar-radar-canvas") as HTMLCanvasElement;
+  const lidarMinBadge = document.getElementById("lidar-min-badge");
+  const dockHudDot = document.getElementById("dock-hud-dot");
+  const dockHudText = document.getElementById("dock-hud-text");
+  const dockHudModeBadge = document.getElementById("dock-hud-mode-badge");
+
+  let radarScanAngle = 0.0;
+  const renderLidarRadar = (canvas: HTMLCanvasElement | null, lidarDistances?: number[], robotHeadingDeg: number = 0) => {
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const w = canvas.width;
+    const h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const maxRadius = Math.min(cx, cy) - 6;
+
+    // Background radar grid rings
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.08)";
+    ctx.lineWidth = 1;
+    [0.35, 0.7, 1.0].forEach((ratio) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, maxRadius * ratio, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+
+    // Crosshairs
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+    ctx.beginPath();
+    ctx.moveTo(cx - maxRadius, cy);
+    ctx.lineTo(cx + maxRadius, cy);
+    ctx.moveTo(cx, cy - maxRadius);
+    ctx.lineTo(cx, cy + maxRadius);
+    ctx.stroke();
+
+    // 8 LiDAR Ray Beams
+    const nBeams = lidarDistances && lidarDistances.length > 0 ? lidarDistances.length : 8;
+    const maxRangePx = 200.0;
+    for (let i = 0; i < nBeams; i++) {
+      const angle = (i / nBeams) * Math.PI * 2 - Math.PI / 2;
+      const distPx = lidarDistances && lidarDistances[i] !== undefined ? lidarDistances[i] : 150.0;
+      const clampedDist = Math.max(8.0, Math.min(maxRangePx, distPx));
+      const r = (clampedDist / maxRangePx) * maxRadius;
+
+      const bx = cx + Math.cos(angle) * r;
+      const by = cy + Math.sin(angle) * r;
+
+      let beamColor = "#10b981";
+      if (distPx < 35.0) {
+        beamColor = "#f43f5e";
+      } else if (distPx < 60.0) {
+        beamColor = "#f59e0b";
+      }
+
+      ctx.strokeStyle = beamColor;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(bx, by);
+      ctx.stroke();
+
+      ctx.fillStyle = beamColor;
+      ctx.beginPath();
+      ctx.arc(bx, by, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Rotating radar scanline sweep
+    radarScanAngle = (radarScanAngle + 0.04) % (Math.PI * 2);
+    const sx = cx + Math.cos(radarScanAngle) * maxRadius;
+    const sy = cy + Math.sin(radarScanAngle) * maxRadius;
+    const sweepGrad = ctx.createLinearGradient(cx, cy, sx, sy);
+    sweepGrad.addColorStop(0, "rgba(56, 189, 248, 0.25)");
+    sweepGrad.addColorStop(1, "rgba(56, 189, 248, 0.0)");
+    ctx.strokeStyle = sweepGrad;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+
+    // Center robot marker
+    ctx.fillStyle = "#38bdf8";
+    ctx.beginPath();
+    ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  };
 
   // Viewport Scenes
   let primaryScene: any = null;
@@ -598,6 +739,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       primaryScene = null;
       canvasFallback = new CanvasFallbackRenderer(canvasRoot);
     } else {
+      if (typeof primaryScene.setPlaybackSpeed === "function") {
+        primaryScene.setPlaybackSpeed(currentSpeed);
+      }
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
       primaryScene.onFpsUpdate = (fps: number) => {
@@ -655,6 +799,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       primaryScene = new ThreeSimulationScene(rightContainer);
     }
     if (primaryScene) {
+      if (typeof primaryScene.setPlaybackSpeed === "function") {
+        primaryScene.setPlaybackSpeed(currentSpeed);
+      }
+      if (secondaryScene && typeof secondaryScene.setPlaybackSpeed === "function") {
+        secondaryScene.setPlaybackSpeed(currentSpeed);
+      }
       primaryScene.onFloorClick = handleFloorClick;
       primaryScene.onPlaceObstacle = handlePlaceObstacle;
       primaryScene.onFpsUpdate = (fps: number) => {
@@ -848,6 +998,90 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       povSpeedEl.textContent = `${spdVal.toFixed(2)} m/s`;
     }
 
+    // Impassable Blocked Area Detection Banner & Dock HUD Update
+    const isAreaBlocked = (frame.events && frame.events.includes("path_blocked")) || Boolean(frame.metrics?.extra?.path_blocked);
+    const blockedBanner = document.getElementById("area-blocked-banner");
+    const blockedSubtitle = document.getElementById("area-blocked-subtitle");
+
+    if (blockedBanner) {
+      if (isAreaBlocked) {
+        blockedBanner.style.display = "flex";
+        if (blockedSubtitle) {
+          const reason = frame.metrics?.extra?.blocked_reason || "NO VIABLE PATH TO GOAL — ALL TRAJECTORIES IMPASSABLE";
+          blockedSubtitle.textContent = reason;
+        }
+        if (dockHudDot) {
+          dockHudDot.style.background = "#ef4444";
+          dockHudDot.style.boxShadow = "0 0 12px #ef4444";
+        }
+        if (dockHudModeBadge) {
+          dockHudModeBadge.textContent = "BLOCKED";
+          dockHudModeBadge.style.background = "rgba(239, 68, 68, 0.2)";
+          dockHudModeBadge.style.borderColor = "#ef4444";
+          dockHudModeBadge.style.color = "#ef4444";
+        }
+        if (dockHudText) {
+          dockHudText.textContent = "[BLOCKED] AREA IMPASSABLE — ALL PATHS OBSTRUCTED BY OBSTACLES";
+        }
+      } else {
+        blockedBanner.style.display = "none";
+        // If not blocked and not docked, restore normal active text
+        if (!isDocked && dockHudDot && dockHudText) {
+          if (frame.metrics?.extra?.anti_hover_active || (frame.events && frame.events.includes("anti_hover_thrust"))) {
+            dockHudDot.style.background = "#38bdf8";
+            dockHudDot.style.boxShadow = "0 0 14px #38bdf8";
+            if (dockHudModeBadge) {
+              dockHudModeBadge.textContent = "BREAKAWAY";
+              dockHudModeBadge.style.background = "rgba(56, 189, 248, 0.2)";
+              dockHudModeBadge.style.borderColor = "#38bdf8";
+              dockHudModeBadge.style.color = "#38bdf8";
+            }
+            dockHudText.textContent = "⚡ ANTI-HOVER THRUSTER ACTIVE — BREAKAWAY SURGE";
+          } else {
+            const driveMode = frame.metrics?.extra?.drive_mode || "NORMAL";
+            const hoverSec = frame.metrics?.extra?.hover_time_s ?? 0.0;
+            const hoverStatus = hoverSec > 0.8 ? ` [HOVER: ${hoverSec.toFixed(1)}s/2.0s]` : "";
+            dockHudDot.style.background = driveMode === "TURBO_CRUISE" ? "#00f0ff" : "#00ff9d";
+            dockHudDot.style.boxShadow = driveMode === "TURBO_CRUISE" ? "0 0 12px #00f0ff" : "0 0 10px #00ff9d";
+            if (dockHudModeBadge) {
+              dockHudModeBadge.textContent = driveMode;
+              if (driveMode === "TURBO_CRUISE") {
+                dockHudModeBadge.style.background = "rgba(0, 240, 255, 0.18)";
+                dockHudModeBadge.style.borderColor = "#00f0ff";
+                dockHudModeBadge.style.color = "#00f0ff";
+              } else {
+                dockHudModeBadge.style.background = "rgba(0, 255, 157, 0.15)";
+                dockHudModeBadge.style.borderColor = "#00ff9d";
+                dockHudModeBadge.style.color = "#00ff9d";
+              }
+            }
+            dockHudText.textContent = `ROBOT ACTIVE [${driveMode}]${hoverStatus} — [SPACE] TO HOLD`;
+          }
+        }
+      }
+    }
+
+    // 360° LiDAR Clearance Radar Update
+    const lidarDistances = frame.metrics?.extra?.lidar_distances || frame.metrics?.extra?.lidar;
+    if (lidarRadarCanvas) {
+      const robotAngle = frame.robot?.angle ?? (frame.robot?.heading ? (frame.robot.heading * Math.PI) / 180 : 0);
+      renderLidarRadar(lidarRadarCanvas, lidarDistances, robotAngle);
+    }
+    if (lidarMinBadge) {
+      const minClearancePx = frame.metrics?.extra?.lidar_min_clearance ?? (lidarDistances ? Math.min(...lidarDistances) : 100.0);
+      const minM = (minClearancePx * 0.024);
+      if (minM > 1.8) {
+        lidarMinBadge.textContent = `CLEAR (${minM.toFixed(2)}m)`;
+        lidarMinBadge.style.color = "#00ff9d";
+      } else if (minM > 0.8) {
+        lidarMinBadge.textContent = `CAUTION (${minM.toFixed(2)}m)`;
+        lidarMinBadge.style.color = "#f59e0b";
+      } else {
+        lidarMinBadge.textContent = `PROXIMITY (${minM.toFixed(2)}m)`;
+        lidarMinBadge.style.color = "#ef4444";
+      }
+    }
+
     // Prediction vs Reality Telemetry (Req 2C & 2D)
     const pvr = frame.prediction_vs_reality;
     if (pvr) {
@@ -1009,13 +1243,17 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     }
 
     if (frame.plan) {
-      metricLatency.textContent = `${frame.plan.ms ? frame.plan.ms.toFixed(1) : "8.7"} ms`;
+      const planMs = frame.plan.ms ? frame.plan.ms : 4.2;
+      metricLatency.textContent = `${planMs.toFixed(1)} ms`;
+      metricLatency.style.color = planMs <= 6.0 ? "var(--accent-green)" : (planMs <= 12.0 ? "var(--accent-cyan)" : "#fbbf24");
       metricPlanSamples.textContent = `${frame.plan.samples || 300}x${frame.plan.horizon || 14}`;
 
       const actionNames = ["NORTH", "SOUTH", "WEST", "EAST", "STAY"];
+      const actionGlyphs = ["▲ NORTH", "▼ SOUTH", "◀ WEST", "▶ EAST", "■ STAY"];
       const chosenIdx = frame.plan.chosen_action !== undefined ? frame.plan.chosen_action : 4;
       const chosenAct = actionNames[chosenIdx] || "STAY";
-      lblChosenAction.textContent = chosenAct;
+      const chosenGlyph = actionGlyphs[chosenIdx] || chosenAct;
+      lblChosenAction.textContent = chosenGlyph;
 
       if (frame.plan.alts && Array.isArray(frame.plan.alts)) {
         let maxRet = -1e9;
@@ -1279,6 +1517,33 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
     toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
 
+    // Course Preset Loaders
+    const btnPresetSlalom = document.getElementById("btn-preset-slalom");
+    const btnPresetTrap = document.getElementById("btn-preset-trap");
+    const btnPresetWarehouse = document.getElementById("btn-preset-warehouse");
+
+    if (btnPresetSlalom) {
+      btnPresetSlalom.onclick = () => {
+        wsClient.sendCommand({ cmd: "load_preset", kind: "slalom" });
+        sound.playToolSelect();
+        sound.speak("Slalom course engaged.");
+      };
+    }
+    if (btnPresetTrap) {
+      btnPresetTrap.onclick = () => {
+        wsClient.sendCommand({ cmd: "load_preset", kind: "trap" });
+        sound.playToolSelect();
+        sound.speak("Cul-de-sac trap loaded.");
+      };
+    }
+    if (btnPresetWarehouse) {
+      btnPresetWarehouse.onclick = () => {
+        wsClient.sendCommand({ cmd: "load_preset", kind: "warehouse" });
+        sound.playToolSelect();
+        sound.speak("Warehouse maze loaded.");
+      };
+    }
+
     // Clear All & Randomize
     document.getElementById("btn-clear-obs")!.onclick = () => {
       wsClient.sendCommand({ cmd: "clear_obstacles" });
@@ -1297,7 +1562,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     const lblSound = document.getElementById("lbl-sound")!;
     btnMute.onclick = () => {
       const isMuted = sound.toggleMute();
-      lblSound.textContent = isMuted ? "🔇 MOTOR: MUTED" : "🔊 MOTOR GLIDE: ON";
+      lblSound.textContent = isMuted ? "Glide Audio: OFF" : "Glide Audio: ON";
       btnMute.classList.toggle("active", !isMuted);
     };
 
@@ -1305,39 +1570,43 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     isDocked = false;
     const btnDockLaunch = document.getElementById("btn-dock-launch")!;
     const lblDockLaunch = document.getElementById("lbl-dock-launch")!;
-    const dockHudDot = document.getElementById("dock-hud-dot")!;
-    const dockHudText = document.getElementById("dock-hud-text")!;
 
     setDockingState = (docked: boolean, sendCmd: boolean = true) => {
       isDocked = docked;
       if (primaryScene) primaryScene.setDockStatus(docked ? "docked" : "released");
       if (docked) {
         if (sendCmd) wsClient.sendCommand({ cmd: "pause" });
-        btnDockLaunch.style.background = "rgba(0, 240, 255, 0.18)";
-        btnDockLaunch.style.borderColor = "#00f0ff";
-        btnDockLaunch.style.boxShadow = "0 0 16px rgba(0, 240, 255, 0.4)";
-        lblDockLaunch.textContent = "🚀 LAUNCH ROBOT [SPACE]";
-        lblDockLaunch.style.color = "#00f0ff";
+        btnDockLaunch.className = "rail-btn dock-launch-btn docked";
+        lblDockLaunch.textContent = "▶ Resume Robot [SPACE]";
         if (dockHudDot) {
           dockHudDot.style.background = "#f59e0b";
-          dockHudDot.style.boxShadow = "0 0 10px #f59e0b";
+          dockHudDot.style.boxShadow = "0 0 6px rgba(245, 158, 11, 0.6)";
+        }
+        if (dockHudModeBadge) {
+          dockHudModeBadge.textContent = "HOLD";
+          dockHudModeBadge.style.background = "rgba(245, 158, 11, 0.12)";
+          dockHudModeBadge.style.borderColor = "rgba(245, 158, 11, 0.3)";
+          dockHudModeBadge.style.color = "#f59e0b";
         }
         if (dockHudText) {
-          dockHudText.textContent = "ROBOT DOCKED AT BAY — PRESS [SPACE] TO LAUNCH";
+          dockHudText.textContent = "Robot Holding at Dock — Press [SPACE] to Resume";
         }
       } else {
         if (sendCmd) wsClient.sendCommand({ cmd: "start" });
-        btnDockLaunch.style.background = "rgba(0, 255, 157, 0.22)";
-        btnDockLaunch.style.borderColor = "#00ff9d";
-        btnDockLaunch.style.boxShadow = "0 0 18px rgba(0, 255, 157, 0.5)";
-        lblDockLaunch.textContent = "⏸️ HOLD / PAUSE [SPACE]";
-        lblDockLaunch.style.color = "#00ff9d";
+        btnDockLaunch.className = "rail-btn dock-launch-btn active";
+        lblDockLaunch.textContent = "⏸ Hold Robot [SPACE]";
         if (dockHudDot) {
-          dockHudDot.style.background = "#00ff9d";
-          dockHudDot.style.boxShadow = "0 0 10px #00ff9d";
+          dockHudDot.style.background = "#10b981";
+          dockHudDot.style.boxShadow = "0 0 6px rgba(16, 185, 129, 0.6)";
+        }
+        if (dockHudModeBadge) {
+          dockHudModeBadge.textContent = "ACTIVE";
+          dockHudModeBadge.style.background = "rgba(16, 185, 129, 0.12)";
+          dockHudModeBadge.style.borderColor = "rgba(16, 185, 129, 0.3)";
+          dockHudModeBadge.style.color = "#10b981";
         }
         if (dockHudText) {
-          dockHudText.textContent = "ROBOT ACTIVE — EXECUTING TRAJECTORY — [SPACE] TO HOLD";
+          dockHudText.textContent = "Robot Active — Executing Trajectory";
         }
         sound.playMove();
       }
@@ -1370,6 +1639,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     selectSpeed.onchange = () => {
       currentSpeed = parseFloat(selectSpeed.value);
       wsClient.sendCommand({ cmd: "set", speed: currentSpeed });
+      if (primaryScene && typeof primaryScene.setPlaybackSpeed === "function") {
+        primaryScene.setPlaybackSpeed(currentSpeed);
+      }
+      if (secondaryScene && typeof secondaryScene.setPlaybackSpeed === "function") {
+        secondaryScene.setPlaybackSpeed(currentSpeed);
+      }
       const presSpeedEl = document.getElementById("pres-speed-tag");
       if (presSpeedEl) presSpeedEl.textContent = `${currentSpeed}x`;
       sound.playClick();

@@ -27,21 +27,23 @@ export class DiagnosticsOverlay {
     this.banner.id = "hw-accel-banner";
     this.banner.style.cssText = `
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
+      bottom: 16px;
+      right: 16px;
       z-index: 99999;
-      background: linear-gradient(90deg, #991b1b, #b91c1c);
+      background: rgba(153, 27, 27, 0.92);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      border-radius: 8px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
       color: #ffffff;
-      padding: 10px 20px;
-      font-family: var(--font-sans);
-      font-size: 0.85rem;
-      font-weight: 600;
+      padding: 8px 14px;
+      font-family: var(--font-ui, sans-serif);
+      font-size: 0.76rem;
+      font-weight: 500;
       display: none;
       align-items: center;
-      justify-content: space-between;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-      border-bottom: 1px solid rgba(255,255,255,0.2);
+      gap: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     `;
     this.banner.innerHTML = `
       <div style="display: flex; align-items: center; gap: 10px;">

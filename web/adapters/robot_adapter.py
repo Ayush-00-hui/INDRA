@@ -56,10 +56,26 @@ class RobotAdapter:
                 self.model = None
 
         self.robot_heading: float = 0.0
+        self._last_significant_move_time: float = time.time()
+        self._hover_anchor_pos: Tuple[float, float] = (self.env.robot_x, self.env.robot_y)
+        self.hover_sec: float = 0.0
+        self.speed_mult: float = 1.0
+        self._step_accumulator: float = 0.0
+        self._last_substeps: List[Dict[str, Any]] = []
         self.reset(seed=self.current_seed)
+
+    def set_speed(self, speed: float) -> None:
+        """Set simulation speed multiplier (e.g. 0.5, 1.0, 1.5, 2.0, 3.0, 4.0)."""
+        self.speed_mult = max(0.25, min(4.0, float(speed)))
 
     def _compute_plan(self) -> None:
         """Compute an instantaneous MPC rollout plan to keep trajectory preview live."""
+        if hasattr(self.env, "is_path_blocked"):
+            is_blocked, _ = self.env.is_path_blocked()
+            if is_blocked:
+                self.last_plan_info = None
+                return
+
         if self.mode == "world_model" and self.model is not None and self.state is not None:
             try:
                 t0 = time.perf_counter()
@@ -90,11 +106,15 @@ class RobotAdapter:
             self.current_seed = seed
         self.state = self.env.reset(seed=self.current_seed)
         self.last_action = None
+        self.last_collided_action = None
         self.last_plan_info = None
         self.plan_latency_ms = 0.0
         self.cum_reward = 0.0
         self.prediction_vs_reality = None
         self._plan_history = []
+        self._last_significant_move_time = time.time()
+        self._hover_anchor_pos = (self.env.robot_x, self.env.robot_y)
+        self.hover_sec = 0.0
         self._compute_plan()
         return self.get_render_state()
 
@@ -119,53 +139,92 @@ class RobotAdapter:
         self.state = self.env._get_state()
         self._compute_plan()
 
+    def load_preset(self, preset_name: str) -> None:
+        """Load an architectural benchmark challenge preset course."""
+        self.env.clear_obstacles()
+        rx, ry = self.env.robot_x, self.env.robot_y
+        gx, gy = self.env.goal_x, self.env.goal_y
+        if preset_name == "slalom":
+            mx = (rx + gx) / 2.0
+            self.env.place_obstacle(mx - 120, 180, kind="crate", w=75.0, h=75.0)
+            self.env.place_obstacle(mx, 320, kind="cabinet", w=75.0, h=75.0)
+            self.env.place_obstacle(mx + 120, 200, kind="barrels", w=80.0, h=80.0)
+        elif preset_name == "trap":
+            mx = (rx + gx) / 2.0
+            my = (ry + gy) / 2.0
+            self.env.place_obstacle(mx - 20, my - 60, kind="barrier", w=110.0, h=30.0)
+            self.env.place_obstacle(mx - 20, my + 60, kind="barrier", w=110.0, h=30.0)
+            self.env.place_obstacle(mx + 35, my - 60, kind="cabinet", w=30.0, h=150.0)
+        elif preset_name == "warehouse":
+            self.env.place_obstacle(350, 150, kind="crate", w=75.0, h=75.0)
+            self.env.place_obstacle(450, 320, kind="barrels", w=85.0, h=85.0)
+            self.env.place_obstacle(550, 180, kind="workstation", w=90.0, h=65.0)
+            self.env.place_obstacle(380, 420, kind="cabinet", w=75.0, h=70.0)
+        self.state = self.env._get_state()
+        self._compute_plan()
+
     def step(self) -> Tuple[RenderState, bool]:
-        """Advance one simulation step. Returns (render_state, done)."""
+        """Advance simulation steps based on speed multiplier. Returns (render_state, done)."""
         if self.state is None:
             self.reset(self.current_seed)
+
+        # Determine number of sub-steps based on speed multiplier
+        if self.speed_mult > 1.0:
+            self._step_accumulator += self.speed_mult
+            substeps = max(1, int(self._step_accumulator))
+            self._step_accumulator -= substeps
+        else:
+            substeps = 1
 
         events: List[str] = []
         chosen_action = RobotEnv.ACTION_STAY
         self.last_plan_info = None
 
-        if self.mode == "world_model" and self.model is not None:
-            # Check stuck status (4 consecutive stationary steps)
-            curr_pos = (round(self.env.robot_x, 1), round(self.env.robot_y, 1))
-            if getattr(self, "_last_pos", None) == curr_pos:
-                self._stuck_count = getattr(self, "_stuck_count", 0) + 1
-            else:
-                self._stuck_count = 0
-                self._last_pos = curr_pos
+        # Strict 2-Second Hover Watchdog
+        now = time.time()
+        dist_from_anchor = math.hypot(self.env.robot_x - self._hover_anchor_pos[0], self.env.robot_y - self._hover_anchor_pos[1])
+        if dist_from_anchor > 28.0:
+            self._hover_anchor_pos = (self.env.robot_x, self.env.robot_y)
+            self._last_significant_move_time = now
+        self.hover_sec = now - self._last_significant_move_time
 
-            if getattr(self, "_stuck_count", 0) >= 4:
-                # Evasive perpendicular unstick step
-                dx = self.env.goal_x - self.env.robot_x
-                dy = self.env.goal_y - self.env.robot_y
-                if abs(dx) > abs(dy):
-                    chosen_action = RobotEnv.ACTION_UP if dy < 0 else RobotEnv.ACTION_DOWN
-                else:
-                    chosen_action = RobotEnv.ACTION_LEFT if dx < 0 else RobotEnv.ACTION_RIGHT
-                self._stuck_count = 0
-            else:
-                t0 = time.perf_counter()
-                chosen_action, self.last_plan_info = plan(
-                    model=self.model,
-                    state=self.state,
-                    action_size=self.env.get_action_size(),
-                    horizon=18,
-                    n_samples=300,
-                    gamma=0.95,
-                    return_trajectories=True,
-                    last_action=self.last_action,
-                    step_size=getattr(self.env, "STEP_SIZE", 8.0)
-                )
-                self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
-                if self.last_plan_info and "best_trajectory" in self.last_plan_info:
-                    traj = self.last_plan_info["best_trajectory"]
-                    if len(traj) >= 2:
-                        dx = traj[1][0] - traj[0][0]
-                        dy = traj[1][1] - traj[0][1]
-                        self.robot_heading = float(np.degrees(np.arctan2(dx, dy)))
+        # Check if entire area / all paths to goal are blocked by obstacles
+        is_blocked = False
+        blocked_reason = ""
+        if hasattr(self.env, "is_path_blocked"):
+            is_blocked, blocked_reason = self.env.is_path_blocked()
+
+        if is_blocked:
+            events.append("path_blocked")
+            chosen_action = RobotEnv.ACTION_STAY
+            self.last_plan_info = None
+        elif self.hover_sec >= 1.95:
+            # Enforce Breakaway Thrust: Robot is NOT allowed to hover > 2 seconds!
+            chosen_action = self.env._compute_anti_hover_escape_action()
+            events.append("anti_hover_thrust")
+            self._last_significant_move_time = now
+            self._hover_anchor_pos = (self.env.robot_x, self.env.robot_y)
+        elif self.mode == "world_model" and self.model is not None:
+            t0 = time.perf_counter()
+            chosen_action, self.last_plan_info = plan(
+                model=self.model,
+                state=self.state,
+                action_size=self.env.get_action_size(),
+                horizon=18,
+                n_samples=300,
+                gamma=0.95,
+                return_trajectories=True,
+                last_action=self.last_action,
+                last_collided_action=getattr(self, "last_collided_action", None),
+                step_size=getattr(self.env, "STEP_SIZE", 8.0)
+            )
+            self.plan_latency_ms = (time.perf_counter() - t0) * 1000.0
+            if self.last_plan_info and "best_trajectory" in self.last_plan_info:
+                traj = self.last_plan_info["best_trajectory"]
+                if len(traj) >= 2:
+                    dx = traj[1][0] - traj[0][0]
+                    dy = traj[1][1] - traj[0][1]
+                    self.robot_heading = float(np.degrees(np.arctan2(dx, dy)))
         else:
             # Reactive greedy baseline
             chosen_action = get_greedy_action(self.env.robot_x, self.env.robot_y, self.env.goal_x, self.env.goal_y)
@@ -173,6 +232,10 @@ class RobotAdapter:
         self.prev_state = self.state.copy() if self.state is not None else None
         self.last_action = chosen_action
         next_s, reward, done, info = self.env.step(chosen_action)
+        if info.get("collision", False):
+            self.last_collided_action = chosen_action
+        else:
+            self.last_collided_action = None
 
         # Real 1-step and multi-horizon prediction error computation
         self.prediction_vs_reality = None
@@ -239,6 +302,35 @@ class RobotAdapter:
         if info.get("reached_goal", False):
             events.append("goal")
 
+        substep_trail = [{"x": float(self.env.robot_x), "y": float(self.env.robot_y), "step": int(self.env.step_count)}]
+
+        # Execute subsequent sub-steps along the planned trajectory if speed_mult > 1
+        if substeps > 1 and not done and not is_blocked:
+            planned_actions = self.last_plan_info.get("best_actions", []) if self.last_plan_info else []
+            for sub_i in range(1, substeps):
+                if sub_i < len(planned_actions):
+                    sub_act = planned_actions[sub_i]
+                else:
+                    sub_act = get_greedy_action(self.env.robot_x, self.env.robot_y, self.env.goal_x, self.env.goal_y)
+
+                sub_next_s, sub_rew, sub_done, sub_info = self.env.step(sub_act)
+                self.state = sub_next_s
+                self.cum_reward += sub_rew
+                self.last_action = sub_act
+                substep_trail.append({"x": float(self.env.robot_x), "y": float(self.env.robot_y), "step": int(self.env.step_count)})
+
+                if sub_info.get("collision", False):
+                    if "bonk" not in events:
+                        events.append("bonk")
+                    self.last_collided_action = sub_act
+                if sub_info.get("reached_goal", False):
+                    if "goal" not in events:
+                        events.append("goal")
+                if sub_done:
+                    done = True
+                    break
+
+        self._last_substeps = substep_trail
         rs = self.get_render_state(events=events, done=done, info=info)
         return rs, done
 
@@ -272,12 +364,16 @@ class RobotAdapter:
             kind="robot",
             x=float(self.env.robot_x),
             y=float(self.env.robot_y),
-            heading=float(getattr(self, "robot_heading", 0.0)),
+            heading=float(getattr(self.env, "heading", getattr(self, "robot_heading", 0.0))),
+            vx=float(getattr(self.env, "vx", 0.0)),
+            vy=float(getattr(self.env, "vy", 0.0)),
             r=float(self.env.ROBOT_RADIUS),
             extra={
                 "status_led": status_led,
                 "step": self.env.step_count,
-                "last_action": self.last_action
+                "last_action": self.last_action,
+                "drive_mode": getattr(self.env, "drive_mode", "NORMAL"),
+                "hover_time_s": round(getattr(self, "hover_sec", 0.0), 2)
             }
         ))
 
@@ -360,6 +456,14 @@ class RobotAdapter:
             )
 
         # 5. Metrics
+        is_blocked = info.get("path_blocked", False)
+        blocked_reason = info.get("blocked_reason", "")
+        if not is_blocked and hasattr(self.env, "is_path_blocked"):
+            is_blocked, blocked_reason = self.env.is_path_blocked()
+
+        if is_blocked and "path_blocked" not in events:
+            events.append("path_blocked")
+
         metrics = Metrics(
             reward=round(self.cum_reward, 2),
             episode=self.env.episode_count,
@@ -370,7 +474,16 @@ class RobotAdapter:
                 "max_steps": self.env.MAX_STEPS,
                 "success_count": self.env.success_count,
                 "remaining_steps": self.env.MAX_STEPS - self.env.step_count,
-                "dist_to_goal": round(float(np.hypot(self.env.robot_x - self.env.goal_x, self.env.robot_y - self.env.goal_y)), 1)
+                "dist_to_goal": round(float(np.hypot(self.env.robot_x - self.env.goal_x, self.env.robot_y - self.env.goal_y)), 1),
+                "path_blocked": is_blocked,
+                "blocked_reason": blocked_reason,
+                "hover_time_s": round(getattr(self, "hover_sec", 0.0), 2),
+                "anti_hover_active": (getattr(self, "hover_sec", 0.0) >= 1.85 or getattr(self.env, "anti_hover_thrust_active", False)),
+                "drive_mode": getattr(self.env, "drive_mode", "NORMAL"),
+                "speed_mult": getattr(self, "speed_mult", 1.0),
+                "substeps": getattr(self, "_last_substeps", []),
+                "lidar_min_clearance": round(float(np.min(self.env.get_lidar_distances(8))), 1) if hasattr(self.env, "get_lidar_distances") else 100.0,
+                "lidar_distances": [round(float(d), 1) for d in self.env.get_lidar_distances(8)] if hasattr(self.env, "get_lidar_distances") else [100.0] * 8,
             }
         )
 

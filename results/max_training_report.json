@@ -1,0 +1,21 @@
+{
+  "device": "NVIDIA GeForce RTX 5070 Laptop GPU",
+  "parameters": 1101874,
+  "dataset_transitions": 1722180,
+  "total_epochs": 110,
+  "stage1_metrics": {
+    "epoch": 65,
+    "val_loss": 0.47957426458597185,
+    "val_loss_delta": 0.2630043029785156,
+    "val_loss_reward": 0.25478819012641907,
+    "state_mae": 0.003790425369516015
+  },
+  "stage2_metrics": {
+    "epoch": 42,
+    "val_loss": 0.4718657329678535,
+    "val_loss_delta": 0.25646570324897766,
+    "val_loss_reward": 0.25341179966926575,
+    "state_mae": 0.0036151974927634
+  },
+  "total_training_time_s": 1223.0
+}

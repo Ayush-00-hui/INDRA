@@ -60,7 +60,14 @@ class DrivingAdapter:
             except Exception:
                 self.model = None
 
+        self.speed_mult: float = 1.0
+        self._step_accumulator: float = 0.0
+        self._last_substeps: List[Dict[str, Any]] = []
         self.reset(seed=self.current_seed)
+
+    def set_speed(self, speed: float) -> None:
+        """Set simulation speed multiplier."""
+        self.speed_mult = max(0.25, min(4.0, float(speed)))
 
     def _compute_plan(self) -> None:
         """Compute instantaneous MPC rollout plan for live mind view visualization."""
@@ -107,6 +114,14 @@ class DrivingAdapter:
         """Advance one simulation step."""
         if self.state is None:
             self.reset(self.current_seed)
+
+        # Determine number of sub-steps based on speed multiplier
+        if self.speed_mult > 1.0:
+            self._step_accumulator += self.speed_mult
+            substeps = max(1, int(self._step_accumulator))
+            self._step_accumulator -= substeps
+        else:
+            substeps = 1
 
         events: List[str] = []
         action = DrivingEnv.ACTION_CRUISE
@@ -237,6 +252,32 @@ class DrivingAdapter:
         if info.get("ttc", 10.0) < 1.8 and not info.get("collision", False):
             events.append("near_miss")
 
+        substep_trail = [{"x": float(self.env.ego_x), "y": float(self.env.ego_y), "step": int(self.env.step_count)}]
+
+        # Execute subsequent sub-steps along planned trajectory if speed_mult > 1
+        if substeps > 1 and not done:
+            planned_actions = self.last_plan_info.get("best_actions", []) if self.last_plan_info else []
+            for sub_i in range(1, substeps):
+                if sub_i < len(planned_actions):
+                    sub_act = planned_actions[sub_i]
+                else:
+                    sub_act = DrivingEnv.ACTION_CRUISE
+                sub_next_s, sub_rew, sub_done, sub_info = self.env.step(sub_act)
+                self.state = sub_next_s
+                self.cum_reward += sub_rew
+                self.last_action = sub_act
+                substep_trail.append({"x": float(self.env.ego_x), "y": float(self.env.ego_y), "step": int(self.env.step_count)})
+                if sub_info.get("collision", False) or sub_info.get("offroad", False):
+                    if "bonk" not in events:
+                        events.append("bonk")
+                if sub_info.get("reached_goal", False):
+                    if "goal" not in events:
+                        events.append("goal")
+                if sub_done:
+                    done = True
+                    break
+
+        self._last_substeps = substep_trail
         rs = self.get_render_state(events=events, done=done, info=info)
         return rs, done
 
@@ -398,7 +439,9 @@ class DrivingAdapter:
                 "jerk": round(float(self.env.last_jerk), 2),
                 "remaining_steps": self.env.MAX_STEPS - self.env.step_count,
                 "dist_to_goal": round(max(0.0, float(goal_s - self.env.ego_s)), 1),
-                "scenario_variant": self.scenario_variant
+                "scenario_variant": self.scenario_variant,
+                "speed_mult": self.speed_mult,
+                "substeps": getattr(self, "_last_substeps", [])
             }
         )
 

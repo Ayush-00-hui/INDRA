@@ -487,13 +487,8 @@ class Application:
             self.plan_info_right = None
 
             if self.stuck_counter_right >= 6:
-                # Evasive random non-colliding action
-                valid_acts = []
-                for a_cand in range(self.env_right.get_action_size()):
-                    dx, dy = self.env_right.ACTION_DELTAS.get(a_cand, (0.0, 0.0))
-                    if not self.env_right._check_collision(self.env_right.robot_x + dx, self.env_right.robot_y + dy):
-                        valid_acts.append(a_cand)
-                action_right = np.random.choice(valid_acts) if valid_acts else np.random.randint(0, self.env_right.get_action_size())
+                # Use Anti-Hover Sentinel LiDAR corridor escape instead of unguided random walk
+                action_right = self.env_right._compute_anti_hover_escape_action()
                 self.stuck_counter_right = 0
             elif self.with_world_model and self.robot_model is not None:
                 t0 = time.perf_counter()
@@ -502,11 +497,13 @@ class Application:
                         model=self.robot_model,
                         state=self.state_right,
                         action_size=self.env_right.get_action_size(),
-                        horizon=14,
+                        horizon=16,
                         n_samples=self.n_samples,
                         gamma=0.95,
                         return_trajectories=True,
-                        last_action=self.last_executed_action
+                        last_action=self.last_executed_action,
+                        last_collided_action=getattr(self, "last_collided_action_right", None),
+                        step_size=self.env_right.STEP_SIZE
                     )
                 except Exception as e:
                     logger.error(f"Planning exception: {e}")
@@ -559,6 +556,9 @@ class Application:
             self.stats_right["steps"] += 1
             if info_r["collision"]:
                 self.stats_right["collisions"] += 1
+                self.last_collided_action_right = action_right
+            else:
+                self.last_collided_action_right = None
             if self.done_right:
                 self.stats_right["episodes"] += 1
                 if info_r["reached_goal"]:

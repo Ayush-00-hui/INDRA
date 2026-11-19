@@ -450,8 +450,14 @@ def load_model(path: str, state_size: Optional[int] = None, action_size: Optiona
             model = WorldModel(state_size=s_size, action_size=a_size, hidden=hidden)
 
         model.load_state_dict(checkpoint["state_dict"])
+    elif isinstance(checkpoint, dict) and "delta_head.weight" in checkpoint:
+        from scripts.distill_student import StudentWorldModel
+        hidden = checkpoint["delta_head.weight"].shape[1]
+        model = StudentWorldModel(state_size=state_size or 16, action_size=action_size or 5, hidden=hidden)
+        model.load_state_dict(checkpoint)
     else:
-        model = WorldModel(state_size=state_size, action_size=action_size)
+        hidden = checkpoint["trunk.0.weight"].shape[0] if ("trunk.0.weight" in checkpoint) else 128
+        model = WorldModel(state_size=state_size or 16, action_size=action_size or 5, hidden=hidden)
         model.load_state_dict(checkpoint)
 
     model.to(device)

@@ -9,6 +9,642 @@
 import * as THREE from "three";
 
 export class LabEnvironmentBuilder {
+  private static _textureCache: Map<string, THREE.CanvasTexture> = new Map();
+
+  /**
+   * Procedural OSHA safety 45-degree yellow and black diagonal hazard warning stripes.
+   */
+  public static getHazardStripeTexture(): THREE.CanvasTexture {
+    const key = "hazard_stripes";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#facc15"; // OSHA safety yellow
+      ctx.fillRect(0, 0, 256, 64);
+      ctx.fillStyle = "#0f172a"; // Carbon black
+      const stripeW = 32;
+      for (let x = -64; x < 256 + 64; x += stripeW * 2) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x + stripeW, 0);
+        ctx.lineTo(x + stripeW - 32, 64);
+        ctx.lineTo(x - 32, 64);
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(4, 1);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural clean architectural off-white / silver insulated wall cladding
+   * with vertical panel seams, horizontal reveal joints, and bold facility signage stencils.
+   */
+  public static getNorthWallTexture(): THREE.CanvasTexture {
+    const key = "wall_north_texture";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // 1. Clean, Bright Architectural Off-White / Light Silver Insulated Cladding
+      ctx.fillStyle = "#f1f5f9";
+      ctx.fillRect(0, 0, 1024, 512);
+
+      // Subtle architectural vertical insulated panel seams (every 64px)
+      for (let x = 0; x <= 1024; x += 64) {
+        ctx.strokeStyle = "#cbd5e1";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 512);
+        ctx.stroke();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + 1, 0);
+        ctx.lineTo(x + 1, 512);
+        ctx.stroke();
+      }
+
+      // Horizontal mid-height architectural reveal seam
+      ctx.strokeStyle = "#94a3b8";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, 256);
+      ctx.lineTo(1024, 256);
+      ctx.stroke();
+
+      // 2. Bold High-Contrast Architectural Stencil Typography (Positioned in clear visible band)
+      ctx.fillStyle = "#0f172a"; // Deep carbon graphite
+      ctx.font = "bold 38px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("AUTONOMOUS ROBOTICS TESTBED // BAY 01", 512, 205);
+
+      // Cyan accent bar under title
+      ctx.fillStyle = "#00e5ff";
+      ctx.fillRect(220, 222, 584, 6);
+
+      // Specification subtitle
+      ctx.fillStyle = "#334155";
+      ctx.font = "bold 16px monospace";
+      ctx.fillText("FACILITY RATING: LEVEL-4 AUTONOMY • WORLD MODEL SIMULATION ARENA", 512, 260);
+
+      // Left framed caution tag
+      ctx.fillStyle = "#facc15";
+      ctx.fillRect(40, 180, 130, 36);
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillText("⚠ ACTIVE ZONE", 105, 204);
+
+      // Right sector tag
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(850, 180, 134, 36);
+      ctx.fillStyle = "#38bdf8";
+      ctx.font = "bold 14px monospace";
+      ctx.fillText("[ SECTOR 4-B ]", 917, 204);
+
+      // Bottom warning banner along wall base
+      ctx.fillStyle = "#0284c7";
+      ctx.fillRect(0, 480, 1024, 32);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 13px monospace";
+      ctx.fillText("MAX ROBOT SPEED: 2.50 M/S  •  RADAR & LiDAR ACTIVE SCANNING  •  EMERGENCY STOP MONITORED", 512, 502);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural West wall architectural cladding with metric distance calibration scale.
+   */
+  public static getWestWallTexture(): THREE.CanvasTexture {
+    const key = "wall_west_texture";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // Clean architectural white background
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillRect(0, 0, 1024, 512);
+
+      // Vertical panel seams
+      for (let x = 0; x <= 1024; x += 64) {
+        ctx.strokeStyle = "#e2e8f0";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 512);
+        ctx.stroke();
+      }
+
+      // Large West Wall Graphic
+      ctx.fillStyle = "#1e293b";
+      ctx.font = "bold 28px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("LOGISTICS & CHARGING DOCK // WEST PERIMETER", 512, 120);
+
+      ctx.fillStyle = "#eab308";
+      ctx.fillRect(280, 136, 464, 4);
+
+      // Metric Calibration Scale hashes (0m to 14m)
+      ctx.fillStyle = "#334155";
+      ctx.strokeStyle = "#334155";
+      ctx.lineWidth = 2;
+      for (let m = 1; m <= 7; m++) {
+        const mx = (m * 1024) / 8;
+        ctx.beginPath();
+        ctx.moveTo(mx, 380);
+        ctx.lineTo(mx, 440);
+        ctx.stroke();
+        ctx.font = "bold 18px monospace";
+        ctx.fillText(`${m * 2}M`, mx, 360);
+      }
+      ctx.beginPath();
+      ctx.moveTo(60, 410);
+      ctx.lineTo(964, 410);
+      ctx.stroke();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural timber plank texture with weathered grain, knots, and international shipping cargo stencils.
+   */
+  public static getCrateWoodTexture(isShortSide: boolean = false): THREE.CanvasTexture {
+    const key = `crate_wood_${isShortSide ? "short" : "long"}`;
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // 1. Base pine/oak wood background with plank tone variation
+      const nPlanks = 6;
+      const plankH = 512 / nPlanks;
+      const woodTones = ["#b88a57", "#c49764", "#ad7f4c", "#bc8f5c", "#af824f", "#c09360"];
+      for (let i = 0; i < nPlanks; i++) {
+        ctx.fillStyle = woodTones[i % woodTones.length];
+        ctx.fillRect(0, i * plankH, 512, plankH);
+
+        // Subtle horizontal wood grain striations
+        ctx.strokeStyle = "rgba(70, 45, 20, 0.12)";
+        ctx.lineWidth = 1;
+        for (let g = 0; g < 10; g++) {
+          const gy = i * plankH + (g * plankH) / 10 + Math.sin(g) * 3;
+          ctx.beginPath();
+          ctx.moveTo(0, gy);
+          ctx.bezierCurveTo(170, gy + Math.sin(g * 2) * 5, 340, gy - Math.sin(g) * 4, 512, gy);
+          ctx.stroke();
+        }
+
+        // Wood knots
+        if (i % 2 === 1) {
+          ctx.fillStyle = "rgba(65, 38, 15, 0.22)";
+          const knotX = 80 + (i * 120) % 360;
+          const knotY = i * plankH + plankH * 0.5;
+          ctx.beginPath();
+          ctx.ellipse(knotX, knotY, 14, 8, 0.1, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Deep plank seam shadow gap
+        ctx.fillStyle = "#3e2712";
+        ctx.fillRect(0, (i + 1) * plankH - 3, 512, 3);
+        ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.fillRect(0, i * plankH, 512, 1.5);
+      }
+
+      // 2. International Cargo Stencil Markings
+      ctx.fillStyle = "rgba(18, 14, 10, 0.88)";
+      ctx.strokeStyle = "rgba(18, 14, 10, 0.88)";
+      ctx.lineWidth = 4;
+
+      // Stencil: THIS SIDE UP ↑↑
+      ctx.font = "bold 26px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("THIS SIDE UP ↑↑", 256, 75);
+
+      // Stencil: Broken wine glass (FRAGILE)
+      const gx = 100, gy = 175;
+      ctx.beginPath();
+      ctx.arc(gx, gy - 20, 18, 0, Math.PI);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(gx, gy - 2);
+      ctx.lineTo(gx, gy + 24);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(gx - 14, gy + 24);
+      ctx.lineTo(gx + 14, gy + 24);
+      ctx.stroke();
+      // Crack zig-zag in glass
+      ctx.beginPath();
+      ctx.moveTo(gx - 4, gy - 20);
+      ctx.lineTo(gx + 3, gy - 12);
+      ctx.lineTo(gx - 2, gy - 4);
+      ctx.stroke();
+
+      // Stencil: Umbrella with raindrops (KEEP DRY)
+      const ux = 256, uy = 175;
+      ctx.beginPath();
+      ctx.arc(ux, uy - 10, 22, Math.PI, 0, false);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(ux, uy - 10);
+      ctx.lineTo(ux, uy + 16);
+      ctx.arc(ux - 6, uy + 16, 6, 0, Math.PI);
+      ctx.stroke();
+      for (const rx of [-14, 0, 14]) {
+        ctx.beginPath();
+        ctx.moveTo(ux + rx, uy - 32);
+        ctx.lineTo(ux + rx - 2, uy - 24);
+        ctx.stroke();
+      }
+
+      // Stencil: Center of gravity crosshair
+      const cx = 412, cy = 175;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(cx - 26, cy);
+      ctx.lineTo(cx + 26, cy);
+      ctx.moveTo(cx, cy - 26);
+      ctx.lineTo(cx, cy + 26);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20, 0, Math.PI / 2);
+      ctx.lineTo(cx, cy);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx, cy, 20, Math.PI, Math.PI * 1.5);
+      ctx.lineTo(cx, cy);
+      ctx.fill();
+
+      // Red GHS Diamond Hazard Placard (Class 9 Lithium / Robotics)
+      ctx.save();
+      ctx.translate(110, 315);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(-35, -35, 70, 70);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "#dc2626"; // Crimson GHS border
+      ctx.strokeRect(-32, -32, 64, 64);
+      ctx.restore();
+
+      ctx.fillStyle = "#1e293b";
+      ctx.font = "bold 13px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("CLASS 9", 110, 310);
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("BATTERIES", 110, 326);
+
+      // Large Stencil Specification Text
+      ctx.fillStyle = "rgba(18, 14, 10, 0.85)";
+      ctx.textAlign = "left";
+      ctx.font = "bold 20px monospace";
+      ctx.fillText("PAYLOAD: AUTONOMOUS AGENT", 175, 290);
+      ctx.font = "16px monospace";
+      ctx.fillText("GROSS WT: 340 KG", 175, 318);
+      ctx.fillText("TARE WT:   45 KG", 175, 340);
+
+      // Industrial Barcode with Human-Readable Tracking ID
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(80, 385, 352, 85);
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(80, 385, 352, 85);
+
+      ctx.fillStyle = "#0f172a";
+      const bcX = 100;
+      const bars = [3, 1, 2, 4, 1, 3, 2, 1, 4, 2, 1, 3, 4, 1, 2, 3, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 4, 1, 2];
+      let curX = bcX;
+      for (let b = 0; b < bars.length; b++) {
+        const bw = bars[b] * 2.2;
+        if (b % 2 === 0) {
+          ctx.fillRect(curX, 396, bw, 46);
+        }
+        curX += bw + 3;
+      }
+      ctx.font = "bold 14px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("WM-9082-AUTONOMOUS-ROBOT-V4", 256, 458);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural digital oscilloscope color LCD display showing real-time signal traces.
+   */
+  public static getOscilloscopeTexture(): THREE.CanvasTexture {
+    const key = "oscilloscope_screen";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // Dark LCD Screen
+      ctx.fillStyle = "#071220";
+      ctx.fillRect(0, 0, 256, 128);
+
+      // Cyan LCD Grid Lines
+      ctx.strokeStyle = "rgba(0, 229, 255, 0.14)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= 256; x += 16) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, 128);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= 128; y += 16) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(256, y);
+        ctx.stroke();
+      }
+
+      // Channel 1: Cyan Sinusoidal Waveform (Sensors)
+      ctx.strokeStyle = "#00e5ff";
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = "#00e5ff";
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      for (let x = 0; x < 256; x++) {
+        const y = 52 + Math.sin(x * 0.08) * 26 + Math.sin(x * 0.03) * 6;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+
+      // Channel 2: Neon Yellow PWM / Square Waveform (Actuators)
+      ctx.strokeStyle = "#facc15";
+      ctx.lineWidth = 2.0;
+      ctx.shadowColor = "#facc15";
+      ctx.shadowBlur = 3;
+      ctx.beginPath();
+      for (let x = 0; x < 256; x += 32) {
+        ctx.moveTo(x, 98);
+        ctx.lineTo(x + 16, 98);
+        ctx.lineTo(x + 16, 78);
+        ctx.lineTo(x + 32, 78);
+        ctx.lineTo(x + 32, 98);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // On-Screen OSD Telemetry
+      ctx.fillStyle = "#00e5ff";
+      ctx.font = "bold 11px monospace";
+      ctx.textAlign = "left";
+      ctx.fillText("CH1: 3.32Vpp 100kHz", 8, 16);
+      ctx.fillStyle = "#facc15";
+      ctx.fillText("CH2: 5.00V PWM 82%", 135, 16);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural precision DC power supply digital 7-segment readouts and terminal faceplate.
+   */
+  public static getPowerSupplyTexture(): THREE.CanvasTexture {
+    const key = "power_supply_face";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#1e293b"; // Matte industrial dark steel chassis
+      ctx.fillRect(0, 0, 256, 128);
+
+      // Dual Digital 7-Segment Displays
+      ctx.fillStyle = "#090d16";
+      ctx.fillRect(14, 18, 105, 48); // Voltage screen
+      ctx.fillRect(137, 18, 105, 48); // Current screen
+
+      // Voltage LED (Bright Red)
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "bold 32px monospace";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "#ef4444";
+      ctx.shadowBlur = 6;
+      ctx.fillText("24.0V", 66, 54);
+
+      // Current LED (Bright Green)
+      ctx.fillStyle = "#22c55e";
+      ctx.shadowColor = "#22c55e";
+      ctx.shadowBlur = 6;
+      ctx.fillText("05.0A", 189, 54);
+      ctx.shadowBlur = 0;
+
+      // Output terminal labels
+      ctx.fillStyle = "#94a3b8";
+      ctx.font = "bold 11px sans-serif";
+      ctx.fillText("OUTPUT (+)", 60, 96);
+      ctx.fillText("GND (-)", 196, 96);
+
+      // Red and Black Binding Post circles
+      ctx.fillStyle = "#dc2626";
+      ctx.beginPath();
+      ctx.arc(60, 112, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#0f172a";
+      ctx.beginPath();
+      ctx.arc(196, 112, 8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural industrial tool roll-cabinet front face with drawer pull extrusions, labels, and chrome lock.
+   */
+  public static getToolCabinetFrontTexture(): THREE.CanvasTexture {
+    const key = "tool_cabinet_front";
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 512;
+    canvas.height = 512;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // Glossy Crimson Powder-Coat Steel
+      ctx.fillStyle = "#b91c1c";
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Brand Badge at Top
+      ctx.fillStyle = "#0f172a";
+      ctx.fillRect(136, 14, 240, 36);
+      ctx.strokeStyle = "#e2e8f0";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(136, 14, 240, 36);
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("★ SNAP-TECH PRO 7000 ★", 256, 38);
+
+      // Draw 6 Heavy Drawers
+      const drawerH = 68;
+      const startY = 62;
+      const drawerLabels = [
+        "WRENCHES & SOCKET SETS",
+        "PRECISION TORQUE DRIVERS",
+        "WIRE STRIPPERS & CRIMPERS",
+        "DIAGNOSTIC MULTIMETERS",
+        "PNEUMATIC & SERVO ACTUATORS",
+        "HARDWARE FASTENERS M3-M8"
+      ];
+
+      for (let i = 0; i < 6; i++) {
+        const dy = startY + i * (drawerH + 6);
+        // Drawer panel
+        ctx.fillStyle = "#991b1b";
+        ctx.fillRect(16, dy, 480, drawerH);
+
+        // Deep recessed drawer perimeter shadow
+        ctx.strokeStyle = "#450a0a";
+        ctx.lineWidth = 3;
+        ctx.strokeRect(16, dy, 480, drawerH);
+
+        // Extruded Brushed Aluminum Handle
+        ctx.fillStyle = "#e2e8f0";
+        ctx.fillRect(40, dy + 10, 432, 18);
+        ctx.fillStyle = "#64748b";
+        ctx.fillRect(40, dy + 26, 432, 4);
+
+        // Classification Label Window
+        ctx.fillStyle = "#f8fafc";
+        ctx.fillRect(150, dy + 38, 212, 20);
+        ctx.strokeStyle = "#475569";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(150, dy + 38, 212, 20);
+
+        ctx.fillStyle = "#0f172a";
+        ctx.font = "bold 11px monospace";
+        ctx.textAlign = "center";
+        ctx.fillText(drawerLabels[i], 256, dy + 52);
+
+        // Chrome Key Cylinder on top drawer
+        if (i === 0) {
+          ctx.fillStyle = "#cbd5e1";
+          ctx.beginPath();
+          ctx.arc(460, dy + 20, 8, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#0f172a";
+          ctx.fillRect(458, dy + 15, 4, 10);
+        }
+      }
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
+
+  /**
+   * Procedural GHS / OSHA hazardous chemical drum decal placards.
+   */
+  public static getBarrelLabelTexture(colorType: "yellow" | "blue" | "black"): THREE.CanvasTexture {
+    const key = `barrel_label_${colorType}`;
+    if (this._textureCache.has(key)) return this._textureCache.get(key)!;
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // White Decal Backing
+      ctx.fillStyle = "#f8fafc";
+      ctx.fillRect(0, 0, 256, 256);
+      ctx.strokeStyle = "#1e293b";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, 248, 248);
+
+      // Red GHS Diamond Warning Placard
+      ctx.save();
+      ctx.translate(68, 70);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(-35, -35, 70, 70);
+      ctx.strokeStyle = "#dc2626";
+      ctx.lineWidth = 4;
+      ctx.strokeRect(-32, -32, 64, 64);
+      ctx.restore();
+
+      ctx.fillStyle = "#dc2626";
+      ctx.beginPath();
+      ctx.arc(68, 70, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // NFPA 704 Diamond at top right
+      ctx.save();
+      ctx.translate(186, 70);
+      ctx.rotate(Math.PI / 4);
+      ctx.fillStyle = "#2563eb"; // Blue Health
+      ctx.fillRect(-24, -24, 24, 24);
+      ctx.fillStyle = "#dc2626"; // Red Fire
+      ctx.fillRect(0, -24, 24, 24);
+      ctx.fillStyle = "#ca8a04"; // Yellow Reactivity
+      ctx.fillRect(0, 0, 24, 24);
+      ctx.fillStyle = "#ffffff"; // White Specific
+      ctx.fillRect(-24, 0, 24, 24);
+      ctx.restore();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("2", 170, 75);
+      ctx.fillText("3", 186, 59);
+      ctx.fillText("0", 202, 75);
+
+      // Bold Chemical Identification Stencils
+      ctx.fillStyle = "#0f172a";
+      ctx.font = "bold 15px sans-serif";
+      ctx.fillText("HAZARDOUS MATERIAL", 128, 142);
+      ctx.font = "bold 13px monospace";
+      if (colorType === "yellow") {
+        ctx.fillText("UN 1993 - HYDRAULIC FLUID", 128, 168);
+        ctx.font = "11px monospace";
+        ctx.fillText("SYNTHETIC DIELECTRIC OIL", 128, 186);
+      } else if (colorType === "blue") {
+        ctx.fillText("UN 1814 - SYSTEM COOLANT", 128, 168);
+        ctx.font = "11px monospace";
+        ctx.fillText("ETHYLENE GLYCOL 50/50", 128, 186);
+      } else {
+        ctx.fillText("UN 3082 - WASTE LUBRICANT", 128, 168);
+        ctx.font = "11px monospace";
+        ctx.fillText("RECOVERY SUMP GRADE", 128, 186);
+      }
+
+      ctx.font = "bold 12px monospace";
+      ctx.fillText("CAPACITY: 55 US GAL (208 L)", 128, 218);
+      ctx.font = "10px monospace";
+      ctx.fillText("LOT: WM-2026-CH419", 128, 236);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    this._textureCache.set(key, tex);
+    return tex;
+  }
   /**
    * Generates a 2048x2048 PBR industrial concrete floor texture with
    * aggregate noise, 1m x 1m expansion joint seams, OSHA hazard chevron borders,
@@ -289,21 +925,43 @@ export class LabEnvironmentBuilder {
   } {
     const lights: THREE.PointLight[] = [];
 
-    // Shared Materials
+    // Shared Materials: Clean High-Contrast Architectural Palette (NOT Camouflaged)
     const outerFloorMat = new THREE.MeshStandardMaterial({
-      color: 0x111827,
-      roughness: 0.88,
-      metalness: 0.15,
+      color: 0x0c1017,
+      roughness: 0.90,
+      metalness: 0.10,
     });
     const lowerWallMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b,
-      roughness: 0.75,
-      metalness: 0.20,
+      color: 0x334155, // Clean architectural graphite/slate wainscoting
+      roughness: 0.60,
+      metalness: 0.25,
     });
-    const upperWallMat = new THREE.MeshStandardMaterial({
-      color: 0x334155,
-      roughness: 0.65,
-      metalness: 0.30,
+    const kickplateMat = new THREE.MeshStandardMaterial({
+      color: 0x94a3b8, // Stainless steel kickplate
+      roughness: 0.20,
+      metalness: 0.92,
+    });
+    const datumTrimMat = new THREE.MeshStandardMaterial({
+      color: 0x00e5ff, // Illuminated cyan architectural datum line
+      roughness: 0.25,
+      metalness: 0.50,
+      emissive: 0x00e5ff,
+      emissiveIntensity: 0.75,
+    });
+    const upperWallNorthMat = new THREE.MeshStandardMaterial({
+      map: this.getNorthWallTexture(),
+      roughness: 0.35,
+      metalness: 0.12,
+    });
+    const upperWallWestMat = new THREE.MeshStandardMaterial({
+      map: this.getWestWallTexture(),
+      roughness: 0.35,
+      metalness: 0.12,
+    });
+    const upperWallEastMat = new THREE.MeshStandardMaterial({
+      color: 0xf1f5f9, // Crisp clean architectural off-white / silver
+      roughness: 0.35,
+      metalness: 0.12,
     });
     const steelMat = new THREE.MeshStandardMaterial({
       color: 0x0f172a,
@@ -325,16 +983,42 @@ export class LabEnvironmentBuilder {
       roughness: 0.4,
       metalness: 0.5,
     });
+    const hazardStripeTex = this.getHazardStripeTexture();
+    const floorHazardMat = new THREE.MeshStandardMaterial({
+      map: hazardStripeTex,
+      roughness: 0.4,
+      metalness: 0.2,
+    });
 
     const wallHeight = 6.8;
 
-    // 0. Massive Extended Foundation Floor (48m x 36m hall floor)
-    const outerFloorGeo = new THREE.PlaneGeometry(48.0, 36.0);
+    // 0. Massive Extended Foundation Floor (140m x 110m hall floor for infinite studio horizon)
+    const outerFloorGeo = new THREE.PlaneGeometry(140.0, 110.0);
     const outerFloor = new THREE.Mesh(outerFloorGeo, outerFloorMat);
     outerFloor.rotation.x = -Math.PI / 2;
     outerFloor.position.set(0, -0.005, 0);
     outerFloor.receiveShadow = true;
     scene.add(outerFloor);
+
+    // Floor Perimeter OSHA Yellow & Black Hazard Boundary Bands (Defines clear perimeter contrast)
+    const hazardBorderW = 0.26;
+    // North perimeter border
+    const borderNorth = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.004, hazardBorderW), floorHazardMat);
+    borderNorth.position.set(0, 0.002, -7.15 + hazardBorderW / 2);
+    borderNorth.receiveShadow = true;
+    scene.add(borderNorth);
+
+    // West perimeter border
+    const borderWest = new THREE.Mesh(new THREE.BoxGeometry(hazardBorderW, 0.004, 15.6), floorHazardMat);
+    borderWest.position.set(-10.65 + hazardBorderW / 2, 0.002, 0);
+    borderWest.receiveShadow = true;
+    scene.add(borderWest);
+
+    // East perimeter border
+    const borderEast = new THREE.Mesh(new THREE.BoxGeometry(hazardBorderW, 0.004, 15.6), floorHazardMat);
+    borderEast.position.set(10.65 - hazardBorderW / 2, 0.002, 0);
+    borderEast.receiveShadow = true;
+    scene.add(borderEast);
 
     // 1. Four Industrial Yellow Safety Bollards at Expanded Arena Corners (±9.9m x ±6.6m)
     const bollardPositions: [number, number][] = [
@@ -348,15 +1032,106 @@ export class LabEnvironmentBuilder {
     }
 
     // 2. North Wall (Back - Spacious 24.0m span, height 6.8m at z = -7.3m)
-    const backLower = new THREE.Mesh(new THREE.BoxGeometry(24.0, 1.4, 0.22), lowerWallMat);
-    backLower.position.set(0, 0.7, -7.3);
+    // A. Stainless Steel Base Kickplate
+    const backKickplate = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.32, 0.25), kickplateMat);
+    backKickplate.position.set(0, 0.16, -7.3);
+    backKickplate.receiveShadow = true;
+    scene.add(backKickplate);
+
+    // B. Architectural Lower Wainscoting (Slate Graphite)
+    const backLower = new THREE.Mesh(new THREE.BoxGeometry(24.0, 1.08, 0.24), lowerWallMat);
+    backLower.position.set(0, 0.32 + 1.08 / 2, -7.3);
     backLower.receiveShadow = true;
     scene.add(backLower);
 
-    const backUpper = new THREE.Mesh(new THREE.BoxGeometry(24.0, wallHeight - 1.4, 0.22), upperWallMat);
-    backUpper.position.set(0, 1.4 + (wallHeight - 1.4) / 2, -7.3);
+    // C. Glowing Cyan Architectural Datum Channel (y = 1.40m)
+    const backDatum = new THREE.Mesh(new THREE.BoxGeometry(24.0, 0.035, 0.26), datumTrimMat);
+    backDatum.position.set(0, 1.40, -7.3);
+    scene.add(backDatum);
+
+    // D. Pristine Architectural Off-White / Silver Upper Wall Panels with Stencils
+    const backUpperH = wallHeight - 1.42;
+    const backUpper = new THREE.Mesh(new THREE.BoxGeometry(24.0, backUpperH, 0.22), upperWallNorthMat);
+    backUpper.position.set(0, 1.42 + backUpperH / 2, -7.3);
     backUpper.receiveShadow = true;
     scene.add(backUpper);
+
+    // Architectural Wall-Wash Sconce Luminaires (Mounted at y = 5.2m along North Wall)
+    for (const sx of [-7.5, -2.5, 2.5, 7.5]) {
+      const sconce = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.08, 0.24), steelMat);
+      sconce.position.set(sx, 5.2, -7.18);
+      scene.add(sconce);
+
+      const sconceLens = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.50, 0.16),
+        new THREE.MeshBasicMaterial({ color: 0xfffaed })
+      );
+      sconceLens.rotation.x = Math.PI / 2;
+      sconceLens.position.set(sx, 5.15, -7.16);
+      scene.add(sconceLens);
+    }
+
+    // Emergency Fire Exit Door on North Wall (x = -4.5m)
+    const doorFrame = new THREE.Mesh(new THREE.BoxGeometry(1.30, 2.30, 0.28), steelMat);
+    doorFrame.position.set(-4.5, 1.15, -7.3);
+    scene.add(doorFrame);
+
+    const doorLeaf = new THREE.Mesh(
+      new THREE.BoxGeometry(1.18, 2.18, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.4 })
+    );
+    doorLeaf.position.set(-4.5, 1.15, -7.22);
+    scene.add(doorLeaf);
+
+    // Vision panel glass in door
+    const doorGlass = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.25, 0.65),
+      new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, metalness: 0.9, transparent: true, opacity: 0.7 })
+    );
+    doorGlass.position.set(-4.5, 1.45, -7.17);
+    scene.add(doorGlass);
+
+    // Stainless steel crash / panic push-bar
+    const panicBar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.95, 12), kickplateMat);
+    panicBar.rotation.z = Math.PI / 2;
+    panicBar.position.set(-4.5, 1.05, -7.15);
+    scene.add(panicBar);
+
+    // Illuminated Green Emergency EXIT Sign above door
+    const exitSign = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.18, 0.06),
+      new THREE.MeshStandardMaterial({
+        color: 0x15803d,
+        emissive: 0x22c55e,
+        emissiveIntensity: 1.6,
+        roughness: 0.2,
+      })
+    );
+    exitSign.position.set(-4.5, 2.45, -7.18);
+    scene.add(exitSign);
+
+    // Recessed Red Fire Hose & Extinguisher Cabinet on North Wall (x = 4.5m)
+    const fireCab = new THREE.Mesh(
+      new THREE.BoxGeometry(0.70, 0.90, 0.14),
+      new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.3, metalness: 0.4 })
+    );
+    fireCab.position.set(4.5, 1.45, -7.22);
+    scene.add(fireCab);
+
+    const fireCabGlass = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.54, 0.74),
+      new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.5, roughness: 0.1 })
+    );
+    fireCabGlass.position.set(4.5, 1.45, -7.14);
+    scene.add(fireCabGlass);
+
+    // Extinguisher cylinder inside
+    const extCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.065, 0.48, 12),
+      new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.2, metalness: 0.6 })
+    );
+    extCyl.position.set(4.5, 1.40, -7.20);
+    scene.add(extCyl);
 
     // Industrial Conduits along North Wall
     const conduitMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.9 });
@@ -371,24 +1146,67 @@ export class LabEnvironmentBuilder {
     scene.add(conduit2);
 
     // 3. West Wall (Left - 16.0m depth at x = -10.8m)
-    const leftLower = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.4, 16.0), lowerWallMat);
-    leftLower.position.set(-10.8, 0.7, 0);
+    // A. Stainless Kickplate
+    const leftKickplate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.32, 16.0), kickplateMat);
+    leftKickplate.position.set(-10.8, 0.16, 0);
+    leftKickplate.receiveShadow = true;
+    scene.add(leftKickplate);
+
+    // B. Architectural Lower Wainscoting (Slate Graphite)
+    const leftLower = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.08, 16.0), lowerWallMat);
+    leftLower.position.set(-10.8, 0.32 + 1.08 / 2, 0);
     leftLower.receiveShadow = true;
     scene.add(leftLower);
 
-    const leftUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, wallHeight - 1.4, 16.0), upperWallMat);
-    leftUpper.position.set(-10.8, 1.4 + (wallHeight - 1.4) / 2, 0);
+    // C. Cyan Datum Accent
+    const leftDatum = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.035, 16.0), datumTrimMat);
+    leftDatum.position.set(-10.8, 1.40, 0);
+    scene.add(leftDatum);
+
+    // D. Pristine Architectural Off-White / Silver Upper Wall with Metric Scale
+    const leftUpperH = wallHeight - 1.42;
+    const leftUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, leftUpperH, 16.0), upperWallWestMat);
+    leftUpper.position.set(-10.8, 1.42 + leftUpperH / 2, 0);
     leftUpper.receiveShadow = true;
     scene.add(leftUpper);
 
+    // West Wall Wash Sconces
+    for (const sz of [-5.0, 0, 5.0]) {
+      const sconceW = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.08, 0.55), steelMat);
+      sconceW.position.set(-10.68, 5.2, sz);
+      scene.add(sconceW);
+
+      const lensW = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.16, 0.50),
+        new THREE.MeshBasicMaterial({ color: 0xfffaed })
+      );
+      lensW.rotation.x = Math.PI / 2;
+      lensW.position.set(-10.66, 5.15, sz);
+      scene.add(lensW);
+    }
+
     // 4. East Wall (Right - 16.0m depth at x = 10.8m)
-    const rightLower = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.4, 16.0), lowerWallMat);
-    rightLower.position.set(10.8, 0.7, 0);
+    // A. Stainless Kickplate
+    const rightKickplate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.32, 16.0), kickplateMat);
+    rightKickplate.position.set(10.8, 0.16, 0);
+    rightKickplate.receiveShadow = true;
+    scene.add(rightKickplate);
+
+    // B. Architectural Lower Wainscoting
+    const rightLower = new THREE.Mesh(new THREE.BoxGeometry(0.24, 1.08, 16.0), lowerWallMat);
+    rightLower.position.set(10.8, 0.32 + 1.08 / 2, 0);
     rightLower.receiveShadow = true;
     scene.add(rightLower);
 
-    const rightUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, wallHeight - 1.4, 16.0), upperWallMat);
-    rightUpper.position.set(10.8, 1.4 + (wallHeight - 1.4) / 2, 0);
+    // C. Cyan Datum Accent
+    const rightDatum = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.035, 16.0), datumTrimMat);
+    rightDatum.position.set(10.8, 1.40, 0);
+    scene.add(rightDatum);
+
+    // D. Pristine Architectural Off-White Upper Wall
+    const rightUpperH = wallHeight - 1.42;
+    const rightUpper = new THREE.Mesh(new THREE.BoxGeometry(0.22, rightUpperH, 16.0), upperWallEastMat);
+    rightUpper.position.set(10.8, 1.42 + rightUpperH / 2, 0);
     rightUpper.receiveShadow = true;
     scene.add(rightUpper);
 
@@ -964,98 +1782,257 @@ export class LabEnvironmentBuilder {
   public static createBarrelCluster(w: number = 0.85, h: number = 0.95, d: number = 0.85): THREE.Group {
     const group = new THREE.Group();
 
-    // Heavy Polyethylene Spill Containment Pallet (Safety Yellow)
-    const palletMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.1 });
-    const grateMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.7 });
-    const yellowDrumMat = new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.35, metalness: 0.4 });
-    const blueDrumMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.35, metalness: 0.5 });
-    const blackDrumMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.40, metalness: 0.7 });
+    // 1. Heavy Molded Polyethylene Spill Containment Pallet Basin (Safety Yellow)
+    const palletMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.40, metalness: 0.15 });
+    const grateMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.65, metalness: 0.8 });
+    const steelHardwareMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.35, metalness: 0.9 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 });
 
-    const pallet = new THREE.Mesh(new THREE.BoxGeometry(w, 0.12, d), palletMat);
-    pallet.position.y = 0.06;
+    // Sump basin body
+    const palletH = 0.14;
+    const pallet = new THREE.Mesh(new THREE.BoxGeometry(w, palletH, d), palletMat);
+    pallet.position.y = palletH / 2;
+    pallet.castShadow = true;
     pallet.receiveShadow = true;
     group.add(pallet);
 
-    const topGrate = new THREE.Mesh(new THREE.BoxGeometry(w - 0.06, 0.02, d - 0.06), grateMat);
-    topGrate.position.y = 0.13;
+    // Forklift fork pockets (2 channels through the base)
+    const pocketMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+    for (const px of [-w * 0.25, w * 0.25]) {
+      const pocket = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.065, d + 0.01), pocketMat);
+      pocket.position.set(px, 0.04, 0);
+      group.add(pocket);
+    }
+
+    // Threaded sump drain plug on front face
+    const drainPlug = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.02, 8), brassMat);
+    drainPlug.rotation.x = Math.PI / 2;
+    drainPlug.position.set(0, 0.045, d / 2 + 0.01);
+    group.add(drainPlug);
+
+    // Heavy Removable Fiberglass / Galvanized Grating Deck
+    const topGrate = new THREE.Mesh(new THREE.BoxGeometry(w - 0.05, 0.022, d - 0.05), grateMat);
+    topGrate.position.y = palletH + 0.01;
+    topGrate.receiveShadow = true;
     group.add(topGrate);
 
-    // 3 x 55-Gallon Steel Barrels clustered on the pallet
-    const drumR = 0.18;
-    const drumH = 0.82;
-    const drumConfigs = [
-      { x: -0.16, z: -0.16, mat: yellowDrumMat },
-      { x: 0.18, z: -0.12, mat: blueDrumMat },
-      { x: 0.0, z: 0.18, mat: blackDrumMat },
+    // 2. Trio of 55-Gallon (208L) Heavy Steel Chemical Drums
+    const drumR = 0.185;
+    const drumH = 0.80;
+    const drumConfigs: Array<{
+      x: number;
+      z: number;
+      color: number;
+      type: "yellow" | "blue" | "black";
+      hasPump: boolean;
+    }> = [
+      { x: -0.16, z: -0.15, color: 0xeab308, type: "yellow", hasPump: false },
+      { x: 0.17, z: -0.12, color: 0x0284c7, type: "blue", hasPump: true },
+      { x: 0.01, z: 0.17, color: 0x1e293b, type: "black", hasPump: false },
     ];
 
     for (const dc of drumConfigs) {
       const drumGroup = new THREE.Group();
-      drumGroup.position.set(dc.x, 0.14, dc.z);
+      drumGroup.position.set(dc.x, palletH + 0.02, dc.z);
 
-      // Main cylinder
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR, drumH, 20), dc.mat);
+      const drumBodyMat = new THREE.MeshStandardMaterial({
+        color: dc.color,
+        roughness: 0.38,
+        metalness: 0.65,
+      });
+
+      // Main cylindrical drum body
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(drumR, drumR, drumH, 24), drumBodyMat);
       cyl.position.y = drumH / 2;
+      cyl.castShadow = true;
       cyl.receiveShadow = true;
       drumGroup.add(cyl);
 
-      // Reinforcing chime ribs (2 swaged rings)
-      const ribMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.35, metalness: 0.8 });
-      for (const ry of [drumH * 0.35, drumH * 0.68]) {
-        const rib = new THREE.Mesh(new THREE.TorusGeometry(drumR + 0.008, 0.012, 8, 20), ribMat);
+      // Three precision swaged chime strengthening ribs along drum height
+      for (const ry of [drumH * 0.28, drumH * 0.50, drumH * 0.72]) {
+        const rib = new THREE.Mesh(new THREE.TorusGeometry(drumR + 0.007, 0.010, 8, 24), steelHardwareMat);
         rib.rotation.x = Math.PI / 2;
         rib.position.y = ry;
         drumGroup.add(rib);
       }
 
-      // Top Bung Plug
-      const bung = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 10), ribMat);
-      bung.position.set(0.08, drumH + 0.01, 0);
-      drumGroup.add(bung);
+      // Top Recessed Lid with Rolled Rim Chime
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(drumR + 0.006, 0.009, 8, 24), steelHardwareMat);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.y = drumH;
+      drumGroup.add(rim);
+
+      const lid = new THREE.Mesh(new THREE.CylinderGeometry(drumR - 0.005, drumR - 0.005, 0.012, 24), drumBodyMat);
+      lid.position.y = drumH - 0.006;
+      drumGroup.add(lid);
+
+      // Circumferential Bolt-Ring Clamp & Hex Lug
+      const clampBolt = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.018, 0.025), steelHardwareMat);
+      clampBolt.position.set(drumR + 0.008, drumH, 0);
+      drumGroup.add(clampBolt);
+
+      // Dual Zinc-Plated Threaded Bungs (2" fill + 3/4" vent)
+      const bung2 = new THREE.Mesh(new THREE.CylinderGeometry(0.026, 0.026, 0.016, 12), steelHardwareMat);
+      bung2.position.set(0.09, drumH + 0.008, 0.03);
+      drumGroup.add(bung2);
+
+      const bungVent = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.014, 10), steelHardwareMat);
+      bungVent.position.set(-0.09, drumH + 0.007, -0.03);
+      drumGroup.add(bungVent);
+
+      // Photorealistic GHS Hazmat Placard Decal wrapping front of drum
+      const decalTex = this.getBarrelLabelTexture(dc.type);
+      const decalMat = new THREE.MeshStandardMaterial({
+        map: decalTex,
+        roughness: 0.3,
+        metalness: 0.1,
+        transparent: true,
+      });
+      const decal = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.22), decalMat);
+      decal.position.set(0, drumH * 0.62, drumR + 0.006);
+      drumGroup.add(decal);
+
+      // Rotary Hand-Crank Transfer Pump installed on the blue chemical drum
+      if (dc.hasPump) {
+        const pumpGroup = new THREE.Group();
+        pumpGroup.position.set(0.09, drumH + 0.008, 0.03);
+
+        const pumpBodyMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35, metalness: 0.9 });
+        const hoseMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.2, transparent: true, opacity: 0.75 });
+        const woodKnobMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 });
+
+        // Vertical riser tube
+        const riser = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.18, 10), pumpBodyMat);
+        riser.position.y = 0.09;
+        pumpGroup.add(riser);
+
+        // Circular rotary impeller housing
+        const impeller = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.03, 16), pumpBodyMat);
+        impeller.rotation.x = Math.PI / 2;
+        impeller.position.y = 0.18;
+        pumpGroup.add(impeller);
+
+        // Hand crank arm & handle knob
+        const crankArm = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.09, 0.01), pumpBodyMat);
+        crankArm.position.set(0.04, 0.22, 0.025);
+        pumpGroup.add(crankArm);
+
+        const crankKnob = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.035, 10), woodKnobMat);
+        crankKnob.rotation.x = Math.PI / 2;
+        crankKnob.position.set(0.04, 0.26, 0.04);
+        pumpGroup.add(crankKnob);
+
+        // Gooseneck discharge spout
+        const spout = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 10), pumpBodyMat);
+        spout.rotation.z = -Math.PI / 3;
+        spout.position.set(0.07, 0.21, 0);
+        pumpGroup.add(spout);
+
+        // Flexible clear vinyl discharge hose looping downwards
+        const hose = new THREE.Mesh(new THREE.CylinderGeometry(0.010, 0.010, 0.38, 10), hoseMat);
+        hose.position.set(0.12, 0.04, 0);
+        pumpGroup.add(hose);
+
+        drumGroup.add(pumpGroup);
+      }
 
       group.add(drumGroup);
     }
+
+    // 3. Braided Copper Anti-Static Grounding Wire clamped to the pallet & drum
+    const wireMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.35, metalness: 0.95 });
+    const groundWire = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.52, 8), wireMat);
+    groundWire.position.set(-0.24, palletH + 0.18, -0.05);
+    groundWire.rotation.z = Math.PI / 4;
+    group.add(groundWire);
+
+    // Alligator grounding clamp
+    const clamp = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.035, 0.015), steelHardwareMat);
+    clamp.position.set(-0.16 - drumR * 0.7, palletH + 0.02 + drumH, -0.15);
+    group.add(clamp);
 
     return group;
   }
 
   /**
-   * 7. Authored Heavy Industrial Safety Crash Barrier:
-   * Heavy yellow steel pipe railing with black hazard slashes and bolt-down baseplates (tool-barrier).
+   * 7. Authored Heavy Industrial Structural Steel Safety Crash Barrier:
+   * OSHA yellow structural steel posts, dual horizontal rails with diagonal hazard slashes,
+   * heavy 12mm floor baseplates with 4 anchor bolts, and amber prism retroreflectors.
    */
   public static createSafetyBarrier(w: number = 1.1, h: number = 0.85, d: number = 0.45): THREE.Group {
     const group = new THREE.Group();
 
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35, metalness: 0.3 });
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4, metalness: 0.85 });
+    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.32, metalness: 0.35 });
+    const steelBaseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.85 });
+    const boltMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.95 });
+    const reflectorMat = new THREE.MeshStandardMaterial({
+      color: 0xf59e0b,
+      roughness: 0.1,
+      metalness: 0.2,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.4,
+    });
 
-    // 2 Vertical Upright Posts
-    const postR = 0.045;
+    const hazardStripeTex = this.getHazardStripeTexture();
+    const hazardMat = new THREE.MeshStandardMaterial({
+      map: hazardStripeTex,
+      roughness: 0.35,
+      metalness: 0.25,
+    });
+
+    // 2 Heavy Vertical Upright Posts
+    const postR = 0.048;
     const postH = h;
-    for (const sx of [-w / 2 + 0.1, w / 2 - 0.1]) {
-      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, postH, 16), yellowMat);
+    for (const sx of [-w / 2 + 0.12, w / 2 - 0.12]) {
+      // Main structural tubular column
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(postR, postR, postH, 18), yellowMat);
       post.position.set(sx, postH / 2, 0);
+      post.castShadow = true;
       group.add(post);
 
-      // Heavy Floor Base Plate
-      const basePlate = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.025, 0.24), steelMat);
-      basePlate.position.set(sx, 0.0125, 0);
+      // Domed steel top cap
+      const cap = new THREE.Mesh(new THREE.SphereGeometry(postR, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), yellowMat);
+      cap.position.set(sx, postH, 0);
+      group.add(cap);
+
+      // Heavy 12mm floor flange baseplate
+      const basePlate = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.024, 0.22), steelBaseMat);
+      basePlate.position.set(sx, 0.012, 0);
       basePlate.receiveShadow = true;
       group.add(basePlate);
+
+      // 4 Heavy-Duty Concrete Anchor Bolts with Hex Nuts
+      for (const bx of [-0.075, 0.075]) {
+        for (const bz of [-0.075, 0.075]) {
+          const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.026, 6), boltMat);
+          bolt.position.set(sx + bx, 0.026, bz);
+          group.add(bolt);
+        }
+      }
+
+      // Amber Microprismatic Retroreflective Safety Prism on outer post face
+      const reflector = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, 0.008, 12), reflectorMat);
+      reflector.rotation.z = Math.PI / 2;
+      reflector.position.set(sx + (sx < 0 ? -postR - 0.004 : postR + 0.004), postH * 0.75, 0);
+      group.add(reflector);
     }
 
-    // Top and Bottom Horizontal Heavy Rails
-    for (const ry of [h - 0.08, h * 0.45]) {
-      const rail = new THREE.Mesh(new THREE.CylinderGeometry(postR * 0.9, postR * 0.9, w, 16), yellowMat);
+    // Top and Bottom Horizontal Heavy Rails wrapped in OSHA Hazard Stripes
+    const railR = postR * 0.88;
+    const railL = w;
+    for (const ry of [h - 0.08, h * 0.44]) {
+      const rail = new THREE.Mesh(new THREE.CylinderGeometry(railR, railR, railL, 18), hazardMat);
       rail.rotation.z = Math.PI / 2;
       rail.position.set(0, ry, 0);
+      rail.castShadow = true;
       group.add(rail);
 
-      // Reflective black hazard band around center of rail
-      const band = new THREE.Mesh(new THREE.CylinderGeometry(postR * 0.92, postR * 0.92, w * 0.25, 16), steelMat);
-      band.rotation.z = Math.PI / 2;
-      band.position.set(0, ry, 0);
-      group.add(band);
+      // Cast steel rounded end caps
+      for (const ex of [-railL / 2, railL / 2]) {
+        const endCap = new THREE.Mesh(new THREE.SphereGeometry(railR, 12, 8), steelBaseMat);
+        endCap.position.set(ex, ry, 0);
+        group.add(endCap);
+      }
     }
 
     return group;
@@ -1268,138 +2245,565 @@ export class LabEnvironmentBuilder {
   }
 
   /**
-   * Heavy industrial robotics test workstation desk.
+   * Advanced High-Tech Robotics R&D Engineering Workstation:
+   * 80/20 T-slot extruded aluminum frame, ESD anti-static worktop with yellow border,
+   * overhead cantilevered equipment bridge with slimline inspection LED luminaire,
+   * 4-channel digital oscilloscope with glowing waveform trace, dual-output DC power supply,
+   * micro soldering station, perforated steel tool pegboard with digital calipers & Allen keys,
+   * parts storage bins, 4U controller PC, and precision leveling caster feet.
    */
   public static createWorkstationObstacle(w: number, h: number, d: number): THREE.Group {
     const group = new THREE.Group();
-    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.75 });
-    const topWoodMat = new THREE.MeshStandardMaterial({ color: 0xb45309, roughness: 0.55, metalness: 0.05 });
-    const yellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.35 });
-    const footMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.85 });
 
-    const topThickness = 0.06;
-    const top = new THREE.Mesh(new THREE.BoxGeometry(w, topThickness, d), topWoodMat);
-    top.position.y = h - topThickness / 2;
-    top.castShadow = true;
-    top.receiveShadow = true;
-    group.add(top);
+    const aluExtrusionMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.35, metalness: 0.85 });
+    const aluGussetMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.30, metalness: 0.90 });
+    const woodCoreMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.65, metalness: 0.1 });
+    const esdMat = new THREE.MeshStandardMaterial({ color: 0x0f3460, roughness: 0.50, metalness: 0.15 });
+    const steelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.40, metalness: 0.85 });
+    const footMat = new THREE.MeshStandardMaterial({ color: 0x090d16, roughness: 0.90 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.35, metalness: 0.9 });
+    const redBinMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.4, metalness: 0.2 });
+    const blueBinMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.2 });
 
-    const hazardTrim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.025, 0.015), yellowMat);
-    hazardTrim.position.set(0, h - topThickness / 2, d / 2 + 0.008);
-    group.add(hazardTrim);
+    const hazardTex = this.getHazardStripeTexture();
+    const hazardMat = new THREE.MeshStandardMaterial({ map: hazardTex, roughness: 0.35, metalness: 0.2 });
 
-    const legW = 0.05;
-    const legH = h - topThickness;
-    const footH = 0.02;
+    const tableTopY = h * 0.76;
+    const topThickness = 0.048;
 
+    // 1. T-Slot 80/20 Extruded Aluminum Legs (4 corners)
+    const legW = 0.052;
+    const legH = tableTopY - topThickness / 2;
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
         const lx = sx * (w / 2 - legW / 2);
         const lz = sz * (d / 2 - legW / 2);
 
-        const leg = new THREE.Mesh(new THREE.BoxGeometry(legW, legH, legW), steelMat);
+        // Main leg profile
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(legW, legH, legW), aluExtrusionMat);
         leg.position.set(lx, legH / 2, lz);
         leg.castShadow = true;
         group.add(leg);
 
-        const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.045, footH, 12), footMat);
-        foot.position.set(lx, footH / 2, lz);
+        // Precision leveling foot pad with hex adjustment nut
+        const foot = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.042, 0.024, 12), footMat);
+        foot.position.set(lx, 0.012, lz);
+        foot.receiveShadow = true;
         group.add(foot);
+
+        const hexNut = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.016, 6), aluGussetMat);
+        hexNut.position.set(lx, 0.030, lz);
+        group.add(hexNut);
+
+        // Corner gusset bracket
+        const gusset = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.035, 0.035), aluGussetMat);
+        gusset.position.set(lx - sx * 0.016, tableTopY - topThickness - 0.018, lz - sz * 0.016);
+        group.add(gusset);
       }
     }
 
-    const shelfY = h * 0.32;
-    const shelf = new THREE.Mesh(new THREE.BoxGeometry(w - legW * 1.5, 0.03, d - legW * 1.5), steelMat);
-    shelf.position.y = shelfY;
+    // Lower H-Frame Stretchers
+    const stretcherY = 0.16;
+    for (const sz of [-1, 1]) {
+      const lz = sz * (d / 2 - legW / 2);
+      const strX = new THREE.Mesh(new THREE.BoxGeometry(w - legW * 2, 0.04, 0.04), aluExtrusionMat);
+      strX.position.set(0, stretcherY, lz);
+      group.add(strX);
+    }
+    const centerStrZ = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, d - legW * 2), aluExtrusionMat);
+    centerStrZ.position.set(0, stretcherY, 0);
+    group.add(centerStrZ);
+
+    // 2. Multi-Layer Anti-Static ESD Worktop Surface
+    // Butcher-block core substrate
+    const subTop = new THREE.Mesh(new THREE.BoxGeometry(w, topThickness * 0.65, d), woodCoreMat);
+    subTop.position.y = tableTopY - topThickness * 0.18;
+    subTop.castShadow = true;
+    subTop.receiveShadow = true;
+    group.add(subTop);
+
+    // Dark Navy Anti-Static ESD Mat on top
+    const esdTop = new THREE.Mesh(new THREE.BoxGeometry(w - 0.02, topThickness * 0.35, d - 0.02), esdMat);
+    esdTop.position.y = tableTopY + topThickness * 0.32;
+    esdTop.receiveShadow = true;
+    group.add(esdTop);
+
+    // Front Apron OSHA Hazard Chevron Warning Stripe
+    const frontTrim = new THREE.Mesh(new THREE.BoxGeometry(w, 0.024, 0.012), hazardMat);
+    frontTrim.position.set(0, tableTopY, d / 2 + 0.006);
+    group.add(frontTrim);
+
+    // Dual Brass ESD Grounding Studs & Wrist Strap Connection Sockets
+    for (const gx of [-w * 0.36, w * 0.36]) {
+      const stud = new THREE.Mesh(new THREE.CylinderGeometry(0.009, 0.009, 0.012, 10), brassMat);
+      stud.position.set(gx, tableTopY + topThickness / 2 + 0.006, d / 2 - 0.04);
+      group.add(stud);
+    }
+
+    // 3. Overhead Cantilevered Equipment Bridge & Inspection LED Luminaire
+    const riserH = h - tableTopY + 0.28;
+    const riserMat = aluExtrusionMat;
+    const riserZ = -d / 2 + 0.04;
+
+    for (const rx of [-w / 2 + 0.06, w / 2 - 0.06]) {
+      const riser = new THREE.Mesh(new THREE.BoxGeometry(0.04, riserH, 0.04), riserMat);
+      riser.position.set(rx, tableTopY + riserH / 2, riserZ);
+      riser.castShadow = true;
+      group.add(riser);
+    }
+
+    // Overhead Equipment Shelf
+    const shelfY = tableTopY + riserH * 0.68;
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(w - 0.04, 0.025, d * 0.42), aluExtrusionMat);
+    shelf.position.set(0, shelfY, riserZ + d * 0.16);
     shelf.castShadow = true;
+    shelf.receiveShadow = true;
     group.add(shelf);
 
-    const boxMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4, metalness: 0.3 });
-    const instBox = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.14, d * 0.6), boxMat);
-    instBox.position.set(0, shelfY + 0.085, 0);
-    instBox.castShadow = true;
-    group.add(instBox);
+    // Slimline Overhead Inspection Task Luminaire (casting downward task light)
+    const luminaire = new THREE.Mesh(new THREE.BoxGeometry(w * 0.85, 0.024, 0.06), steelMat);
+    luminaire.position.set(0, tableTopY + riserH, riserZ + d * 0.22);
+    group.add(luminaire);
+
+    const lumLens = new THREE.Mesh(
+      new THREE.BoxGeometry(w * 0.82, 0.008, 0.045),
+      new THREE.MeshBasicMaterial({ color: 0xfffaed })
+    );
+    lumLens.position.set(0, tableTopY + riserH - 0.012, riserZ + d * 0.22);
+    group.add(lumLens);
+
+    // 4. Rackmount Electronic Test Equipment on the Shelf
+    // A. 4-Channel Digital Storage Oscilloscope (with live glowing signal waveform)
+    const scopeTex = this.getOscilloscopeTexture();
+    const scopeMat = new THREE.MeshStandardMaterial({ map: scopeTex, roughness: 0.35, metalness: 0.2 });
+    const scopeChassisMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.8 });
+
+    const scopeW = w * 0.38;
+    const scopeH = 0.14;
+    const scopeD = d * 0.26;
+    const scopeChassis = new THREE.Mesh(new THREE.BoxGeometry(scopeW, scopeH, scopeD), scopeChassisMat);
+    scopeChassis.position.set(-w * 0.22, shelfY + scopeH / 2 + 0.012, riserZ + d * 0.16);
+    scopeChassis.castShadow = true;
+    group.add(scopeChassis);
+
+    const scopeScreen = new THREE.Mesh(new THREE.PlaneGeometry(scopeW * 0.90, scopeH * 0.82), scopeMat);
+    scopeScreen.position.set(-w * 0.22, shelfY + scopeH / 2 + 0.012, riserZ + d * 0.16 + scopeD / 2 + 0.002);
+    group.add(scopeScreen);
+
+    // B. Dual-Output Precision DC Power Supply (with bright LED digital readouts)
+    const psuTex = this.getPowerSupplyTexture();
+    const psuMat = new THREE.MeshStandardMaterial({ map: psuTex, roughness: 0.35, metalness: 0.2 });
+    const psuW = w * 0.34;
+    const psuH = 0.13;
+    const psuD = d * 0.25;
+    const psuChassis = new THREE.Mesh(new THREE.BoxGeometry(psuW, psuH, psuD), scopeChassisMat);
+    psuChassis.position.set(w * 0.24, shelfY + psuH / 2 + 0.012, riserZ + d * 0.16);
+    psuChassis.castShadow = true;
+    group.add(psuChassis);
+
+    const psuScreen = new THREE.Mesh(new THREE.PlaneGeometry(psuW * 0.92, psuH * 0.84), psuMat);
+    psuScreen.position.set(w * 0.24, shelfY + psuH / 2 + 0.012, riserZ + d * 0.16 + psuD / 2 + 0.002);
+    group.add(psuScreen);
+
+    // 5. Perforated Steel Tool Pegboard (Back Panel between table and shelf)
+    const pegH = shelfY - tableTopY - 0.02;
+    const pegMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.6, metalness: 0.75 });
+    const pegboard = new THREE.Mesh(new THREE.BoxGeometry(w - 0.08, pegH, 0.01), pegMat);
+    pegboard.position.set(0, tableTopY + topThickness / 2 + pegH / 2 + 0.01, riserZ + 0.01);
+    group.add(pegboard);
+
+    // 4 Interlocking Plastic Parts Storage Bins (Akro-bins) on pegboard rail
+    const binW = 0.09;
+    const binH = 0.065;
+    const binD = 0.08;
+    const binXs = [-w * 0.28, -w * 0.14, w * 0.14, w * 0.28];
+    for (let bi = 0; bi < 4; bi++) {
+      const bMat = bi % 2 === 0 ? redBinMat : blueBinMat;
+      const bin = new THREE.Mesh(new THREE.BoxGeometry(binW, binH, binD), bMat);
+      bin.position.set(binXs[bi], tableTopY + topThickness / 2 + 0.06, riserZ + 0.05);
+      bin.castShadow = true;
+      group.add(bin);
+    }
+
+    // 6. Lower Heavy Equipment Deck & 4U Industrial Controller PC Unit
+    const lowerShelfY = 0.22;
+    const lowerShelf = new THREE.Mesh(new THREE.BoxGeometry(w - legW * 2, 0.024, d - legW * 2), steelMat);
+    lowerShelf.position.set(0, lowerShelfY, 0);
+    lowerShelf.receiveShadow = true;
+    group.add(lowerShelf);
+
+    // 4U Industrial Rack Controller Unit
+    const pcMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.45, metalness: 0.8 });
+    const pcLEDMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const pc = new THREE.Mesh(new THREE.BoxGeometry(w * 0.52, 0.16, d * 0.65), pcMat);
+    pc.position.set(0, lowerShelfY + 0.092, 0);
+    pc.castShadow = true;
+    group.add(pc);
+
+    // Front blue power indicator LED
+    const led = new THREE.Mesh(new THREE.CircleGeometry(0.008, 10), pcLEDMat);
+    led.position.set(w * 0.22, lowerShelfY + 0.13, d * 0.325 + 0.002);
+    group.add(led);
 
     return group;
   }
 
   /**
-   * Heavy industrial wooden cargo shipping crate.
+   * Heavy Export-Grade Industrial Wooden Cargo Shipping Crate:
+   * Authentic 4-way wooden Euro-pallet base with 9 spacer blocks and skid runners,
+   * recessed pine wood walls with procedural grain & international cargo stencils
+   * (THIS SIDE UP ↑↑, FRAGILE glass, KEEP DRY umbrella, center of gravity,
+   * Class 9 Lithium hazard diamond, gross/tare weights, and industrial barcode),
+   * 3D outer structural timber framing with diagonal cross-battens and carriage bolts,
+   * heavy-gauge galvanized 3-way corner armor caps, black steel strapping with crimp tensioners,
+   * and recessed side drop handles.
    */
-  public static createRealisticCrate(w: number, h: number, d: number): THREE.Group {
+  public static createRealisticCrate(w: number = 0.90, h: number = 0.90, d: number = 0.90): THREE.Group {
     const group = new THREE.Group();
-    const woodMat = new THREE.MeshStandardMaterial({ color: 0x9a7b56, roughness: 0.78, metalness: 0.05 });
-    const metalMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4, metalness: 0.8 });
 
-    const core = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), woodMat);
-    core.position.y = h / 2;
-    core.castShadow = true;
-    core.receiveShadow = true;
-    group.add(core);
+    const timberMat = new THREE.MeshStandardMaterial({ color: 0x9a7b56, roughness: 0.80, metalness: 0.05 });
+    const palletWoodMat = new THREE.MeshStandardMaterial({ color: 0xb58b57, roughness: 0.85, metalness: 0.04 });
+    const metalArmorMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.38, metalness: 0.85 });
+    const boltMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.25, metalness: 0.95 });
+    const strapMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.35, metalness: 0.90 });
 
-    const cornerSize = Math.min(w, h, d) * 0.18;
+    const crateWoodTex = this.getCrateWoodTexture(false);
+    const cratePanelMat = new THREE.MeshStandardMaterial({
+      map: crateWoodTex,
+      roughness: 0.78,
+      metalness: 0.06,
+    });
+
+    // 1. Integrated 4-Way Heavy Wooden Euro-Pallet Base
+    const palletH = 0.12;
+    const runnerW = 0.09;
+    const blockH = palletH - 0.04;
+
+    // 3 Bottom skid runner boards (beveled ends for pallet jacks)
+    for (const sx of [-w / 2 + runnerW / 2, 0, w / 2 - runnerW / 2]) {
+      const runner = new THREE.Mesh(new THREE.BoxGeometry(runnerW, 0.022, d), palletWoodMat);
+      runner.position.set(sx, 0.011, 0);
+      runner.receiveShadow = true;
+      group.add(runner);
+
+      // 3 Wooden Spacer Blocks per runner (Front, Center, Back)
+      for (const sz of [-d / 2 + runnerW / 2, 0, d / 2 - runnerW / 2]) {
+        const block = new THREE.Mesh(new THREE.BoxGeometry(runnerW, blockH, runnerW), palletWoodMat);
+        block.position.set(sx, 0.022 + blockH / 2, sz);
+        block.castShadow = true;
+        group.add(block);
+      }
+    }
+
+    // Top Pallet Deck Boards (spanning across the blocks)
+    for (let pz = -d / 2 + 0.06; pz <= d / 2 - 0.06; pz += 0.14) {
+      const board = new THREE.Mesh(new THREE.BoxGeometry(w, 0.022, 0.11), palletWoodMat);
+      board.position.set(0, palletH - 0.011, pz);
+      board.receiveShadow = true;
+      group.add(board);
+    }
+
+    // 2. Main Crate Body with Recessed Stenciled Panels
+    const crateH = h - palletH;
+    const crateCenterY = palletH + crateH / 2;
+
+    // Recessed inner walls textured with realistic cargo stencils
+    const innerW = w - 0.04;
+    const innerD = d - 0.04;
+    const innerBox = new THREE.Mesh(new THREE.BoxGeometry(innerW, crateH - 0.02, innerD), cratePanelMat);
+    innerBox.position.set(0, crateCenterY, 0);
+    innerBox.castShadow = true;
+    innerBox.receiveShadow = true;
+    group.add(innerBox);
+
+    // 3. 3D Structural Wooden Outer Framing
+    const frameW = 0.065;
+    const frameThick = 0.026;
+
+    // A. 4 Corner Vertical Timber Posts
     for (const sx of [-1, 1]) {
-      for (const sy of [0, 1]) {
-        for (const sz of [-1, 1]) {
-          const corner = new THREE.Mesh(
-            new THREE.BoxGeometry(cornerSize, cornerSize * 0.8, cornerSize),
-            metalMat
-          );
-          corner.position.set(
-            sx * (w / 2 - cornerSize / 2),
-            sy * (h - cornerSize * 0.8 / 2) + (1 - sy) * (cornerSize * 0.8 / 2),
-            sz * (d / 2 - cornerSize / 2)
-          );
-          group.add(corner);
+      for (const sz of [-1, 1]) {
+        const post = new THREE.Mesh(new THREE.BoxGeometry(frameW, crateH, frameThick), timberMat);
+        post.position.set(sx * (w / 2 - frameW / 2), crateCenterY, sz * (d / 2 - frameThick / 2));
+        post.castShadow = true;
+        group.add(post);
+
+        const postSide = new THREE.Mesh(new THREE.BoxGeometry(frameThick, crateH, frameW), timberMat);
+        postSide.position.set(sx * (w / 2 - frameThick / 2), crateCenterY, sz * (d / 2 - frameW / 2));
+        postSide.castShadow = true;
+        group.add(postSide);
+      }
+    }
+
+    // B. Top and Bottom Horizontal Timber Rim Boards
+    for (const sy of [palletH + frameW / 2, palletH + crateH - frameW / 2]) {
+      // Front and back rims
+      for (const sz of [-1, 1]) {
+        const rimZ = new THREE.Mesh(new THREE.BoxGeometry(w, frameW, frameThick), timberMat);
+        rimZ.position.set(0, sy, sz * (d / 2 - frameThick / 2));
+        group.add(rimZ);
+      }
+      // Left and right rims
+      for (const sx of [-1, 1]) {
+        const rimX = new THREE.Mesh(new THREE.BoxGeometry(frameThick, frameW, d), timberMat);
+        rimX.position.set(sx * (w / 2 - frameThick / 2), sy, 0);
+        group.add(rimX);
+      }
+    }
+
+    // C. 3D Diagonal Cross-Battens (X-Bracing) on Front and Back Faces
+    const diagLen = Math.hypot(w - frameW * 2, crateH - frameW * 2);
+    const diagAngle = Math.atan2(crateH - frameW * 2, w - frameW * 2);
+
+    for (const sz of [-1, 1]) {
+      const diag1 = new THREE.Mesh(new THREE.BoxGeometry(diagLen, frameW * 0.75, frameThick * 0.8), timberMat);
+      diag1.rotation.z = diagAngle;
+      diag1.position.set(0, crateCenterY, sz * (d / 2 - frameThick / 2 + 0.003));
+      group.add(diag1);
+
+      // Carriage bolt heads at timber intersections
+      for (const bx of [-w * 0.38, w * 0.38]) {
+        for (const by of [palletH + frameW * 0.5, palletH + crateH - frameW * 0.5]) {
+          const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.012, 8), boltMat);
+          bolt.rotation.x = Math.PI / 2;
+          bolt.position.set(bx, by, sz * (d / 2 + 0.004));
+          group.add(bolt);
         }
       }
     }
 
-    const strapMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.3, metalness: 0.9 });
-    for (const strapY of [h * 0.3, h * 0.7]) {
-      const strap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.01, 0.03, d + 0.01), strapMat);
+    // 4. Heavy-Gauge Galvanized Steel 3-Way Corner Armor Brackets (8 corners)
+    const capSize = Math.min(w, h, d) * 0.17;
+    for (const sx of [-1, 1]) {
+      for (const sy of [0, 1]) {
+        for (const sz of [-1, 1]) {
+          const cornerY = sy === 0 ? palletH + capSize * 0.4 : palletH + crateH - capSize * 0.4;
+          const cornerCap = new THREE.Mesh(new THREE.BoxGeometry(capSize, capSize * 0.8, capSize), metalArmorMat);
+          cornerCap.position.set(
+            sx * (w / 2 - capSize / 2 + 0.005),
+            cornerY,
+            sz * (d / 2 - capSize / 2 + 0.005)
+          );
+          cornerCap.castShadow = true;
+          group.add(cornerCap);
+        }
+      }
+    }
+
+    // 5. Heavy Black Steel Tension Straps with Embossed Crimp Buckles
+    for (const strapY of [palletH + crateH * 0.32, palletH + crateH * 0.76]) {
+      const strap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.015, 0.024, d + 0.015), strapMat);
       strap.position.y = strapY;
       group.add(strap);
+
+      // Crimp tensioner buckle on the front face
+      const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.038, 0.025), metalArmorMat);
+      buckle.position.set(0, strapY, d / 2 + 0.014);
+      group.add(buckle);
+    }
+
+    // 6. Recessed Zinc Side Drop-Handles
+    for (const sx of [-1, 1]) {
+      const handleGroup = new THREE.Group();
+      handleGroup.position.set(sx * (w / 2 + 0.006), crateCenterY, 0);
+
+      const plate = new THREE.Mesh(new THREE.BoxGeometry(0.01, 0.10, 0.14), metalArmorMat);
+      handleGroup.add(plate);
+
+      const bail = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 8, 16, Math.PI), metalArmorMat);
+      bail.rotation.z = sx > 0 ? -Math.PI / 2 : Math.PI / 2;
+      bail.position.set(sx * 0.015, -0.01, 0);
+      handleGroup.add(bail);
+
+      group.add(handleGroup);
     }
 
     return group;
   }
 
   /**
-   * Heavy industrial steel tool cabinet.
+   * Master-Grade Heavy-Duty Industrial Mobile Tool Chest & Roller Cabinet:
+   * Double-wall welded steel chassis in glossy industrial crimson red powder-coat,
+   * protective black corner armor guards, tubular ergonomic push handle with knurled grip,
+   * 6 ball-bearing drawers with procedural aluminum pull extrusions & classification labels,
+   * master cylinder key lock with brass tag, molded grooved vulcanized rubber top mat with lip,
+   * stainless steel magnetic hardware dish with bolts, rugged digital multimeter (Fluke style),
+   * side utility pegboard with 3 aerosol spray cans & blue shop towel roll,
+   * and 4 heavy-duty 5" swivel casters with chrome forks and foot-brake pedals.
    */
-  public static createToolCabinet(w: number, h: number, d: number): THREE.Group {
+  public static createToolCabinet(w: number = 0.85, h: number = 0.95, d: number = 0.75): THREE.Group {
     const group = new THREE.Group();
-    const cabinetMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.35, metalness: 0.6 });
-    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.2, metalness: 0.95 });
-    const topRubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9 });
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(w, h - 0.06, d), cabinetMat);
-    body.position.y = (h - 0.06) / 2 + 0.06;
+    const crimsonMat = new THREE.MeshStandardMaterial({ color: 0xb91c1c, roughness: 0.32, metalness: 0.55 });
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, roughness: 0.15, metalness: 0.95 });
+    const rubberMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.88 });
+    const armorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.6, metalness: 0.7 });
+    const meterYellowMat = new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.45, metalness: 0.1 });
+    const brassMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.9 });
+    const towelBlueMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.9 });
+
+    const cabinetFrontTex = this.getToolCabinetFrontTexture();
+    const frontDecalMat = new THREE.MeshStandardMaterial({
+      map: cabinetFrontTex,
+      roughness: 0.35,
+      metalness: 0.3,
+    });
+
+    const casterH = 0.10;
+    const bodyH = h - casterH - 0.03;
+    const bodyCenterY = casterH + bodyH / 2;
+
+    // 1. Double-Wall Welded Steel Body
+    const body = new THREE.Mesh(new THREE.BoxGeometry(w, bodyH, d), crimsonMat);
+    body.position.y = bodyCenterY;
     body.castShadow = true;
     body.receiveShadow = true;
     group.add(body);
 
-    const top = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.03, d + 0.02), topRubberMat);
-    top.position.y = h;
-    group.add(top);
+    // Front Face Plate with Drawers & Handles
+    const frontPlate = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.04, bodyH - 0.04), frontDecalMat);
+    frontPlate.position.set(0, bodyCenterY, d / 2 + 0.002);
+    group.add(frontPlate);
 
-    const nDrawers = 4;
-    const drawerSpacing = (h - 0.15) / nDrawers;
-    for (let i = 0; i < nDrawers; i++) {
-      const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, w * 0.65, 8), chromeMat);
-      handle.rotation.z = Math.PI / 2;
-      handle.position.set(0, 0.14 + i * drawerSpacing, d / 2 + 0.02);
-      group.add(handle);
+    // 3D Extruded Brushed Aluminum Drawer Pulls (6 drawers)
+    const nDrawers = 6;
+    const drawerH = (bodyH - 0.10) / nDrawers;
+    for (let di = 0; di < nDrawers; di++) {
+      const dy = casterH + 0.06 + di * drawerH + drawerH * 0.4;
+      const pull = new THREE.Mesh(new THREE.BoxGeometry(w * 0.78, 0.016, 0.018), chromeMat);
+      pull.position.set(0, dy, d / 2 + 0.012);
+      pull.castShadow = true;
+      group.add(pull);
     }
 
-    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.5 });
+    // 2. Protective Black Corner Edge Armor Bumpers (4 vertical edges)
     for (const sx of [-1, 1]) {
       for (const sz of [-1, 1]) {
-        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.03, 12), wheelMat);
+        const bumper = new THREE.Mesh(new THREE.BoxGeometry(0.04, bodyH, 0.04), armorMat);
+        bumper.position.set(sx * (w / 2 - 0.015), bodyCenterY, sz * (d / 2 - 0.015));
+        group.add(bumper);
+      }
+    }
+
+    // 3. Molded Grooved Vulcanized Rubber Top Work Mat with Raised Lip
+    const topMatMesh = new THREE.Mesh(new THREE.BoxGeometry(w + 0.02, 0.028, d + 0.02), rubberMat);
+    topMatMesh.position.y = casterH + bodyH + 0.014;
+    topMatMesh.receiveShadow = true;
+    group.add(topMatMesh);
+
+    // Stainless Steel Magnetic Hardware Dish on top
+    const dish = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.050, 0.018, 16), chromeMat);
+    dish.position.set(-w * 0.22, casterH + bodyH + 0.036, d * 0.15);
+    group.add(dish);
+
+    // Loose fasteners inside dish
+    for (let f = 0; f < 5; f++) {
+      const nut = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.006, 6), brassMat);
+      nut.position.set(-w * 0.22 + (f - 2) * 0.018, casterH + bodyH + 0.044, d * 0.15 + (f % 2) * 0.012);
+      group.add(nut);
+    }
+
+    // Rugged Industrial Digital Multimeter (Fluke Style) on top
+    const meterGroup = new THREE.Group();
+    meterGroup.position.set(w * 0.18, casterH + bodyH + 0.038, -d * 0.10);
+    meterGroup.rotation.y = -Math.PI / 6;
+
+    const meterBody = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.022, 0.15), meterYellowMat);
+    meterGroup.add(meterBody);
+
+    const meterScreen = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.055, 0.035),
+      new THREE.MeshBasicMaterial({ color: 0x94a3b8 })
+    );
+    meterScreen.rotation.x = -Math.PI / 2;
+    meterScreen.position.set(0, 0.012, -0.035);
+    meterGroup.add(meterScreen);
+
+    const rotaryDial = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, 0.008, 12), armorMat);
+    rotaryDial.position.set(0, 0.014, 0.02);
+    meterGroup.add(rotaryDial);
+    group.add(meterGroup);
+
+    // 4. Heavy Steel Push-Handle Bar on Left Side
+    const handleBar = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.016, d * 0.65, 12), chromeMat);
+    handleBar.rotation.x = Math.PI / 2;
+    handleBar.position.set(-w / 2 - 0.055, bodyCenterY + bodyH * 0.38, 0);
+    group.add(handleBar);
+
+    // Rubber grip around handle
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.022, d * 0.40, 12), rubberMat);
+    grip.rotation.x = Math.PI / 2;
+    grip.position.set(-w / 2 - 0.055, bodyCenterY + bodyH * 0.38, 0);
+    group.add(grip);
+
+    // 2 Standoff brackets connecting handle to body
+    for (const hz of [-d * 0.28, d * 0.28]) {
+      const standoff = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.022, 0.022), crimsonMat);
+      standoff.position.set(-w / 2 - 0.028, bodyCenterY + bodyH * 0.38, hz);
+      group.add(standoff);
+    }
+
+    // 5. Perforated Side Pegboard & 3-Can Aerosol Caddy on Right Side
+    const caddyMat = armorMat;
+    const caddyShelf = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.045, 0.26), caddyMat);
+    caddyShelf.position.set(w / 2 + 0.045, bodyCenterY + 0.05, 0);
+    group.add(caddyShelf);
+
+    // 3 Aerosol Spray Cans (WD-40, Contact Cleaner, Degreaser)
+    const canColors = [0x0284c7, 0xdc2626, 0x64748b];
+    for (let ci = 0; ci < 3; ci++) {
+      const canCyl = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.026, 0.026, 0.12, 12),
+        new THREE.MeshStandardMaterial({ color: canColors[ci], roughness: 0.35, metalness: 0.6 })
+      );
+      canCyl.position.set(w / 2 + 0.045, bodyCenterY + 0.05 + 0.07, (ci - 1) * 0.075);
+      canCyl.castShadow = true;
+      group.add(canCyl);
+
+      const nozzle = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.015, 8), chromeMat);
+      nozzle.position.set(w / 2 + 0.045, bodyCenterY + 0.05 + 0.135, (ci - 1) * 0.075);
+      group.add(nozzle);
+    }
+
+    // Heavy Shop Paper Towel Roll (Blue lint-free shop towels)
+    const towelRoll = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.22, 16), towelBlueMat);
+    towelRoll.rotation.x = Math.PI / 2;
+    towelRoll.position.set(w / 2 + 0.05, bodyCenterY - bodyH * 0.28, 0);
+    group.add(towelRoll);
+
+    // 6. Heavy-Duty 5" Industrial Swivel Casters with Red Polyurethane Wheels & Brake Pedals
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.45, metalness: 0.2 });
+    const wheelHubMat = chromeMat;
+
+    for (const sx of [-1, 1]) {
+      for (const sz of [-1, 1]) {
+        const casterGroup = new THREE.Group();
+        casterGroup.position.set(sx * (w / 2 - 0.08), casterH / 2, sz * (d / 2 - 0.08));
+
+        // Chrome Swivel Fork
+        const fork = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.05, 0.05), chromeMat);
+        fork.position.y = 0.024;
+        casterGroup.add(fork);
+
+        // Polyurethane Wheel
+        const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.038, 0.028, 16), wheelMat);
         wheel.rotation.z = Math.PI / 2;
-        wheel.position.set(sx * (w / 2 - 0.06), 0.04, sz * (d / 2 - 0.06));
-        group.add(wheel);
+        wheel.position.y = -0.012;
+        wheel.castShadow = true;
+        casterGroup.add(wheel);
+
+        // Chrome Center Hub
+        const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.018, 0.030, 10), wheelHubMat);
+        hub.rotation.z = Math.PI / 2;
+        hub.position.y = -0.012;
+        casterGroup.add(hub);
+
+        // Foot-Operated Locking Brake Pedal
+        const brake = new THREE.Mesh(new THREE.BoxGeometry(0.018, 0.012, 0.035), chromeMat);
+        brake.position.set(0, 0.018, sz > 0 ? 0.032 : -0.032);
+        casterGroup.add(brake);
+
+        group.add(casterGroup);
       }
     }
 

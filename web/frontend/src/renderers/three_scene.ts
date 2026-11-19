@@ -75,6 +75,8 @@ export class ThreeSimulationScene {
   public onPlaceObstacle?: (px: number, py: number, kind: string) => void;
   private pointerDownPos = { x: 0, y: 0, time: 0 };
   private clickRipples: Array<{ mesh: THREE.Mesh; createdAt: number }> = [];
+  private footstepRipples: Array<{ mesh: THREE.Mesh; createdAt: number }> = [];
+  private lastDriveMode: string = "NORMAL";
 
   // MPC Trajectory & Imagination Visuals (Zero allocation per frame)
   private chosenRibbonMesh: THREE.Mesh | null = null;
@@ -115,9 +117,14 @@ export class ThreeSimulationScene {
 
   // AAA Continuous Network Snapshot Interpolation Buffer (Zero-Stutter Constant Velocity)
   private static readonly INTERP_DELAY_MS = 90.0; // 90ms buffer (2.7 packet duration for jitter-free interpolation)
+  public playbackSpeed: number = 1.0;
   private robotSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private personSnapshots: Array<{ x: number; z: number; heading: number; time: number }> = [];
   private playbackTime: number = 0;
+
+  public setPlaybackSpeed(speed: number) {
+    this.playbackSpeed = Math.max(0.25, Math.min(8.0, Number(speed) || 1.0));
+  }
   private lastSimTime: number = 0;
   private currentRobotPos = new THREE.Vector3();
   private currentRobotHeading: number = 0;
@@ -162,8 +169,8 @@ export class ThreeSimulationScene {
   constructor(container: HTMLElement) {
     this.container = container;
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color("#0a0f1d"); // Deep industrial slate atmosphere
-    this.scene.fog = new THREE.FogExp2(0x0a0f1d, 0.015); // Authentic warehouse depth haze
+    this.scene.background = new THREE.Color("#080a0f"); // Deep industrial studio slate atmosphere
+    this.scene.fog = new THREE.FogExp2(0x080a0f, 0.016); // Authentic warehouse studio depth haze
 
     const w = container.clientWidth || 900;
     const h = container.clientHeight || 600;
@@ -270,7 +277,7 @@ export class ThreeSimulationScene {
     this.hemiLight = new THREE.HemisphereLight(0x94a3b8, 0x1e293b, 0.85);
     this.scene.add(this.hemiLight);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.40);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.55);
     this.scene.add(this.ambientLight);
 
     // Roots
@@ -424,6 +431,30 @@ export class ThreeSimulationScene {
     ring.position.set(x, 0.025, z);
     this.scene.add(ring);
     this.clickRipples.push({ mesh: ring, createdAt: performance.now() });
+  }
+
+  public triggerFootstepRipple(x: number, z: number) {
+    if (this.footstepRipples.length >= 10) {
+      const oldest = this.footstepRipples.shift();
+      if (oldest) {
+        this.scene.remove(oldest.mesh);
+        oldest.mesh.geometry.dispose();
+        (oldest.mesh.material as THREE.Material).dispose();
+      }
+    }
+    const geo = new THREE.RingGeometry(0.04, 0.09, 16);
+    const mat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      transparent: true,
+      opacity: 0.60,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+    const ring = new THREE.Mesh(geo, mat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.set(x, 0.008, z);
+    this.scene.add(ring);
+    this.footstepRipples.push({ mesh: ring, createdAt: performance.now() });
   }
 
   public isAvailable(): boolean {
@@ -1218,10 +1249,9 @@ export class ThreeSimulationScene {
       const drift = targetTime - this.playbackTime;
 
       if (!isPaused) {
-        // Continuous proportional speed scaling instead of sudden disruptive jumps:
-        // Smoothly accelerates when lagging behind and gently brakes when getting ahead
-        const speedScale = Math.max(0.70, Math.min(1.30, 1.0 + (drift / 250.0)));
-        this.playbackTime += dt * 1000.0 * speedScale;
+        // Continuous proportional speed scaling matching user's selected speed multiplier!
+        const speedScale = Math.max(0.50, Math.min(2.0, 1.0 + (drift / 250.0)));
+        this.playbackTime += dt * 1000.0 * this.playbackSpeed * speedScale;
       }
 
       // Hard clamp only on extreme discontinuity (e.g. background tab or long pause)
@@ -1233,9 +1263,23 @@ export class ThreeSimulationScene {
       if (snaps.length === 1 || this.playbackTime <= snaps[0].time) {
         this.currentRobotPos.set(snaps[0].x, 0, snaps[0].z);
       } else if (this.playbackTime >= snaps[snaps.length - 1].time) {
-        // Hold smoothly at latest received position without velocity overshoot snap
+        // Smooth decaying velocity extrapolation past latest snapshot to eliminate packet-interval stutter!
         const sLast = snaps[snaps.length - 1];
-        this.currentRobotPos.set(sLast.x, 0, sLast.z);
+        if (snaps.length >= 2) {
+          const sPrev = snaps[snaps.length - 2];
+          const dtSnap = Math.max(0.001, sLast.time - sPrev.time);
+          const vx = (sLast.x - sPrev.x) / dtSnap;
+          const vz = (sLast.z - sPrev.z) / dtSnap;
+          const overTime = Math.min(180, this.playbackTime - sLast.time);
+          const decay = Math.exp(-5.5 * (overTime / 1000.0));
+          this.currentRobotPos.set(
+            sLast.x + vx * overTime * decay,
+            0,
+            sLast.z + vz * overTime * decay
+          );
+        } else {
+          this.currentRobotPos.set(sLast.x, 0, sLast.z);
+        }
       } else {
         // Reverse search for enclosing bracket [idx0, idx0 + 1]
         let idx0 = 0;
@@ -1269,7 +1313,7 @@ export class ThreeSimulationScene {
 
     if (this.isDocked) {
       this.targetRobotHeading = Math.PI / 2;
-    } else if (moveSpeed > 0.04) {
+    } else if (moveSpeed > 0.02 || moveDist > 0.001) {
       // Robot body faces smoothly in its true direction of motion
       this.targetRobotHeading = Math.atan2(moveDx, moveDz);
     }
@@ -1278,7 +1322,8 @@ export class ThreeSimulationScene {
     let headingDiff = (this.targetRobotHeading - this.currentRobotHeading) % (Math.PI * 2);
     if (headingDiff > Math.PI) headingDiff -= Math.PI * 2;
     if (headingDiff < -Math.PI) headingDiff += Math.PI * 2;
-    const turnAlpha = 1.0 - Math.exp(-8.5 * dt);
+    const turnRate = Math.max(8.5, 8.5 * Math.min(3.0, this.playbackSpeed * 0.8));
+    const turnAlpha = 1.0 - Math.exp(-turnRate * dt);
     this.currentRobotHeading += headingDiff * turnAlpha;
 
     // Update 3D Humanoid Robot Kinematics & Procedural Bipedal Walking Gait
@@ -1289,7 +1334,12 @@ export class ThreeSimulationScene {
         this.currentRobotHeading,
         this.lastMode === "world_model" ? "world_model" : "baseline",
         this.hasCollision,
-        this.isDocked
+        this.isDocked,
+        this.lastDriveMode,
+        (_side, footPos) => {
+          this.triggerFootstepRipple(footPos.x, footPos.z);
+          sound.playMove();
+        }
       );
     }
 
@@ -1411,6 +1461,22 @@ export class ThreeSimulationScene {
       }
     }
 
+    // Animate footstep contact ripples
+    for (let i = this.footstepRipples.length - 1; i >= 0; i--) {
+      const rip = this.footstepRipples[i];
+      const age = (now - rip.createdAt) / 400.0;
+      if (age >= 1.0) {
+        this.scene.remove(rip.mesh);
+        rip.mesh.geometry.dispose();
+        (rip.mesh.material as THREE.Material).dispose();
+        this.footstepRipples.splice(i, 1);
+      } else {
+        const s = 1.0 + age * 2.2;
+        rip.mesh.scale.set(s, s, 1.0);
+        (rip.mesh.material as THREE.MeshBasicMaterial).opacity = (1.0 - age) * 0.60;
+      }
+    }
+
     // Animate ambient cyber particles (Zero CPU loop & Zero GPU buffer re-upload)
     if (this.cyberParticles) {
       this.cyberParticles.position.y = (this.cyberParticles.position.y + dt * 0.25) % 4.5;
@@ -1481,13 +1547,22 @@ export class ThreeSimulationScene {
 
         this.hasCollision = Boolean(e.extra?.collision);
         this.lastMode = frame.mode || "world_model";
+        if (e.extra?.drive_mode) {
+          this.lastDriveMode = e.extra.drive_mode;
+        }
+        if (frame.metrics?.extra?.speed_mult) {
+          const sMult = Number(frame.metrics.extra.speed_mult);
+          if (!isNaN(sMult) && sMult > 0) {
+            this.playbackSpeed = sMult;
+          }
+        }
 
         // Calculate smooth target heading from MPC planned trajectory or filtered velocity
         const lastSnap = this.robotSnapshots.length > 0 ? this.robotSnapshots[this.robotSnapshots.length - 1] : null;
 
         if (this.isDocked) {
           this.targetRobotHeading = Math.PI / 2;
-        } else if (this.isFirstStateUpdate && frame.plan?.best && frame.plan.best.length >= 2) {
+        } else if (frame.plan?.best && frame.plan.best.length >= 2) {
           const tgt = this.to3D(frame.plan.best[1][0], frame.plan.best[1][1]);
           const dx = tgt.x - pos.x;
           const dz = tgt.z - pos.z;
@@ -1499,7 +1574,23 @@ export class ThreeSimulationScene {
         const step = frame.step ?? (frame.metrics?.step_count ?? 0);
         const simTime = step * (1000.0 / 30.0);
 
-        if (this.isFirstStateUpdate || frame.step === 0 || Math.abs(simTime - this.lastSimTime) > 800 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
+        // Ingest intermediate sub-steps if available from multi-speed execution
+        const substeps = frame.metrics?.extra?.substeps;
+        if (Array.isArray(substeps) && substeps.length > 1 && !this.isFirstStateUpdate && frame.step !== 0) {
+          for (let sIdx = 0; sIdx < substeps.length; sIdx++) {
+            const sub = substeps[sIdx];
+            const subPos = this.to3D(sub.x, sub.y);
+            const subTime = sub.step * (1000.0 / 30.0);
+            const prevSnap = this.robotSnapshots.length > 0 ? this.robotSnapshots[this.robotSnapshots.length - 1] : null;
+            if (!prevSnap || subTime > prevSnap.time) {
+              this.robotSnapshots.push({ x: subPos.x, z: subPos.z, heading: this.targetRobotHeading, time: subTime });
+              this.lastSimTime = subTime;
+            }
+          }
+          while (this.robotSnapshots.length > 60) {
+            this.robotSnapshots.shift();
+          }
+        } else if (this.isFirstStateUpdate || frame.step === 0 || Math.abs(simTime - this.lastSimTime) > 800 || (lastSnap && Math.hypot(pos.x - lastSnap.x, pos.z - lastSnap.z) > 2.5)) {
           this.robotSnapshots = [{ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: simTime }];
           this.currentRobotPos.set(pos.x, 0, pos.z);
           this.currentRobotHeading = this.targetRobotHeading;
@@ -1514,7 +1605,7 @@ export class ThreeSimulationScene {
           } else {
             this.robotSnapshots.push({ x: pos.x, z: pos.z, heading: this.targetRobotHeading, time: simTime });
             this.lastSimTime = simTime;
-            if (this.robotSnapshots.length > 30) {
+            if (this.robotSnapshots.length > 60) {
               this.robotSnapshots.shift();
             }
           }
@@ -1556,7 +1647,7 @@ export class ThreeSimulationScene {
         const oh = ((e.h || 80) / 100.0) * scale;
 
         if (!mesh) {
-          if (e.id === "obs_0" || e.kind === "chair" || e.kind === "workstation") {
+          if (e.id === "obs_0" || e.kind === "chair" || e.kind === "workstation" || e.kind === "table") {
             mesh = LabEnvironmentBuilder.createWorkstationObstacle(ow, 0.95, oh);
           } else if (e.id === "obs_1" || e.kind === "crate") {
             mesh = LabEnvironmentBuilder.createRealisticCrate(ow, 0.90, oh);
@@ -1986,6 +2077,12 @@ export class ThreeSimulationScene {
       (rip.mesh.material as THREE.Material).dispose();
     }
     this.clickRipples = [];
+    for (const rip of this.footstepRipples) {
+      this.scene.remove(rip.mesh);
+      rip.mesh.geometry.dispose();
+      (rip.mesh.material as THREE.Material).dispose();
+    }
+    this.footstepRipples = [];
     for (const line of this.candidateLinePool) {
       this.scene.remove(line);
       line.geometry.dispose();
