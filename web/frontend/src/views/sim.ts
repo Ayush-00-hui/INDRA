@@ -108,10 +108,10 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </a>
           <div style="width: 1px; height: 18px; background: var(--border-subtle);"></div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="nav-logo-icon">WM</div>
+            <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
             <div style="display: flex; flex-direction: column; line-height: 1.15;">
               <span style="font-weight: 700; font-size: 0.88rem; letter-spacing: 0.02em; color: var(--text-main); font-family: var(--font-ui);">${simTitle}</span>
-              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Fidelity Robotics Arena</span>
+              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Entropy Indian Urban Autonomy</span>
             </div>
           </div>
           <span id="badge-connection" class="badge badge-live">
@@ -220,40 +220,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </button>
 
         ${
-          scenarioId === "driving"
+          scenarioId === "indra"
             ? `
-          <div class="rail-group-title">Highway Scenarios</div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}">S1: Highway Curves</button>
-            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}">S2: Sudden Braking</button>
-            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}">S3: Overtaking</button>
-            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}">S4: Pedestrian Hazard</button>
-          </div>
-
-          <div class="rail-group-title">Camera Perspectives</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-chase" class="rail-btn active" style="justify-content: center;">Chase</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Cockpit</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Fly-By</button>
-          </div>
-
-          <div class="rail-group-title">Time of Day</div>
-          <div style="display: flex; gap: 4px;">
-            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center;">Day</button>
-            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center;">Sunset</button>
-            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center;">Night</button>
-          </div>
-
-          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; font-weight: 600;">
-            <span id="lbl-manual-drive">Manual Drive [WASD]</span>
-          </button>
-        `
-            : `
-          ${
-            scenarioId === "indra"
-              ? `
             <div class="rail-group-title">INDRA Urban Scenarios (10)</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
               <button id="btn-indra-s1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S1: Arterial Urban Corridor">S1: Arterial</button>
@@ -268,72 +236,88 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
               <button id="btn-indra-s10" class="rail-btn ${currentVariant === 10 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S10: Dense Traffic Gridlock">S10: Gridlock</button>
             </div>
           `
-              : scenarioId === "robotics"
-                ? `
+            : scenarioId === "robotics"
+              ? `
             <div class="rail-group-title">Scenario Arena</div>
             <div style="display: flex; gap: 4px;">
               <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center;">S1: Chair</button>
               <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center;">S2: Person</button>
             </div>
+
+            <div class="rail-group-title">Sandbox Tools</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
+                <span>Goal Dock</span>
+              </button>
+              <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
+                <span>Crate</span>
+              </button>
+              <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
+                <span>Cabinet</span>
+              </button>
+              <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
+                <span>Table</span>
+              </button>
+              <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
+                <span>Barrels</span>
+              </button>
+              <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
+                <span>Barrier</span>
+              </button>
+            </div>
+
+            <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+              <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
+                <span>Slalom</span>
+              </button>
+              <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
+                <span>U-Trap</span>
+              </button>
+              <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
+                <span>Maze</span>
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 4px; margin-top: 4px;">
+              <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
+                <span>Clear All</span>
+              </button>
+              <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
+                <span>Randomize</span>
+              </button>
+            </div>
           `
-                : ""
-          }
-
-          <div class="rail-group-title">Camera Perspectives</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
-            <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
-          </div>
-
-          <div class="rail-group-title">Sandbox Tools</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
-              <span>Goal Dock</span>
-            </button>
-            <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
-              <span>Crate</span>
-            </button>
-            <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
-              <span>Cabinet</span>
-            </button>
-            <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
-              <span>Table</span>
-            </button>
-            <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
-              <span>Barrels</span>
-            </button>
-            <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
-              <span>Barrier</span>
-            </button>
-          </div>
-
-          <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-            <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
-              <span>Slalom</span>
-            </button>
-            <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
-              <span>U-Trap</span>
-            </button>
-            <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
-              <span>Maze</span>
-            </button>
-          </div>
-
-          <div style="display: flex; gap: 4px; margin-top: 4px;">
-            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
-              <span>Clear All</span>
-            </button>
-            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
-              <span>Randomize</span>
-            </button>
-          </div>
-        `
+              : ""
         }
+
+        <div class="rail-group-title">Camera Perspectives</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
+          <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
+          <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
+          <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+          <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+          <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
+        </div>
+
+        <div class="rail-group-title">Sensors & Overlays</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <button id="btn-toggle-lidar" class="rail-btn active" style="justify-content: center;" title="Toggle 16-beam LiDAR radial laser rays [L]">
+            <span>LiDAR Rays</span>
+          </button>
+          <button id="btn-toggle-ribbons" class="rail-btn active" style="justify-content: center;" title="Toggle MPC candidate trajectory ribbons [M]">
+            <span>Mind View</span>
+          </button>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: 4px;">
+          <button id="btn-toggle-footprint" class="rail-btn active" style="flex: 1; justify-content: center;" title="Toggle robot dynamic safety boundary">
+            <span>Safety Hull</span>
+          </button>
+          <button id="btn-cycle-quality" class="rail-btn" style="flex: 1; justify-content: center;" title="Cycle Graphics Tier: High / Med / Low [Q]">
+            <span id="lbl-graphics-tier">Tier: High</span>
+          </button>
+        </div>
 
         <div class="rail-group-title">System & Audio</div>
         <div style="display: flex; gap: 4px;">
@@ -1379,14 +1363,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.speak("Cinematic director mode active.");
     };
 
-    // Sandbox Object Tools
-    const toolGoal = document.getElementById("tool-goal")!;
-    const toolCrate = document.getElementById("tool-crate")!;
-    const toolCabinet = document.getElementById("tool-cabinet")!;
-    const toolWorkstation = document.getElementById("tool-workstation")!;
-    const toolBarrels = document.getElementById("tool-barrels")!;
-    const toolBarrier = document.getElementById("tool-barrier")!;
-    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier];
+    // Sandbox Object Tools (for warehouse robotics baseline)
+    const toolGoal = document.getElementById("tool-goal");
+    const toolCrate = document.getElementById("tool-crate");
+    const toolCabinet = document.getElementById("tool-cabinet");
+    const toolWorkstation = document.getElementById("tool-workstation");
+    const toolBarrels = document.getElementById("tool-barrels");
+    const toolBarrier = document.getElementById("tool-barrier");
+    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier].filter(Boolean) as HTMLElement[];
 
     const setActiveTool = (btn: HTMLElement, tool: any) => {
       allTools.forEach((b) => b.classList.remove("active"));
@@ -1395,12 +1379,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.playToolSelect();
     };
 
-    toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
-    toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
-    toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
-    toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
-    toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
-    toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
+    if (toolGoal) toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
+    if (toolCrate) toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
+    if (toolCabinet) toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
+    if (toolWorkstation) toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
+    if (toolBarrels) toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
+    if (toolBarrier) toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
 
     // Course Preset Loaders
     const btnPresetSlalom = document.getElementById("btn-preset-slalom");
@@ -1455,11 +1439,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     }
 
-    document.getElementById("btn-random-obs")!.onclick = () => {
-      currentSeed = Math.floor(Math.random() * 9000) + 1000;
-      wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
-      sound.playToolSelect();
-    };
+    const btnRandomObs = document.getElementById("btn-random-obs");
+    if (btnRandomObs) {
+      btnRandomObs.onclick = () => {
+        currentSeed = Math.floor(Math.random() * 9000) + 1000;
+        wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
+        sound.playToolSelect();
+      };
+    }
 
     // Sound Controls (Whisper-Quiet Motor Glide Only)
     const btnMute = document.getElementById("btn-mute")!;
@@ -1469,6 +1456,53 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       lblSound.textContent = isMuted ? "Glide Audio: OFF" : "Glide Audio: ON";
       btnMute.classList.toggle("active", !isMuted);
     };
+
+    // Sensor & Overlay toggles
+    const btnLidar = document.getElementById("btn-toggle-lidar");
+    if (btnLidar) {
+      btnLidar.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleLidar === "function") {
+          const visible = (primaryScene as any).toggleLidar();
+          btnLidar.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    const btnRibbons = document.getElementById("btn-toggle-ribbons");
+    if (btnRibbons) {
+      btnRibbons.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleTrajectories === "function") {
+          const visible = (primaryScene as any).toggleTrajectories();
+          btnRibbons.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    const btnFootprint = document.getElementById("btn-toggle-footprint");
+    if (btnFootprint) {
+      btnFootprint.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleFootprint === "function") {
+          const visible = (primaryScene as any).toggleFootprint();
+          btnFootprint.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    let currentGraphicsTier: "high" | "medium" | "low" = "high";
+    const btnQuality = document.getElementById("btn-cycle-quality");
+    const lblQuality = document.getElementById("lbl-graphics-tier");
+    if (btnQuality && lblQuality) {
+      btnQuality.onclick = () => {
+        if (currentGraphicsTier === "high") currentGraphicsTier = "medium";
+        else if (currentGraphicsTier === "medium") currentGraphicsTier = "low";
+        else currentGraphicsTier = "high";
+
+        lblQuality.textContent = `Tier: ${currentGraphicsTier.charAt(0).toUpperCase() + currentGraphicsTier.slice(1)}`;
+        if (primaryScene && typeof (primaryScene as any).setGraphicsTier === "function") {
+          (primaryScene as any).setGraphicsTier(currentGraphicsTier);
+        }
+      };
+    }
 
     // Robot Docking & Deployment Control
     isDocked = false;

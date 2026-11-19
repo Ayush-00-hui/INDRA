@@ -50,7 +50,14 @@ class IndraMpcPlanner:
             seq = [a1] * 2 + [a2] * 2 + [self.ACTION_FORWARD] * (horizon - 4)
             sequences.append(seq)
 
-        # 4. Stochastic exploration sequences to fill budget
+        # 4. Reverse escape primitives (for blocked paths and dead ends)
+        for k in [2, 3, 4]:
+            if k < horizon:
+                sequences.append([self.ACTION_BRAKE] * k + [self.ACTION_LEFT] * (horizon - k))
+                sequences.append([self.ACTION_BRAKE] * k + [self.ACTION_RIGHT] * (horizon - k))
+                sequences.append([self.ACTION_BRAKE] * k + [self.ACTION_FORWARD] * (horizon - k))
+
+        # 5. Stochastic exploration sequences to fill budget
         while len(sequences) < self.num_samples:
             first_act = np.random.choice([0, 1, 2, 3, 4], p=[0.45, 0.1, 0.2, 0.2, 0.05])
             seq = [first_act]

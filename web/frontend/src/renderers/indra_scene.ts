@@ -45,6 +45,15 @@ export class IndraScene {
   private lidarTurret: THREE.Object3D | null = null;
   private robotStatusLed: THREE.Mesh | null = null;
   private lidarSweepLine: THREE.Line | null = null;
+  private lidarRaysGroup: THREE.Group;
+  private lidarRayLines: THREE.Line[] = [];
+  private lidarHitSpheres: THREE.Mesh[] = [];
+  private safetyFootprintMesh: THREE.Mesh | null = null;
+  private wheels: THREE.Mesh[] = [];
+  public showLidar: boolean = true;
+  public showTrajectories: boolean = true;
+  public showFootprint: boolean = true;
+  public graphicsTier: "low" | "medium" | "high" = "high";
 
   // Goal Beacon
   private goalGroup: THREE.Group;
@@ -111,6 +120,8 @@ export class IndraScene {
     this.hazardsGroup = new THREE.Group();
     this.candidateGroup = new THREE.Group();
     this.robotGroup = new THREE.Group();
+    this.lidarRaysGroup = new THREE.Group();
+    this.robotGroup.add(this.lidarRaysGroup);
     this.goalGroup = new THREE.Group();
 
     this.scene.add(this.roadGroup);
@@ -548,7 +559,40 @@ export class IndraScene {
       wheel.position.set(wx, wy, wz);
       wheel.castShadow = true;
       this.robotGroup.add(wheel);
+      this.wheels.push(wheel);
     });
+
+    // Safety Clearance Footprint (Dynamic Bounding Hull)
+    const footGeo = new THREE.RingGeometry(0.55, 0.65, 32);
+    const footMat = new THREE.MeshBasicMaterial({ color: 0x10b981, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
+    const footprint = new THREE.Mesh(footGeo, footMat);
+    footprint.rotation.x = -Math.PI / 2;
+    footprint.position.set(0, -0.34, 0);
+    this.robotGroup.add(footprint);
+    this.safetyFootprintMesh = footprint;
+
+    // 16-Beam Radial LiDAR Ray Assembly
+    const lidarOrigin = new THREE.Vector3(0.25, 0.60, 0);
+    for (let b = 0; b < 16; b++) {
+      const angle = (b / 16) * Math.PI * 2;
+      const dx = Math.cos(angle) * 3.5;
+      const dz = Math.sin(angle) * 3.5;
+
+      const pts = [lidarOrigin.clone(), new THREE.Vector3(0.25 + dx, 0.60, dz)];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.45 });
+      const line = new THREE.Line(lineGeo, lineMat);
+      this.lidarRaysGroup.add(line);
+      this.lidarRayLines.push(line);
+
+      // Hit point dot
+      const sphereGeo = new THREE.SphereGeometry(0.04, 8, 8);
+      const sphereMat = new THREE.MeshBasicMaterial({ color: 0x10b981 });
+      const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+      sphere.position.set(0.25 + dx, 0.60, dz);
+      this.lidarRaysGroup.add(sphere);
+      this.lidarHitSpheres.push(sphere);
+    }
 
     // Rotating LiDAR Mast & Scanner Turret
     const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.20, 8), new THREE.MeshStandardMaterial({ color: 0x334155 }));
@@ -1045,15 +1089,49 @@ export class IndraScene {
       const headingRad = THREE.MathUtils.degToRad(robotEntity.heading || 0);
       this.robotGroup.rotation.y = -headingRad;
 
-      // Update LED Status color based on hover / waterlog
+      // Update LED Status color based on recovery / hover / waterlog
       if (this.robotStatusLed) {
         const mat = this.robotStatusLed.material as THREE.MeshBasicMaterial;
-        if (robotEntity.extra?.hover_seconds > 1.5) {
-          mat.color.setHex(0xf59e0b); // Amber (anti-hover evasive active)
+        let ledColor = 0x10b981; // Emerald (nominal)
+        if (robotEntity.extra?.is_recovering) {
+          ledColor = 0xa855f7; // Purple / Violet (Active Recovery Maneuver)
+        } else if (robotEntity.extra?.hover_seconds > 1.5) {
+          ledColor = 0xf59e0b; // Amber (anti-hover evasive active)
         } else if (robotEntity.extra?.waterlog_depth_cm > 10.0) {
-          mat.color.setHex(0x38bdf8); // Cyan (waterlogging caution)
-        } else {
-          mat.color.setHex(0x10b981); // Emerald (nominal)
+          ledColor = 0x38bdf8; // Cyan (waterlogging caution)
+        }
+        mat.color.setHex(ledColor);
+        if (this.safetyFootprintMesh) {
+          (this.safetyFootprintMesh.material as THREE.MeshBasicMaterial).color.setHex(ledColor);
+        }
+      }
+
+      // Update 16 LiDAR ray endpoints and obstacle hit markers
+      const distances = robotEntity.extra?.lidar_distances;
+      if (distances && Array.isArray(distances) && this.showLidar) {
+        const numDist = distances.length;
+        for (let i = 0; i < this.lidarRayLines.length; i++) {
+          const d = distances[i % numDist] ?? 4.0;
+          const angle = (i / this.lidarRayLines.length) * Math.PI * 2;
+          const rayDist = Math.max(0.4, Math.min(10.0, d));
+          const hx = 0.25 + Math.cos(angle) * rayDist;
+          const hz = Math.sin(angle) * rayDist;
+
+          const pts = [new THREE.Vector3(0.25, 0.60, 0), new THREE.Vector3(hx, 0.60, hz)];
+          this.lidarRayLines[i].geometry.setFromPoints(pts);
+
+          let hitColor = 0x10b981; // Green (>2.0m)
+          if (d < 0.8) {
+            hitColor = 0xef4444; // Red (<0.8m)
+          } else if (d < 2.0) {
+            hitColor = 0xf59e0b; // Amber (0.8 - 2.0m)
+          }
+
+          (this.lidarRayLines[i].material as THREE.LineBasicMaterial).color.setHex(hitColor);
+          if (this.lidarHitSpheres[i]) {
+            this.lidarHitSpheres[i].position.set(hx, 0.60, hz);
+            (this.lidarHitSpheres[i].material as THREE.MeshBasicMaterial).color.setHex(hitColor);
+          }
         }
       }
     }
@@ -1184,6 +1262,20 @@ export class IndraScene {
       this.lidarTurret.rotation.y += dt * 8.0 * this.playbackSpeed;
     }
 
+    // Animate wheels
+    if (this.wheels.length > 0) {
+      const wheelRot = dt * 6.0 * this.playbackSpeed;
+      this.wheels.forEach((w) => {
+        w.rotation.y += wheelRot;
+      });
+    }
+
+    // Pulse safety footprint ring
+    if (this.safetyFootprintMesh) {
+      const pulse = 1.0 + Math.sin(now * 0.006) * 0.08;
+      this.safetyFootprintMesh.scale.set(pulse, pulse, 1.0);
+    }
+
     // Pulse goal beacon ring
     if (this.goalBeaconRing) {
       const scale = 1.0 + Math.sin(now * 0.004) * 0.12;
@@ -1227,6 +1319,47 @@ export class IndraScene {
         this.camera.position.set(15, 38, 0.01);
         this.camera.lookAt(15, 0, 0);
       }
+    }
+  }
+
+  public toggleLidar(show?: boolean): boolean {
+    this.showLidar = show !== undefined ? show : !this.showLidar;
+    this.lidarRaysGroup.visible = this.showLidar;
+    return this.showLidar;
+  }
+
+  public toggleTrajectories(show?: boolean): boolean {
+    this.showTrajectories = show !== undefined ? show : !this.showTrajectories;
+    if (this.bestRibbonMesh) this.bestRibbonMesh.visible = this.showTrajectories;
+    this.candidateGroup.visible = this.showTrajectories;
+    return this.showTrajectories;
+  }
+
+  public toggleFootprint(show?: boolean): boolean {
+    this.showFootprint = show !== undefined ? show : !this.showFootprint;
+    if (this.safetyFootprintMesh) this.safetyFootprintMesh.visible = this.showFootprint;
+    return this.showFootprint;
+  }
+
+  public setGraphicsTier(tier: "low" | "medium" | "high"): void {
+    this.graphicsTier = tier;
+    if (!this.renderer) return;
+
+    if (tier === "low") {
+      this.renderer.shadowMap.enabled = false;
+      this.renderer.setPixelRatio(1.0);
+      if (this.rainParticles) this.rainParticles.visible = false;
+      this.scene.fog = null;
+    } else if (tier === "medium") {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.setPixelRatio(1.25);
+      if (this.rainParticles) this.rainParticles.visible = this.currentWeather === "monsoon";
+      this.scene.fog = new THREE.FogExp2(0x0c1017, 0.012);
+    } else {
+      this.renderer.shadowMap.enabled = true;
+      this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.0));
+      if (this.rainParticles) this.rainParticles.visible = this.currentWeather === "monsoon";
+      this.scene.fog = new THREE.FogExp2(0x0c1017, 0.015);
     }
   }
 

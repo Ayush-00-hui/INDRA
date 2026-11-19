@@ -9,9 +9,9 @@ export function renderResults(container: HTMLElement) {
     <!-- Top Navigation Bar -->
     <header class="top-nav">
       <div class="nav-brand">
-        <div class="nav-logo-icon">W</div>
-        <span>World Model 3D</span>
-        <span class="badge badge-live" style="margin-left: 8px;">NBA 2026</span>
+        <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
+        <span>PROJECT INDRA</span>
+        <span class="badge badge-live" style="margin-left: 8px;">Indian Urban Robotics</span>
       </div>
       <nav class="nav-links">
         <a href="#/">Simulations</a>

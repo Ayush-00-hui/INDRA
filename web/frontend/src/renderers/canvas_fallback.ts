@@ -138,40 +138,53 @@ export class CanvasFallbackRenderer {
           ctx.moveTo(e.x, e.y);
           ctx.lineTo(e.x + Math.sin(rad) * 22, e.y - Math.cos(rad) * 22);
           ctx.stroke();
-        } else if (e.kind === "person") {
-          // Dynamic person
+        } else if (e.kind === "person" || e.kind === "pedestrian") {
+          // Dynamic pedestrian
           ctx.fillStyle = "#ffaa00";
           ctx.beginPath();
-          ctx.arc(e.x, e.y, e.r || 22.5, 0, Math.PI * 2);
+          ctx.arc(e.x, e.y, e.r || 15, 0, Math.PI * 2);
           ctx.fill();
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 2;
           ctx.stroke();
-        } else if (e.kind === "machine") {
-          // Factory Station Machine
-          const ow = e.w || 70;
-          const oh = e.h || 70;
-          const status = e.extra?.status || "nominal";
-          ctx.fillStyle = status === "jammed" ? "rgba(239, 68, 68, 0.85)" : (status === "maintenance" ? "rgba(245, 158, 11, 0.85)" : "rgba(59, 130, 246, 0.85)");
+        } else if (e.kind === "auto_rickshaw") {
+          // Auto-Rickshaw (Yellow & Green)
+          const ow = e.w || 26;
+          const oh = e.h || 40;
+          ctx.fillStyle = "#facc15"; // Yellow roof
           ctx.fillRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
+          ctx.fillStyle = "#15803d"; // Green apron
+          ctx.fillRect(e.x - ow / 2, e.y + oh / 6, ow, oh / 3);
           ctx.strokeStyle = "#ffffff";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
+        } else if (e.kind === "motorcycle") {
+          // Two-wheeler motorcycle
+          const ow = e.w || 14;
+          const oh = e.h || 32;
+          ctx.fillStyle = "#ef4444";
+          ctx.fillRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
+          ctx.strokeStyle = "#1e293b";
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
+        } else if (e.kind === "cow" || e.kind === "dog") {
+          // Stray animal / sacred cattle
+          ctx.fillStyle = e.kind === "cow" ? "#f5f5f4" : "#b45309";
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r || (e.kind === "cow" ? 22 : 12), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = "#44403c";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        } else if (e.kind === "vendor_cart") {
+          // Indian Street Vendor Cart
+          const ow = e.w || 30;
+          const oh = e.h || 35;
+          ctx.fillStyle = "#d97706";
+          ctx.fillRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
+          ctx.strokeStyle = "#78350f";
           ctx.lineWidth = 2;
           ctx.strokeRect(e.x - ow / 2, e.y - oh / 2, ow, oh);
-          // Label
-          ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 10px Inter, sans-serif";
-          ctx.fillText(status.toUpperCase(), e.x - ow / 2 + 6, e.y);
-        } else if (e.kind === "conveyor") {
-          // Conveyor belt
-          ctx.fillStyle = "rgba(45, 55, 72, 0.9)";
-          ctx.fillRect(e.x - (e.w || 100) / 2, e.y - (e.h || 30) / 2, e.w || 100, e.h || 30);
-          ctx.strokeStyle = "rgba(160, 174, 192, 0.6)";
-          ctx.lineWidth = 2;
-          ctx.strokeRect(e.x - (e.w || 100) / 2, e.y - (e.h || 30) / 2, e.w || 100, e.h || 30);
-        } else if (e.kind === "item") {
-          // Conveyor Workpiece
-          ctx.fillStyle = "#38bdf8";
-          ctx.fillRect(e.x - 8, e.y - 8, 16, 16);
         } else if (e.kind === "car") {
           // Vehicle
           ctx.fillStyle = "#3b82f6";

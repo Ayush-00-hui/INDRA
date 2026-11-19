@@ -14,6 +14,7 @@ from indra.env import IndraEnv
 from indra.model.model_interface import BaselineKinematicWorldModel, BaseWorldModelInterface
 from indra.planner.indra_mpc import IndraMpcPlanner
 from indra.core.actors import RoadHazard
+from indra.recovery.watchdog import StagnationWatchdog
 from web.schema import Entity, Goal, Plan, PlanAlt, WorldLayout, Metrics, RenderState
 
 
@@ -65,6 +66,7 @@ class IndraAdapter:
         self.episode_count: int = 1
         self.current_seed: int = 1001
         self.speed_mult: float = 1.0
+        self.watchdog = StagnationWatchdog()
 
         self.reset(seed=self.current_seed)
 
@@ -80,6 +82,7 @@ class IndraAdapter:
         self.last_plan_info = None
         self.plan_latency_ms = 0.0
         self.cum_reward = 0.0
+        self.watchdog.reset()
         self._compute_plan()
         return self.get_render_state()
 
@@ -101,9 +104,23 @@ class IndraAdapter:
 
     def step(self) -> Tuple[RenderState, bool]:
         """Advance the simulation by one step. Returns (RenderState, done)."""
+        events: List[str] = []
+        front_lidar = float(np.min(self.obs[8:12])) if len(self.obs) >= 12 else None
+        watchdog_diag = self.watchdog.update(
+            robot_x=self.env.robot.x,
+            robot_y=self.env.robot.y,
+            robot_heading=self.env.robot.heading,
+            front_lidar_min=front_lidar
+        )
+
         if self.mode == "world_model":
-            self._compute_plan()
-            action = self.last_action if self.last_action is not None else self.env.ACTION_FORWARD
+            if watchdog_diag["is_recovering"] and watchdog_diag["override_action"] is not None:
+                action = watchdog_diag["override_action"]
+                self.last_action = action
+                events.append("recovery")
+            else:
+                self._compute_plan()
+                action = self.last_action if self.last_action is not None else self.env.ACTION_FORWARD
         else:
             # Simple reactive baseline (points toward goal regardless of obstacles)
             dx = self.env.goal_x - self.env.robot.x
@@ -123,7 +140,12 @@ class IndraAdapter:
         self.obs, reward, done, info = self.env.step(action)
         self.cum_reward += reward
 
-        rs = self.get_render_state(done=done)
+        if info.get("collision", False):
+            events.append("bonk")
+        if info.get("reached_goal", False):
+            events.append("goal")
+
+        rs = self.get_render_state(events=events, done=done, info=info)
 
         if done:
             self.episode_count += 1
@@ -161,7 +183,9 @@ class IndraAdapter:
             "road_condition": self.env.env_state.road.value,
             "time_of_day": self.env.env_state.time_of_day.value,
             "waterlog_depth_cm": round(self.env.env_state.waterlog_depth_cm, 1),
-            "lidar_distances": [round(float(d), 2) for d in self.obs[8:16]]
+            "lidar_distances": [round(float(d), 2) for d in self.obs[8:16]],
+            "is_recovering": self.watchdog.is_recovering,
+            "recoveries": self.watchdog.total_recoveries
         }
         entities.append(Entity(
             id="indra_robot",

@@ -73,15 +73,16 @@ def check_cuda():
 def check_models():
     all_ok = True
     models = [
-        ("models/robot_student.pt", "Distilled Residual Student (Primary)"),
-        ("models/robot_model.pt", "Standard Residual World Model (Backup)"),
+        ("models/indra_model.pt", "Project INDRA Deep Residual Dynamics (Flagship)"),
+        ("models/robot_student.pt", "Warehouse Residual Student (Baseline Primary)"),
+        ("models/robot_model.pt", "Warehouse Residual World Model (Baseline Backup)"),
     ]
     for rel_path, desc in models:
         p = ROOT_DIR / rel_path
         if p.exists() and p.stat().st_size > 1024:
             report("PASS", desc, f"{p.name} ({p.stat().st_size / 1024:.1f} KB)")
         else:
-            report("FAIL", desc, f"Missing {rel_path}", f"Train student with python scripts/train_student_distillation.py")
+            report("FAIL", desc, f"Missing {rel_path}", f"Train model using python scripts/train_indra.py")
             all_ok = False
     return all_ok
 
