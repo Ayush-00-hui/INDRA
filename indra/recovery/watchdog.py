@@ -153,12 +153,19 @@ class StagnationWatchdog:
             self.last_escape_reason = "head_on_obstacle" if is_head_on_trigger else "position_stagnation"
 
             # Construct escape sequence: reverse k steps, then turn away
-            # Alternate turn direction to prevent repeated bias
+            # For head-on dead ends, execute a 3-point turnaround (extended reverse + strong pivot + forward clear)
             turn_action = self.ACTION_LEFT if (self.total_recoveries % 2 == 1) else self.ACTION_RIGHT
-            self.recovery_queue = (
-                [self.ACTION_BRAKE] * self.escape_reverse_steps +
-                [turn_action] * self.escape_turn_steps
-            )
+            if is_head_on_trigger:
+                self.recovery_queue = (
+                    [self.ACTION_BRAKE] * (self.escape_reverse_steps + 1) +
+                    [turn_action] * (self.escape_turn_steps + 1) +
+                    [self.ACTION_FORWARD] * 2
+                )
+            else:
+                self.recovery_queue = (
+                    [self.ACTION_BRAKE] * self.escape_reverse_steps +
+                    [turn_action] * self.escape_turn_steps
+                )
 
             override_action = self.recovery_queue.pop(0)
             return {

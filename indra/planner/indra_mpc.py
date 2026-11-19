@@ -57,9 +57,19 @@ class IndraMpcPlanner:
                 sequences.append([self.ACTION_BRAKE] * k + [self.ACTION_RIGHT] * (horizon - k))
                 sequences.append([self.ACTION_BRAKE] * k + [self.ACTION_FORWARD] * (horizon - k))
 
-        # 5. Stochastic exploration sequences to fill budget
+        # 5. Yield-and-Proceed (Wait for dynamic crossing obstacle to clear path, then proceed)
+        for k in [2, 3, 4]:
+            if k < horizon:
+                sequences.append([self.ACTION_STAY] * k + [self.ACTION_FORWARD] * (horizon - k))
+
+        # 6. Decelerate-and-Detour (Brake lightly, steer around obstacle, then resume speed)
+        for turn_act in [self.ACTION_LEFT, self.ACTION_RIGHT]:
+            if 4 < horizon:
+                sequences.append([self.ACTION_BRAKE] * 1 + [turn_act] * 3 + [self.ACTION_FORWARD] * (horizon - 4))
+
+        # 7. Stochastic exploration sequences to fill budget
         while len(sequences) < self.num_samples:
-            first_act = np.random.choice([0, 1, 2, 3, 4], p=[0.45, 0.1, 0.2, 0.2, 0.05])
+            first_act = np.random.choice([0, 1, 2, 3, 4], p=[0.40, 0.1, 0.2, 0.2, 0.10])
             seq = [first_act]
             for _ in range(horizon - 1):
                 if np.random.random() < 0.70:
