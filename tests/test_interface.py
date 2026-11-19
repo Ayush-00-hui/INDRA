@@ -22,7 +22,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 import pygame
 from envs.base_env import BaseEnv
 from envs.robot_env import RobotEnv
-from envs.driving_env import DrivingEnv
+from indra.env import IndraEnv
 
 
 class TestBaseEnvContract(unittest.TestCase):
@@ -90,9 +90,9 @@ class TestBaseEnvContract(unittest.TestCase):
         env = RobotEnv(scenario=1, include_obstacle_size=True)
         self._verify_env_contract(env, "RobotEnv(22-d)")
 
-    def test_driving_env_contract(self):
-        env = DrivingEnv()
-        self._verify_env_contract(env, "DrivingEnv")
+    def test_indra_env_contract(self):
+        env = IndraEnv(scenario_variant=1)
+        self._verify_env_contract(env, "IndraEnv")
 
 
 if __name__ == "__main__":

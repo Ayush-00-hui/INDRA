@@ -51,43 +51,6 @@ SCENARIOS = {
         "env_class": "RobotEnv",
         "adapter_module": "web.adapters.robot_adapter",
         "adapter_class": "RobotAdapter"
-    },
-    "driving": {
-        "id": "driving",
-        "title": "Autonomous Highway Driving",
-        "tagline": "Predicting multi-vehicle traffic dynamics and emergency braking maneuvers.",
-        "description": "High-speed highway navigation with curved lanes, multi-agent IDM traffic, and collision avoidance. World Model simulates 300 imagined trajectories in parallel over a 14-step receding horizon.",
-        "thumbnail": "results/screenshots/hero_menu.png",
-        "variants": [
-            {"id": 1, "name": "Scenario 1: Highway Lane Keeping & Curvature", "type": "continuous"},
-            {"id": 2, "name": "Scenario 2: Lead Vehicle Sudden Braking", "type": "dynamic"},
-            {"id": 3, "name": "Scenario 3: Dense Traffic Lane Change / Overtake", "type": "dynamic"},
-            {"id": 4, "name": "Scenario 4: Pedestrian Crossing Hazard", "type": "safety_critical"}
-        ],
-        "default_variant": 2,
-        "model_paths": ["models/driving_model.pt"],
-        "capabilities": ["live", "replay", "compare", "mind_view", "first_person_pov", "manual_drive"],
-        "env_module": "envs.driving_env",
-        "env_class": "DrivingEnv",
-        "adapter_module": "web.adapters.driving_adapter",
-        "adapter_class": "DrivingAdapter"
-    },
-    "factory": {
-        "id": "factory",
-        "title": "Factory-Line Digital Twin",
-        "tagline": "Predictive maintenance scheduling before catastrophic workstation failure.",
-        "description": "A 3-station manufacturing pipeline with stochastic machine wear. The World Model forecasts bottleneck queues and executes preemptive servicing before line stoppages.",
-        "thumbnail": "results/visuals3d/model_sheet_v2.png",
-        "variants": [
-            {"id": 1, "name": "3-Station Assembly Line", "type": "discrete_event"}
-        ],
-        "default_variant": 1,
-        "model_paths": ["models/factory_model.pt"],
-        "capabilities": ["live", "replay", "compare", "digital_twin"],
-        "env_module": "envs.factory_env",
-        "env_class": "FactoryEnv",
-        "adapter_module": "web.adapters.factory_adapter",
-        "adapter_class": "FactoryAdapter"
     }
 }
 

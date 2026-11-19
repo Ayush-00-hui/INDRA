@@ -185,14 +185,14 @@ def test_headless_main():
     return "30 split-screen frames executed cleanly"
 
 
-def test_driving_lazy_import():
+def test_indra_env_guard():
     import importlib
-    driving_module = importlib.import_module("envs.driving_env")
-    assert hasattr(driving_module, "DrivingEnv"), "DrivingEnv class missing in driving_env.py"
-    d_env = driving_module.DrivingEnv()
-    assert d_env.get_state_size() > 0
-    assert d_env.get_action_size() > 0
-    return "DrivingEnv placeholder compliant"
+    indra_module = importlib.import_module("indra.env")
+    assert hasattr(indra_module, "IndraEnv"), "IndraEnv class missing in indra/env.py"
+    i_env = indra_module.IndraEnv()
+    assert i_env.get_state_size() == 24
+    assert i_env.get_action_size() == 5
+    return "IndraEnv 24-D contracts compliant"
 
 
 def test_3d_pbr_pipeline():
@@ -214,7 +214,7 @@ def test_web_app_subsystem():
     # 2. Replay files present
     replays_dir = os.path.join(ROOT_DIR, "web", "replays")
     assert os.path.exists(os.path.join(replays_dir, "robotics_s1_wm.json"))
-    assert os.path.exists(os.path.join(replays_dir, "factory_s1_wm.json"))
+    assert os.path.exists(os.path.join(replays_dir, "robotics_s2_wm.json"))
 
     # 3. FastAPI test client health
     from fastapi.testclient import TestClient
@@ -240,7 +240,7 @@ def main():
         ("World Model Checkpoints", test_model_loading),
         ("MPC Planner Vectorization & Latency", test_mpc_planner),
         ("Headless Application Execution", test_headless_main),
-        ("Autonomous Driving Module Guard", test_driving_lazy_import),
+        ("Project INDRA Environment Guard", test_indra_env_guard),
         ("Web Application Subsystem & Health", test_web_app_subsystem),
     ]
 

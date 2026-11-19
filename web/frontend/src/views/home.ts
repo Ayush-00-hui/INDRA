@@ -90,64 +90,22 @@ export function renderHome(container: HTMLElement) {
             </div>
           </div>
 
-          <!-- Card 1: Robotics -->
+          <!-- Card 1: Robotics Baseline -->
           <div class="glass-panel sim-card">
             <div class="sim-card-thumb">
-              <img src="./results/screenshots/hero_split_screen.png" alt="Warehouse Robotics" onerror="this.src='./results/screenshots/hero_menu.png'" />
+              <img src="./results/screenshots/hero_split_screen.png" alt="Warehouse Robotics Baseline" onerror="this.src='./results/screenshots/hero_menu.png'" />
               <div class="sim-card-badge">
-                <span class="badge badge-live">● LIVE Ready</span>
+                <span class="badge badge-replay">● Internal Baseline</span>
               </div>
             </div>
             <div class="sim-card-body">
-              <h3 class="sim-card-title">Autonomous Warehouse Robotics</h3>
-              <div class="sim-card-tagline">"Imagining detour paths before moving"</div>
+              <h3 class="sim-card-title">Warehouse Robotics Baseline</h3>
+              <div class="sim-card-tagline">"Internal baseline for comparative evaluation"</div>
               <p class="sim-card-desc">
-                Predictive obstacle evasion & dynamic pedestrian anticipation. World Model MPC achieves 94% win rate in static U-traps and 97% against moving pedestrians.
+                Clean indoor benchmark for testing candidate trajectory rollouts in static U-traps and moving pedestrian scenarios.
               </p>
               <a href="#/sim/robotics" class="btn-launch">
-                <span>Launch Robotics Sim</span>
-                <span style="font-size: 1.1rem;">&rarr;</span>
-              </a>
-            </div>
-          </div>
-
-          <!-- Card 2: Driving -->
-          <div class="glass-panel sim-card">
-            <div class="sim-card-thumb">
-              <img src="./results/screenshots/hero_menu.png" alt="Highway Driving" />
-              <div class="sim-card-badge">
-                <span class="badge badge-replay">● Prototype / Replay</span>
-              </div>
-            </div>
-            <div class="sim-card-body">
-              <h3 class="sim-card-title">Autonomous Highway Driving</h3>
-              <div class="sim-card-tagline">"Predicting lead vehicle braking dynamics"</div>
-              <p class="sim-card-desc">
-                Continuous lane-centering and traffic speed adaptation. Implements the frozen BaseEnv adapter with modular hooks for teammate expansion.
-              </p>
-              <a href="#/sim/driving" class="btn-launch">
-                <span>Launch Driving Sim</span>
-                <span style="font-size: 1.1rem;">&rarr;</span>
-              </a>
-            </div>
-          </div>
-
-          <!-- Card 3: Factory -->
-          <div class="glass-panel sim-card">
-            <div class="sim-card-thumb">
-              <img src="./results/visuals3d/model_sheet_v2.png" alt="Factory Digital Twin" onerror="this.src='./results/screenshots/hero_menu.png'" />
-              <div class="sim-card-badge">
-                <span class="badge badge-green">● Digital Twin</span>
-              </div>
-            </div>
-            <div class="sim-card-body">
-              <h3 class="sim-card-title">Factory-Line Digital Twin</h3>
-              <div class="sim-card-tagline">"Predictive maintenance before line stoppage"</div>
-              <p class="sim-card-desc">
-                A 3-station manufacturing pipeline with stochastic machine wear. The World Model forecasts queue buildup and executes maintenance before failure.
-              </p>
-              <a href="#/sim/factory" class="btn-launch">
-                <span>Launch Factory Sim</span>
+                <span>Launch Baseline Sim</span>
                 <span style="font-size: 1.1rem;">&rarr;</span>
               </a>
             </div>

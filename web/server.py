@@ -31,8 +31,6 @@ if ROOT_DIR not in sys.path:
 from web.schema import RenderState, CompareRenderState, ClientCommand
 from web.scenarios import list_scenarios, get_scenario_metadata
 from web.adapters.robot_adapter import RobotAdapter
-from web.adapters.driving_adapter import DrivingAdapter
-from web.adapters.factory_adapter import FactoryAdapter
 from web.adapters.indra_adapter import IndraAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -97,10 +95,6 @@ def create_adapter(scenario: str, variant: int, mode: str):
         return IndraAdapter(scenario_variant=variant, mode=mode)
     elif scenario == "robotics":
         return RobotAdapter(scenario_variant=variant, mode=mode, fixed_dock_start=True)
-    elif scenario == "driving":
-        return DrivingAdapter(scenario_variant=variant, mode=mode)
-    elif scenario == "factory":
-        return FactoryAdapter(scenario_variant=variant, mode=mode)
     else:
         raise ValueError(f"Unknown scenario: {scenario}")
 
@@ -242,11 +236,10 @@ def api_get_intelligence():
     """
     models_info = {}
     model_paths = {
+        "indra_model": "models/indra_model.pt",
         "robot_student": "models/robot_student.pt",
         "robot_model": "models/robot_model.pt",
         "robot_ensemble": "models/robot_ensemble.pt",
-        "driving_model": "models/driving_model.pt",
-        "factory_model": "models/factory_model.pt",
     }
 
     for name, rel_p in model_paths.items():
@@ -295,19 +288,17 @@ def api_get_intelligence():
                 {"epoch": 40, "train_loss": 0.006, "val_loss": 0.006}
             ]
         },
-        "driving": {
-            "dataset_transitions": 23900,
-            "dataset_file": "data/driving_transitions.npz",
-            "epochs": 30,
-            "val_mae": 0.0187,
+        "indra": {
+            "dataset_transitions": 3000,
+            "dataset_file": "data/indra_transitions.npz",
+            "epochs": 5,
+            "val_mae": 0.307,
             "loss_curve": [
-                {"epoch": 1, "train_loss": 1.566, "val_loss": 1.841},
-                {"epoch": 5, "train_loss": 1.170, "val_loss": 1.594},
-                {"epoch": 10, "train_loss": 1.059, "val_loss": 1.517},
-                {"epoch": 15, "train_loss": 0.999, "val_loss": 1.581},
-                {"epoch": 20, "train_loss": 0.951, "val_loss": 1.436},
-                {"epoch": 25, "train_loss": 0.865, "val_loss": 1.307},
-                {"epoch": 30, "train_loss": 0.745, "val_loss": 1.383}
+                {"epoch": 1, "train_loss": 0.675, "val_loss": 0.577},
+                {"epoch": 2, "train_loss": 0.485, "val_loss": 0.490},
+                {"epoch": 3, "train_loss": 0.448, "val_loss": 0.458},
+                {"epoch": 4, "train_loss": 0.399, "val_loss": 0.337},
+                {"epoch": 5, "train_loss": 0.365, "val_loss": 0.307}
             ]
         }
     }
@@ -358,29 +349,18 @@ def api_get_intelligence():
             "uncertainty_formula": "σ_t = (1/M) Σ ||f_m(s, a) - μ(s, a)||^2",
             "output": "Mean predicted state + Inter-model variance penalty"
         },
-        "driving": {
-            "name": "Autonomous Highway Dynamics Model",
-            "type": "Multi-Layer Perceptron (3-Layer MLP)",
-            "state_dim": 16,
-            "state_desc": "[x, y, speed, heading, curvature, lane_offset, gap_lead, v_lead, gap_left, gap_right, gap_rear, ttc, ...]",
+        "indra": {
+            "name": "Project INDRA Deep Residual World Model",
+            "type": "Multi-Head Deep Residual MLP (4 ResBlocks)",
+            "state_dim": 24,
+            "state_desc": "[x, y, vx, vy, heading, target_dx, target_dy, target_dist, 8x LiDAR, actor_kind, actor_dist, actor_rel_speed, friction, visibility, aux_3]",
             "action_dim": 5,
-            "action_desc": "Discrete: [0: Accelerate, 1: Brake, 2: Steer Left, 3: Steer Right, 4: Cruise]",
-            "hidden_units": 128,
-            "params": 39429,
-            "activation": "ReLU",
-            "output": "Predicted next state vector + Step reward"
-        },
-        "factory": {
-            "name": "Manufacturing Degradation World Model",
-            "type": "Multi-Station Thermal Wear Predictor",
-            "state_dim": 16,
-            "state_desc": "[wear_1..3, temp_1..3, queue_in, queue_12, queue_23, queue_out, ...]",
-            "action_dim": 6,
-            "action_desc": "Discrete: [0: Run Nominal, 1: Service S1, 2: Service S2, 3: Service S3, 4: Throttle 50%, 5: Emergency Flush]",
-            "hidden_units": 128,
-            "params": 39429,
-            "activation": "ReLU",
-            "output": "Predicted wear progression + Breakdown probability"
+            "action_desc": "Discrete: [0: Forward, 1: Brake, 2: Left, 3: Right, 4: Stay]",
+            "hidden_units": 256,
+            "blocks": 4,
+            "params": 529689,
+            "activation": "SiLU + LayerNorm + Residual Connections",
+            "output": "Predicted Next State (Δs) + Scalar Step Reward (r) + Done Logit"
         }
     }
 
