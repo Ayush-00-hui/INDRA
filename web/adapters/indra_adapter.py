@@ -183,9 +183,10 @@ class IndraAdapter:
             "road_condition": self.env.env_state.road.value,
             "time_of_day": self.env.env_state.time_of_day.value,
             "waterlog_depth_cm": round(self.env.env_state.waterlog_depth_cm, 1),
-            "lidar_distances": [round(float(d), 2) for d in self.obs[8:16]],
+            "lidar_distances": [round(float(d), 2) for d in getattr(self.env, "last_lidar_16", self.obs[8:16])],
             "is_recovering": self.watchdog.is_recovering,
-            "recoveries": self.watchdog.total_recoveries
+            "recoveries": self.watchdog.total_recoveries,
+            "recovery_metrics": self.watchdog.get_metrics()
         }
         entities.append(Entity(
             id="indra_robot",

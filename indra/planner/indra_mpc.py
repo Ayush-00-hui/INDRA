@@ -87,19 +87,30 @@ class IndraMpcPlanner:
         t0 = time.perf_counter()
         candidates = self.generate_candidate_sequences(self.horizon)
 
+        # Batch trajectory rollout if supported by active world model
+        if hasattr(world_model, "predict_trajectories_batch"):
+            all_trajs = world_model.predict_trajectories_batch(current_state, candidates)
+        else:
+            all_trajs = [world_model.predict_trajectory(current_state, seq) for seq in candidates]
+
         best_score = -float("inf")
         best_sequence: List[int] = candidates[0]
         best_trajectory_coords: List[Tuple[float, float]] = []
         alt_trajectories: List[Dict[str, Any]] = []
 
         gamma = 0.94
+        dt = 0.1 # Simulation integration step
 
-        for seq in candidates:
-            traj = world_model.predict_trajectory(current_state, seq)
+        for idx, seq in enumerate(candidates):
+            traj = all_trajs[idx]
             score = 0.0
             coords: List[Tuple[float, float]] = [(float(current_state[0]), float(current_state[1]))]
 
             has_collision = False
+
+            # Action smoothness bonus: suppresses high-frequency steering jitter
+            if seq[0] == self.last_action:
+                score += 3.0
 
             for t, s in enumerate(traj):
                 rx = float(s[0])
@@ -110,20 +121,29 @@ class IndraMpcPlanner:
                 dist_to_goal = math.hypot(goal_x - rx, goal_y - ry)
                 goal_reward = -dist_to_goal * 1.5
 
-                # 2. Obstacle / actor clearance
+                # 2. Dynamic actor clearance: project moving obstacles along velocity vector
+                lookahead_time = (t + 1) * dt
                 min_actor_dist = float("inf")
                 for actor in actors:
-                    d = math.hypot(actor.x - rx, actor.y - ry)
+                    if getattr(actor, "is_dynamic", False):
+                        pred_ax = actor.x + actor.vx * lookahead_time
+                        pred_ay = actor.y + actor.vy * lookahead_time
+                    else:
+                        pred_ax = actor.x
+                        pred_ay = actor.y
+
+                    d = math.hypot(pred_ax - rx, pred_ay - ry)
                     if d < min_actor_dist:
                         min_actor_dist = d
-                    # Critical collision threshold
+
+                    # Critical collision threshold with physical UGV bounding radius
                     if d < (actor.radius + 0.45):
                         has_collision = True
-                        score -= 200.0 * (gamma ** t)
+                        score -= 250.0 * (gamma ** t)
 
                 # Actor proximity gradient
-                if min_actor_dist < 2.0:
-                    score -= (2.0 - min_actor_dist) * 20.0 * (gamma ** t)
+                if min_actor_dist < 2.2:
+                    score -= (2.2 - min_actor_dist) * 25.0 * (gamma ** t)
 
                 # 3. Hazard zones (waterlogging, potholes)
                 for hazard in hazard_zones:
