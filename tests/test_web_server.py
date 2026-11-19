@@ -31,12 +31,10 @@ def test_scenarios_endpoint(client):
     res = client.get("/api/scenarios")
     assert res.status_code == 200
     data = res.json()
-    assert len(data) >= 3
+    assert len(data) >= 2
     ids = [s["id"] for s in data]
     assert "indra" in ids
     assert "robotics" in ids
-    assert "driving" in ids
-    assert "factory" in ids
 
 
 def test_results_endpoint(client):

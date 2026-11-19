@@ -5,7 +5,6 @@
  */
 
 import { ThreeSimulationScene } from "../renderers/three_scene";
-import { DrivingScene } from "../renderers/driving_scene";
 import { IndraScene } from "../renderers/indra_scene";
 import { CanvasFallbackRenderer } from "../renderers/canvas_fallback";
 import { SimWSClient } from "../client/ws_client";
@@ -35,8 +34,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   const titleMap: Record<string, string> = {
     indra: "PROJECT INDRA: INDIAN URBAN ROBOTICS",
     robotics: "AUTONOMOUS WAREHOUSE ROBOTICS",
-    driving: "AUTONOMOUS HIGHWAY DRIVING",
-    factory: "FACTORY-LINE DIGITAL TWIN"
   };
 
   const simTitle = titleMap[scenarioId] || "WORLD MODEL MISSION CONTROL";
@@ -90,61 +87,17 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </div>
       </div>
 
-      ${
-        scenarioId === "driving"
-          ? `
-        <!-- AV Autonomous Driving Premium HUD -->
-        <div id="av-hud" class="av-dashboard-hud">
-          <div class="av-speed-cluster">
-            <div id="av-speed-val" class="av-speed-val">0</div>
-            <div class="av-speed-unit">KM / H</div>
-            <div class="av-speed-limit">100</div>
-          </div>
-          <div class="av-gauge-item">
-            <div class="av-gauge-header"><span>LANE OFFSET</span><span id="av-offset-val">0.0 m</span></div>
-            <div class="av-gauge-bar-bg">
-              <div id="av-offset-fill" class="av-gauge-bar-fill" style="width: 50%; background: #10b981;"></div>
-            </div>
-          </div>
-          <div class="av-gauge-item">
-            <div class="av-gauge-header"><span>HEADWAY TTC</span><span id="av-ttc-val">10.0 s</span></div>
-            <div class="av-gauge-bar-bg">
-              <div id="av-ttc-fill" class="av-gauge-bar-fill" style="width: 100%; background: #10b981;"></div>
-            </div>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 4px; align-items: center; min-width: 90px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">ACTION</div>
-            <div id="av-action-chip" class="av-action-chip cruise">CRUISE</div>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 4px; border-left: 1px solid var(--border-subtle); padding-left: 14px;">
-            <div style="font-size: 0.65rem; color: var(--text-dim); font-weight: 700;">MODEL MAE</div>
-            <div id="av-mae-val" style="color: #38bdf8; font-weight: 700; font-size: 0.92rem;">0.019</div>
-          </div>
-        </div>
-
-        <!-- Radar Mini-map -->
-        <div id="av-minimap-box" class="av-minimap-box">
-          <div style="font-size: 0.60rem; color: var(--text-dim); font-weight: 700; margin-bottom: 2px;">RADAR MAP</div>
-          <canvas id="av-minimap-canvas" width="128" height="110" style="display: block; width: 100%; height: 100%; border-radius: 4px; background: #080c14;"></canvas>
-        </div>
-
-        <!-- Toast Notifications -->
-        <div id="av-toast-box" class="av-toast-box"></div>
-      `
-          : `
-        <!-- Floating Docking Bay HUD Banner -->
+        <!-- Floating Mission HUD Banner -->
         <div id="dock-hud-banner" class="dock-hud-banner">
           <div style="display: flex; align-items: center; gap: 8px;">
             <span id="dock-hud-dot" class="dock-hud-dot"></span>
-            <span id="dock-hud-mode-badge" class="dock-hud-badge">NORMAL</span>
+            <span id="dock-hud-mode-badge" class="dock-hud-badge">ACTIVE</span>
           </div>
           <div class="dock-hud-divider"></div>
-          <span id="dock-hud-text" class="dock-hud-text">Robot Active &mdash; Executing Trajectory</span>
+          <span id="dock-hud-text" class="dock-hud-text">Robot Active &mdash; Navigating Trajectory</span>
           <div class="dock-hud-divider"></div>
           <span class="dock-hud-shortcut">[SPACE] TO HOLD</span>
         </div>
-      `
-      }
 
       <!-- Premium Enterprise Navigation Header -->
       <header class="top-nav">
@@ -155,10 +108,10 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           </a>
           <div style="width: 1px; height: 18px; background: var(--border-subtle);"></div>
           <div style="display: flex; align-items: center; gap: 8px;">
-            <div class="nav-logo-icon">WM</div>
+            <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
             <div style="display: flex; flex-direction: column; line-height: 1.15;">
               <span style="font-weight: 700; font-size: 0.88rem; letter-spacing: 0.02em; color: var(--text-main); font-family: var(--font-ui);">${simTitle}</span>
-              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Fidelity Robotics Arena</span>
+              <span style="font-size: 0.65rem; color: var(--text-dim); font-weight: 500;">High-Entropy Indian Urban Autonomy</span>
             </div>
           </div>
           <span id="badge-connection" class="badge badge-live">
@@ -267,40 +220,8 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         </button>
 
         ${
-          scenarioId === "driving"
+          scenarioId === "indra"
             ? `
-          <div class="rail-group-title">Highway Scenarios</div>
-          <div style="display: flex; flex-direction: column; gap: 4px;">
-            <button id="btn-ds1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}">S1: Highway Curves</button>
-            <button id="btn-ds2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}">S2: Sudden Braking</button>
-            <button id="btn-ds3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}">S3: Overtaking</button>
-            <button id="btn-ds4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}">S4: Pedestrian Hazard</button>
-          </div>
-
-          <div class="rail-group-title">Camera Perspectives</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-chase" class="rail-btn active" style="justify-content: center;">Chase</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Cockpit</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Fly-By</button>
-          </div>
-
-          <div class="rail-group-title">Time of Day</div>
-          <div style="display: flex; gap: 4px;">
-            <button id="btn-tod-day" class="rail-btn active" style="flex: 1; justify-content: center;">Day</button>
-            <button id="btn-tod-sunset" class="rail-btn" style="flex: 1; justify-content: center;">Sunset</button>
-            <button id="btn-tod-night" class="rail-btn" style="flex: 1; justify-content: center;">Night</button>
-          </div>
-
-          <button id="btn-manual-drive" class="rail-btn" style="margin-top: 4px; justify-content: center; background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.4); color: #93c5fd; font-weight: 600;">
-            <span id="lbl-manual-drive">Manual Drive [WASD]</span>
-          </button>
-        `
-            : `
-          ${
-            scenarioId === "indra"
-              ? `
             <div class="rail-group-title">INDRA Urban Scenarios (10)</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
               <button id="btn-indra-s1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S1: Arterial Urban Corridor">S1: Arterial</button>
@@ -315,72 +236,88 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
               <button id="btn-indra-s10" class="rail-btn ${currentVariant === 10 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S10: Dense Traffic Gridlock">S10: Gridlock</button>
             </div>
           `
-              : scenarioId === "robotics"
-                ? `
+            : scenarioId === "robotics"
+              ? `
             <div class="rail-group-title">Scenario Arena</div>
             <div style="display: flex; gap: 4px;">
               <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center;">S1: Chair</button>
               <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center;">S2: Person</button>
             </div>
+
+            <div class="rail-group-title">Sandbox Tools</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
+                <span>Goal Dock</span>
+              </button>
+              <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
+                <span>Crate</span>
+              </button>
+              <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
+                <span>Cabinet</span>
+              </button>
+              <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
+                <span>Table</span>
+              </button>
+              <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
+                <span>Barrels</span>
+              </button>
+              <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
+                <span>Barrier</span>
+              </button>
+            </div>
+
+            <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+              <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
+                <span>Slalom</span>
+              </button>
+              <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
+                <span>U-Trap</span>
+              </button>
+              <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
+                <span>Maze</span>
+              </button>
+            </div>
+
+            <div style="display: flex; gap: 4px; margin-top: 4px;">
+              <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
+                <span>Clear All</span>
+              </button>
+              <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
+                <span>Randomize</span>
+              </button>
+            </div>
           `
-                : ""
-          }
-
-          <div class="rail-group-title">Camera Perspectives</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
-            <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
-            <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
-            <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
-            <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
-            <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
-          </div>
-
-          <div class="rail-group-title">Sandbox Tools</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
-            <button id="tool-goal" class="rail-btn active" style="justify-content: center;" title="Move target docking beacon">
-              <span>Goal Dock</span>
-            </button>
-            <button id="tool-crate" class="rail-btn" style="justify-content: center;" title="Drop Wooden Shipping Crate">
-              <span>Crate</span>
-            </button>
-            <button id="tool-cabinet" class="rail-btn" style="justify-content: center;" title="Drop Metal Tool Cabinet">
-              <span>Cabinet</span>
-            </button>
-            <button id="tool-workstation" class="rail-btn" style="justify-content: center;" title="Drop Workbench Desk">
-              <span>Table</span>
-            </button>
-            <button id="tool-barrels" class="rail-btn" style="justify-content: center;" title="Drop Oil Drum Cluster">
-              <span>Barrels</span>
-            </button>
-            <button id="tool-barrier" class="rail-btn" style="justify-content: center;" title="Drop Safety Barrier">
-              <span>Barrier</span>
-            </button>
-          </div>
-
-          <div class="rail-group-title" style="margin-top: 6px;">Course Presets</div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
-            <button id="btn-preset-slalom" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Slalom S-Curve course">
-              <span>Slalom</span>
-            </button>
-            <button id="btn-preset-trap" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load U-Pocket Trap course">
-              <span>U-Trap</span>
-            </button>
-            <button id="btn-preset-warehouse" class="rail-btn" style="justify-content: center; font-size: 0.72rem;" title="Load Dense Warehouse course">
-              <span>Maze</span>
-            </button>
-          </div>
-
-          <div style="display: flex; gap: 4px; margin-top: 4px;">
-            <button id="btn-clear-obs" class="rail-btn" style="flex: 1; justify-content: center; color: #f43f5e; border-color: rgba(244, 63, 94, 0.3);" title="Clear all obstacles from arena">
-              <span>Clear All</span>
-            </button>
-            <button id="btn-random-obs" class="rail-btn" style="flex: 1; justify-content: center;" title="Generate random obstacle course">
-              <span>Randomize</span>
-            </button>
-          </div>
-        `
+              : ""
         }
+
+        <div class="rail-group-title">Camera Perspectives</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <button id="cam-overview" class="rail-btn active" style="justify-content: center;">Overview</button>
+          <button id="cam-chase" class="rail-btn" style="justify-content: center;">Chase</button>
+          <button id="cam-pov" class="rail-btn" style="justify-content: center;">Robot POV</button>
+          <button id="cam-topdown" class="rail-btn" style="justify-content: center;">Top-Down</button>
+          <button id="cam-orbit" class="rail-btn" style="justify-content: center;">Orbit</button>
+          <button id="cam-cinematic" class="rail-btn" style="justify-content: center;">Director</button>
+        </div>
+
+        <div class="rail-group-title">Sensors & Overlays</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+          <button id="btn-toggle-lidar" class="rail-btn active" style="justify-content: center;" title="Toggle 16-beam LiDAR radial laser rays [L]">
+            <span>LiDAR Rays</span>
+          </button>
+          <button id="btn-toggle-ribbons" class="rail-btn active" style="justify-content: center;" title="Toggle MPC candidate trajectory ribbons [M]">
+            <span>Mind View</span>
+          </button>
+        </div>
+        <div style="display: flex; gap: 4px; margin-top: 4px;">
+          <button id="btn-toggle-footprint" class="rail-btn active" style="flex: 1; justify-content: center;" title="Toggle robot dynamic safety boundary">
+            <span>Safety Hull</span>
+          </button>
+          <button id="btn-cycle-quality" class="rail-btn" style="flex: 1; justify-content: center;" title="Cycle Graphics Tier: High / Med / Low [Q]">
+            <span id="lbl-graphics-tier">Tier: High</span>
+          </button>
+        </div>
 
         <div class="rail-group-title">System & Audio</div>
         <div style="display: flex; gap: 4px;">
@@ -749,8 +686,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
     if (scenarioId === "indra") {
       primaryScene = new IndraScene(canvasRoot);
-    } else if (scenarioId === "driving") {
-      primaryScene = new DrivingScene(canvasRoot);
     } else {
       primaryScene = new ThreeSimulationScene(canvasRoot);
     }
@@ -815,9 +750,6 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     if (scenarioId === "indra") {
       secondaryScene = new IndraScene(leftContainer);
       primaryScene = new IndraScene(rightContainer);
-    } else if (scenarioId === "driving") {
-      secondaryScene = new DrivingScene(leftContainer);
-      primaryScene = new DrivingScene(rightContainer);
     } else {
       secondaryScene = new ThreeSimulationScene(leftContainer);
       primaryScene = new ThreeSimulationScene(rightContainer);
@@ -1138,107 +1070,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     }
 
-    if (scenarioId === "driving") {
-      const speedVal = frame.metrics?.extra?.speed_kmh ?? 70.0;
-      const avSpeedEl = document.getElementById("av-speed-val");
-      if (avSpeedEl) avSpeedEl.textContent = Math.round(speedVal).toString();
 
-      const offsetVal = frame.metrics?.extra?.lane_offset ?? 0.0;
-      const avOffsetEl = document.getElementById("av-offset-val");
-      const avOffsetFill = document.getElementById("av-offset-fill");
-      if (avOffsetEl) avOffsetEl.textContent = `${offsetVal >= 0 ? "+" : ""}${offsetVal.toFixed(2)} m`;
-      if (avOffsetFill) {
-        const fillPct = Math.min(100, Math.max(0, 50 + (offsetVal / 4.0) * 50));
-        avOffsetFill.style.width = `${fillPct}%`;
-        avOffsetFill.style.backgroundColor = Math.abs(offsetVal) < 0.6 ? "#00ff9d" : (Math.abs(offsetVal) < 1.4 ? "#ffb703" : "#ef4444");
-      }
-
-      const ttcVal = frame.metrics?.extra?.ttc ?? 10.0;
-      const avTtcEl = document.getElementById("av-ttc-val");
-      const avTtcFill = document.getElementById("av-ttc-fill");
-      if (avTtcEl) avTtcEl.textContent = ttcVal < 9.9 ? `${ttcVal.toFixed(1)} s` : "CLEAR";
-      if (avTtcFill) {
-        const fillPct = Math.min(100, Math.max(0, (ttcVal / 6.0) * 100));
-        avTtcFill.style.width = `${fillPct}%`;
-        avTtcFill.style.backgroundColor = ttcVal > 3.0 ? "#00ff9d" : (ttcVal > 1.8 ? "#ffb703" : "#ef4444");
-      }
-
-      const drivingActions = ["ACCELERATE", "BRAKE", "STEER LEFT", "STEER RIGHT", "CRUISE"];
-      const drivingClasses = ["accelerate", "brake", "steer-left", "steer-right", "cruise"];
-      const actIdx = frame.plan?.chosen_action ?? 4;
-      const chipEl = document.getElementById("av-action-chip");
-      if (chipEl) {
-        chipEl.className = `av-action-chip ${drivingClasses[actIdx] || "cruise"}`;
-        chipEl.textContent = drivingActions[actIdx] || "CRUISE";
-      }
-
-      const avMaeEl = document.getElementById("av-mae-val");
-      if (avMaeEl) {
-        avMaeEl.textContent = frame.model_error !== null && frame.model_error !== undefined ? frame.model_error.toFixed(4) : "0.019";
-      }
-
-      // Draw Radar Mini-Map
-      const minimapCanvas = document.getElementById("av-minimap-canvas") as HTMLCanvasElement;
-      if (minimapCanvas && frame.world?.layout?.centerline) {
-        const mctx = minimapCanvas.getContext("2d");
-        if (mctx) {
-          mctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
-          const cl = frame.world.layout.centerline;
-          const maxX = frame.world.bounds ? frame.world.bounds[2] : 200.0;
-          const toMx = (x: number) => 8 + (x / maxX) * (minimapCanvas.width - 16);
-          const toMy = (y: number) => minimapCanvas.height / 2 - (y / 50.0) * (minimapCanvas.height / 2);
-
-          mctx.strokeStyle = "rgba(71, 85, 105, 0.7)";
-          mctx.lineWidth = 4;
-          mctx.beginPath();
-          cl.forEach((p: number[], idx: number) => {
-            const mx = toMx(p[0]);
-            const my = toMy(p[1]);
-            if (idx === 0) mctx.moveTo(mx, my); else mctx.lineTo(mx, my);
-          });
-          mctx.stroke();
-
-          // Render vehicles on mini-map
-          (frame.entities || []).forEach((ent: any) => {
-            const ex = toMx(ent.x);
-            const ey = toMy(ent.y);
-            mctx.fillStyle = ent.extra?.is_ego ? "#00ff9d" : (ent.extra?.color || "#38bdf8");
-            mctx.beginPath();
-            mctx.arc(ex, ey, ent.extra?.is_ego ? 3.5 : 2.5, 0, Math.PI * 2);
-            mctx.fill();
-          });
-        }
-      }
-
-      // Toast Alerts for Driving Events
-      if (frame.events && frame.events.length > 0) {
-        const toastBox = document.getElementById("av-toast-box");
-        if (toastBox) {
-          frame.events.forEach((ev: string) => {
-            const toast = document.createElement("div");
-            toast.className = "av-toast-item";
-            if (ev === "brake") {
-              toast.innerHTML = "⚠️ LEAD VEHICLE HARD BRAKING";
-              toast.style.borderColor = "#ffb703";
-            } else if (ev === "lane_change") {
-              toast.innerHTML = "↔️ LANE CHANGE MANEUVER";
-              toast.style.borderColor = "#00f0ff";
-            } else if (ev === "near_miss") {
-              toast.innerHTML = "⚡ CRITICAL HEADWAY ALERT (TTC < 1.8s)";
-              toast.style.borderColor = "#ff4757";
-            } else if (ev === "bonk") {
-              toast.innerHTML = "💥 COLLISION DETECTED";
-              toast.style.borderColor = "#ef4444";
-            } else if (ev === "goal") {
-              toast.innerHTML = "🏆 HIGHWAY DESTINATION REACHED";
-              toast.style.borderColor = "#00ff9d";
-            }
-            toastBox.appendChild(toast);
-            setTimeout(() => { toast.remove(); }, 2500);
-          });
-        }
-      }
-    }
 
     if (frame.goal && frame.entities) {
       const robot = frame.entities.find((e: any) => e.id === "robot" || e.kind === "robot");
@@ -1531,14 +1363,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.speak("Cinematic director mode active.");
     };
 
-    // Sandbox Object Tools
-    const toolGoal = document.getElementById("tool-goal")!;
-    const toolCrate = document.getElementById("tool-crate")!;
-    const toolCabinet = document.getElementById("tool-cabinet")!;
-    const toolWorkstation = document.getElementById("tool-workstation")!;
-    const toolBarrels = document.getElementById("tool-barrels")!;
-    const toolBarrier = document.getElementById("tool-barrier")!;
-    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier];
+    // Sandbox Object Tools (for warehouse robotics baseline)
+    const toolGoal = document.getElementById("tool-goal");
+    const toolCrate = document.getElementById("tool-crate");
+    const toolCabinet = document.getElementById("tool-cabinet");
+    const toolWorkstation = document.getElementById("tool-workstation");
+    const toolBarrels = document.getElementById("tool-barrels");
+    const toolBarrier = document.getElementById("tool-barrier");
+    const allTools = [toolGoal, toolCrate, toolCabinet, toolWorkstation, toolBarrels, toolBarrier].filter(Boolean) as HTMLElement[];
 
     const setActiveTool = (btn: HTMLElement, tool: any) => {
       allTools.forEach((b) => b.classList.remove("active"));
@@ -1547,12 +1379,12 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       sound.playToolSelect();
     };
 
-    toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
-    toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
-    toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
-    toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
-    toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
-    toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
+    if (toolGoal) toolGoal.onclick = () => setActiveTool(toolGoal, "goal");
+    if (toolCrate) toolCrate.onclick = () => setActiveTool(toolCrate, "crate");
+    if (toolCabinet) toolCabinet.onclick = () => setActiveTool(toolCabinet, "cabinet");
+    if (toolWorkstation) toolWorkstation.onclick = () => setActiveTool(toolWorkstation, "workstation");
+    if (toolBarrels) toolBarrels.onclick = () => setActiveTool(toolBarrels, "barrels");
+    if (toolBarrier) toolBarrier.onclick = () => setActiveTool(toolBarrier, "barrier");
 
     // Course Preset Loaders
     const btnPresetSlalom = document.getElementById("btn-preset-slalom");
@@ -1607,11 +1439,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       }
     }
 
-    document.getElementById("btn-random-obs")!.onclick = () => {
-      currentSeed = Math.floor(Math.random() * 9000) + 1000;
-      wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
-      sound.playToolSelect();
-    };
+    const btnRandomObs = document.getElementById("btn-random-obs");
+    if (btnRandomObs) {
+      btnRandomObs.onclick = () => {
+        currentSeed = Math.floor(Math.random() * 9000) + 1000;
+        wsClient.sendCommand({ cmd: "reset", seed: currentSeed });
+        sound.playToolSelect();
+      };
+    }
 
     // Sound Controls (Whisper-Quiet Motor Glide Only)
     const btnMute = document.getElementById("btn-mute")!;
@@ -1621,6 +1456,53 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       lblSound.textContent = isMuted ? "Glide Audio: OFF" : "Glide Audio: ON";
       btnMute.classList.toggle("active", !isMuted);
     };
+
+    // Sensor & Overlay toggles
+    const btnLidar = document.getElementById("btn-toggle-lidar");
+    if (btnLidar) {
+      btnLidar.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleLidar === "function") {
+          const visible = (primaryScene as any).toggleLidar();
+          btnLidar.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    const btnRibbons = document.getElementById("btn-toggle-ribbons");
+    if (btnRibbons) {
+      btnRibbons.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleTrajectories === "function") {
+          const visible = (primaryScene as any).toggleTrajectories();
+          btnRibbons.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    const btnFootprint = document.getElementById("btn-toggle-footprint");
+    if (btnFootprint) {
+      btnFootprint.onclick = () => {
+        if (primaryScene && typeof (primaryScene as any).toggleFootprint === "function") {
+          const visible = (primaryScene as any).toggleFootprint();
+          btnFootprint.classList.toggle("active", visible);
+        }
+      };
+    }
+
+    let currentGraphicsTier: "high" | "medium" | "low" = "high";
+    const btnQuality = document.getElementById("btn-cycle-quality");
+    const lblQuality = document.getElementById("lbl-graphics-tier");
+    if (btnQuality && lblQuality) {
+      btnQuality.onclick = () => {
+        if (currentGraphicsTier === "high") currentGraphicsTier = "medium";
+        else if (currentGraphicsTier === "medium") currentGraphicsTier = "low";
+        else currentGraphicsTier = "high";
+
+        lblQuality.textContent = `Tier: ${currentGraphicsTier.charAt(0).toUpperCase() + currentGraphicsTier.slice(1)}`;
+        if (primaryScene && typeof (primaryScene as any).setGraphicsTier === "function") {
+          (primaryScene as any).setGraphicsTier(currentGraphicsTier);
+        }
+      };
+    }
 
     // Robot Docking & Deployment Control
     isDocked = false;

@@ -37,9 +37,6 @@ def test_offline_replays_integrity():
         "robotics_s1_baseline.json",
         "robotics_s2_wm.json",
         "robotics_s2_baseline.json",
-        "driving_s1_baseline.json",
-        "factory_s1_wm.json",
-        "factory_s1_baseline.json",
     ]
 
     for name in expected_replays:

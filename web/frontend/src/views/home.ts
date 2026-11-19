@@ -9,9 +9,9 @@ export function renderHome(container: HTMLElement) {
     <!-- Top Navigation Bar -->
     <header class="top-nav">
       <div class="nav-brand">
-        <div class="nav-logo-icon">W</div>
-        <span>World Model 3D</span>
-        <span class="badge badge-live" style="margin-left: 8px;">NBA 2026</span>
+        <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
+        <span>PROJECT INDRA</span>
+        <span class="badge badge-live" style="margin-left: 8px;">Indian Urban Robotics</span>
       </div>
       <nav class="nav-links">
         <a href="#/" class="active">Simulations</a>
@@ -25,14 +25,14 @@ export function renderHome(container: HTMLElement) {
       <!-- Hero Section -->
       <section class="hero-section">
         <div class="glass-pill hero-badge">
-          <span style="color: var(--accent-cyan); font-weight: 700;">● Model-Based Predictive Control</span>
+          <span style="color: var(--accent-cyan); font-weight: 700;">● Model-Based Predictive Autonomy</span>
           <span style="color: var(--text-dim);">|</span>
-          <span>National Board of Accreditation Showcase</span>
+          <span>Indian Neural Dynamics, Reasoning & Autonomy</span>
         </div>
-        <h1 class="hero-title">World Model: Learn, Imagine, Act</h1>
+        <h1 class="hero-title">PROJECT INDRA: Learn, Imagine, Act</h1>
         <p class="hero-subtitle">
-          Instead of reacting blindly, autonomous systems learn an internal physics model,
-          mentally roll out candidate futures in parallel, and choose optimal actions before physical execution.
+          Instead of reacting blindly, INDRA's autonomous ground robot learns an internal neural world model,
+          mentally rolls out hundreds of candidate futures in parallel, and navigates high-entropy Indian urban environments safely.
         </p>
 
         <!-- 3-Step Explainer Strip -->
@@ -48,24 +48,24 @@ export function renderHome(container: HTMLElement) {
             <div class="step-number">Step 02</div>
             <h3 class="step-title">IMAGINE</h3>
             <p class="step-desc">
-              Roll out hundreds of candidate action trajectories 14 steps into the future in 8.7 ms without touching physical hardware.
+              Roll out hundreds of candidate action trajectories 14 steps into the future in 4.2 ms on CUDA without touching physical hardware.
             </p>
           </div>
           <div class="glass-panel step-card">
             <div class="step-number">Step 03</div>
             <h3 class="step-title">ACT</h3>
             <p class="step-desc">
-              Execute the first action of the highest-value simulated trajectory, completely bypassing local collision traps.
+              Execute the first action of the highest-value simulated trajectory, proactively escaping cul-de-sacs and crowded traffic jams.
             </p>
           </div>
         </div>
       </section>
 
-      <!-- 4 Simulation Choices Grid -->
+      <!-- Simulation Choices Grid -->
       <section>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
           <h2 style="font-size: 1.4rem; font-weight: 700;">Interactive Simulation Environments</h2>
-          <span style="font-size: 0.85rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 600;">4 Domains Available &middot; Flagship: Project INDRA</span>
+          <span style="font-size: 0.85rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 600;">Flagship: Project INDRA &middot; Internal Baseline: Warehouse Robotics</span>
         </div>
 
         <div class="cards-grid">
@@ -81,7 +81,7 @@ export function renderHome(container: HTMLElement) {
               <h3 class="sim-card-title" style="color: #38bdf8;">PROJECT INDRA: Indian Urban Robotics</h3>
               <div class="sim-card-tagline">"Anticipating unstructured traffic, cattle & monsoon hazards"</div>
               <p class="sim-card-desc">
-                India-adapted autonomous UGV simulation. Navigates complex Delhi urban corridors with auto-rickshaws, filtering two-wheelers, sacred cattle, vendor carts, and monsoon waterlogging.
+                India-adapted autonomous UGV simulation. Navigates complex Delhi urban corridors with auto-rickshaws, filtering two-wheelers, sacred cattle, vendor carts, and monsoon waterlogging across 10 benchmark scenarios.
               </p>
               <a href="#/sim/indra" class="btn-launch" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff;">
                 <span>Launch Project INDRA Sim</span>
@@ -90,64 +90,22 @@ export function renderHome(container: HTMLElement) {
             </div>
           </div>
 
-          <!-- Card 1: Robotics -->
+          <!-- Card 1: Robotics Baseline -->
           <div class="glass-panel sim-card">
             <div class="sim-card-thumb">
-              <img src="./results/screenshots/hero_split_screen.png" alt="Warehouse Robotics" onerror="this.src='./results/screenshots/hero_menu.png'" />
+              <img src="./results/screenshots/hero_split_screen.png" alt="Warehouse Robotics Baseline" onerror="this.src='./results/screenshots/hero_menu.png'" />
               <div class="sim-card-badge">
-                <span class="badge badge-live">● LIVE Ready</span>
+                <span class="badge badge-replay">● Internal Baseline</span>
               </div>
             </div>
             <div class="sim-card-body">
-              <h3 class="sim-card-title">Autonomous Warehouse Robotics</h3>
-              <div class="sim-card-tagline">"Imagining detour paths before moving"</div>
+              <h3 class="sim-card-title">Warehouse Robotics Baseline</h3>
+              <div class="sim-card-tagline">"Internal baseline for comparative evaluation"</div>
               <p class="sim-card-desc">
-                Predictive obstacle evasion & dynamic pedestrian anticipation. World Model MPC achieves 94% win rate in static U-traps and 97% against moving pedestrians.
+                Clean indoor benchmark for testing candidate trajectory rollouts in static U-traps and moving pedestrian scenarios.
               </p>
               <a href="#/sim/robotics" class="btn-launch">
-                <span>Launch Robotics Sim</span>
-                <span style="font-size: 1.1rem;">&rarr;</span>
-              </a>
-            </div>
-          </div>
-
-          <!-- Card 2: Driving -->
-          <div class="glass-panel sim-card">
-            <div class="sim-card-thumb">
-              <img src="./results/screenshots/hero_menu.png" alt="Highway Driving" />
-              <div class="sim-card-badge">
-                <span class="badge badge-replay">● Prototype / Replay</span>
-              </div>
-            </div>
-            <div class="sim-card-body">
-              <h3 class="sim-card-title">Autonomous Highway Driving</h3>
-              <div class="sim-card-tagline">"Predicting lead vehicle braking dynamics"</div>
-              <p class="sim-card-desc">
-                Continuous lane-centering and traffic speed adaptation. Implements the frozen BaseEnv adapter with modular hooks for teammate expansion.
-              </p>
-              <a href="#/sim/driving" class="btn-launch">
-                <span>Launch Driving Sim</span>
-                <span style="font-size: 1.1rem;">&rarr;</span>
-              </a>
-            </div>
-          </div>
-
-          <!-- Card 3: Factory -->
-          <div class="glass-panel sim-card">
-            <div class="sim-card-thumb">
-              <img src="./results/visuals3d/model_sheet_v2.png" alt="Factory Digital Twin" onerror="this.src='./results/screenshots/hero_menu.png'" />
-              <div class="sim-card-badge">
-                <span class="badge badge-green">● Digital Twin</span>
-              </div>
-            </div>
-            <div class="sim-card-body">
-              <h3 class="sim-card-title">Factory-Line Digital Twin</h3>
-              <div class="sim-card-tagline">"Predictive maintenance before line stoppage"</div>
-              <p class="sim-card-desc">
-                A 3-station manufacturing pipeline with stochastic machine wear. The World Model forecasts queue buildup and executes maintenance before failure.
-              </p>
-              <a href="#/sim/factory" class="btn-launch">
-                <span>Launch Factory Sim</span>
+                <span>Launch Baseline Sim</span>
                 <span style="font-size: 1.1rem;">&rarr;</span>
               </a>
             </div>

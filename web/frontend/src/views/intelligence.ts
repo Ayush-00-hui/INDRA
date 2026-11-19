@@ -9,9 +9,9 @@ export function renderIntelligence(container: HTMLElement) {
     <!-- Top Navigation Bar -->
     <header class="top-nav">
       <div class="nav-brand">
-        <div class="nav-logo-icon">W</div>
-        <span>World Model 3D</span>
-        <span class="badge badge-live" style="margin-left: 8px;">INTELLIGENCE</span>
+        <div class="nav-logo-icon" style="background: linear-gradient(135deg, #f97316, #0284c7); color: #fff; font-weight: 800;">I</div>
+        <span>PROJECT INDRA</span>
+        <span class="badge badge-live" style="margin-left: 8px;">Indian Urban Robotics</span>
       </div>
       <nav class="nav-links">
         <a href="#/">Simulations</a>
@@ -35,7 +35,7 @@ export function renderIntelligence(container: HTMLElement) {
           World Model Intelligence Dashboard
         </h1>
         <p style="color: var(--text-muted); font-size: 1rem; max-width: 850px; line-height: 1.6;">
-          Real-time neural network diagnostics, multi-horizon prediction verification, empirical ablation benchmarks, and PyTorch model dynamics across Robotics, Driving, and Manufacturing.
+          Real-time neural network diagnostics, multi-horizon prediction verification, empirical ablation benchmarks, and PyTorch model dynamics across Project INDRA Indian Urban Robotics.
         </p>
       </div>
 
@@ -212,39 +212,21 @@ export function renderIntelligence(container: HTMLElement) {
             </div>
           </div>
 
-          <!-- Driving Card -->
-          <div style="background: rgba(8, 14, 28, 0.7); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 8px; padding: 16px;">
+          <!-- INDRA World Model Card -->
+          <div style="background: rgba(8, 14, 28, 0.7); border: 1px solid rgba(56, 189, 248, 0.4); border-radius: 8px; padding: 16px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 800; color: #38bdf8; font-size: 0.95rem;">🚗 DRIVING</span>
-              <span class="badge badge-live" style="font-size: 0.65rem;">ACTIVE</span>
+              <span style="font-weight: 800; color: #38bdf8; font-size: 0.95rem;">🇮🇳 PROJECT INDRA</span>
+              <span class="badge badge-live" style="font-size: 0.65rem;">FLAGSHIP ACTIVE</span>
             </div>
-            <div style="font-size: 0.76rem; color: #f1f5f9; font-weight: 700; margin-bottom: 2px;">Autonomous Highway MLP</div>
-            <div style="font-size: 0.72rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 12px;">models/driving_model.pt &middot; 155 KB</div>
+            <div style="font-size: 0.76rem; color: #f1f5f9; font-weight: 700; margin-bottom: 2px;">Deep Residual Urban World Model</div>
+            <div style="font-size: 0.72rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 12px;">models/indra_model.pt &middot; 6.6 MB</div>
             <div style="font-size: 0.75rem; line-height: 1.6; font-family: var(--font-mono); color: #cbd5e1;">
-              <div>&bull; State Dim: <span style="color: #38bdf8;">16-D [Kinematics, Gaps, TTC]</span></div>
-              <div>&bull; Action Space: <span style="color: #38bdf8;">5 Discrete [Acc, Brk, L, R, C]</span></div>
-              <div>&bull; Hidden Units: <span style="color: #38bdf8;">128 (3-Layer Dense)</span></div>
-              <div>&bull; Activation: <span style="color: #38bdf8;">ReLU</span></div>
-              <div>&bull; Total Params: <span style="color: var(--accent-green); font-weight: 800;">39,429</span></div>
-              <div>&bull; Output: <span style="color: #38bdf8;">s_{t+1} (16) + r (1)</span></div>
-            </div>
-          </div>
-
-          <!-- Factory Card -->
-          <div style="background: rgba(8, 14, 28, 0.7); border: 1px solid rgba(192, 132, 252, 0.3); border-radius: 8px; padding: 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-              <span style="font-weight: 800; color: #c084fc; font-size: 0.95rem;">🏭 FACTORY</span>
-              <span class="badge badge-live" style="font-size: 0.65rem;">ACTIVE</span>
-            </div>
-            <div style="font-size: 0.76rem; color: #f1f5f9; font-weight: 700; margin-bottom: 2px;">Predictive Maintenance Plant</div>
-            <div style="font-size: 0.72rem; color: #64748b; font-family: var(--font-mono); margin-bottom: 12px;">models/factory_model.pt &middot; 159 KB</div>
-            <div style="font-size: 0.75rem; line-height: 1.6; font-family: var(--font-mono); color: #cbd5e1;">
-              <div>&bull; State Dim: <span style="color: #38bdf8;">16-D [Wear 1..3, Temp, Queues]</span></div>
-              <div>&bull; Action Space: <span style="color: #38bdf8;">6 Discrete [Maint S1..3, Throttle]</span></div>
-              <div>&bull; Hidden Units: <span style="color: #38bdf8;">128 (3-Layer Dense)</span></div>
-              <div>&bull; Activation: <span style="color: #38bdf8;">ReLU</span></div>
-              <div>&bull; Total Params: <span style="color: var(--accent-green); font-weight: 800;">39,429</span></div>
-              <div>&bull; Output: <span style="color: #38bdf8;">Wear Drift + Jam Risk</span></div>
+              <div>&bull; State Dim: <span style="color: #38bdf8;">24-D [Unicycle, 8x LiDAR, Traffic, Mu, Vis]</span></div>
+              <div>&bull; Action Space: <span style="color: #38bdf8;">5 Discrete [Fwd, Brk, L, R, Stay]</span></div>
+              <div>&bull; Hidden Units: <span style="color: #38bdf8;">256 (4 Residual Blocks + LayerNorm)</span></div>
+              <div>&bull; Activation: <span style="color: #38bdf8;">SiLU</span></div>
+              <div>&bull; Total Params: <span style="color: var(--accent-green); font-weight: 800;">529,689</span></div>
+              <div>&bull; Output: <span style="color: #38bdf8;">&Delta;s (24) + r (1) + Done Logit</span></div>
             </div>
           </div>
         </div>
