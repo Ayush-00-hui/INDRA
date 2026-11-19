@@ -33,6 +33,7 @@ from web.scenarios import list_scenarios, get_scenario_metadata
 from web.adapters.robot_adapter import RobotAdapter
 from web.adapters.driving_adapter import DrivingAdapter
 from web.adapters.factory_adapter import FactoryAdapter
+from web.adapters.indra_adapter import IndraAdapter
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("web.server")
@@ -92,7 +93,9 @@ async def startup_warmup():
 
 def create_adapter(scenario: str, variant: int, mode: str):
     """Instantiate adapter for scenario and mode."""
-    if scenario == "robotics":
+    if scenario == "indra":
+        return IndraAdapter(scenario_variant=variant, mode=mode)
+    elif scenario == "robotics":
         return RobotAdapter(scenario_variant=variant, mode=mode, fixed_dock_start=True)
     elif scenario == "driving":
         return DrivingAdapter(scenario_variant=variant, mode=mode)

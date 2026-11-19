@@ -33,6 +33,7 @@ def test_scenarios_endpoint(client):
     data = res.json()
     assert len(data) >= 3
     ids = [s["id"] for s in data]
+    assert "indra" in ids
     assert "robotics" in ids
     assert "driving" in ids
     assert "factory" in ids
@@ -72,6 +73,21 @@ def test_websocket_robotics_stream(client):
 
         # Send reset command
         ws.send_json({"cmd": "reset", "seed": 2001})
+
+
+def test_websocket_indra_stream(client):
+    with client.websocket_connect("/ws/indra") as ws:
+        # Receive first live frame from Project INDRA
+        data = ws.receive_json()
+        assert data["v"] == 1
+        assert data["scenario"] == "indra"
+        assert len(data["entities"]) > 0
+        robot = next((e for e in data["entities"] if e["kind"] == "robot"), None)
+        assert robot is not None
+        assert "speed_kmh" in robot["extra"]
+
+        # Send pause command
+        ws.send_json({"cmd": "pause"})
 
 
 def test_concurrent_sessions_limit(client):

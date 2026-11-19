@@ -6,6 +6,7 @@
 
 import { ThreeSimulationScene } from "../renderers/three_scene";
 import { DrivingScene } from "../renderers/driving_scene";
+import { IndraScene } from "../renderers/indra_scene";
 import { CanvasFallbackRenderer } from "../renderers/canvas_fallback";
 import { SimWSClient } from "../client/ws_client";
 import { ReplayLoader } from "../client/replay_loader";
@@ -32,6 +33,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   let isDocked: boolean = false;
 
   const titleMap: Record<string, string> = {
+    indra: "PROJECT INDRA: INDIAN URBAN ROBOTICS",
     robotics: "AUTONOMOUS WAREHOUSE ROBOTICS",
     driving: "AUTONOMOUS HIGHWAY DRIVING",
     factory: "FACTORY-LINE DIGITAL TWIN"
@@ -297,15 +299,31 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         `
             : `
           ${
-            scenarioId === "robotics"
+            scenarioId === "indra"
               ? `
+            <div class="rail-group-title">INDRA Urban Scenarios (10)</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+              <button id="btn-indra-s1" class="rail-btn ${currentVariant === 1 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S1: Arterial Urban Corridor">S1: Arterial</button>
+              <button id="btn-indra-s2" class="rail-btn ${currentVariant === 2 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S2: Narrow Chandni Chowk Alley">S2: Narrow</button>
+              <button id="btn-indra-s3" class="rail-btn ${currentVariant === 3 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S3: Dense Market Chaos">S3: Market</button>
+              <button id="btn-indra-s4" class="rail-btn ${currentVariant === 4 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S4: Sacred Cattle & Stray Animal Hazard">S4: Cattle</button>
+              <button id="btn-indra-s5" class="rail-btn ${currentVariant === 5 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S5: Delhi Monsoon Waterlogging">S5: Monsoon</button>
+              <button id="btn-indra-s6" class="rail-btn ${currentVariant === 6 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S6: Pedestrian Crossing & Jaywalking">S6: Jaywalk</button>
+              <button id="btn-indra-s7" class="rail-btn ${currentVariant === 7 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S7: Moving Motorcycle Cut-in">S7: Bike Cut</button>
+              <button id="btn-indra-s8" class="rail-btn ${currentVariant === 8 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S8: Road Construction & Barricades">S8: Barricade</button>
+              <button id="btn-indra-s9" class="rail-btn ${currentVariant === 9 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S9: Dead-End Recovery Maneuver">S9: Dead-End</button>
+              <button id="btn-indra-s10" class="rail-btn ${currentVariant === 10 ? 'active' : ''}" style="padding: 4px 6px; font-size: 0.68rem; justify-content: center;" title="S10: Dense Traffic Gridlock">S10: Gridlock</button>
+            </div>
+          `
+              : scenarioId === "robotics"
+                ? `
             <div class="rail-group-title">Scenario Arena</div>
             <div style="display: flex; gap: 4px;">
               <button id="btn-s1" class="rail-btn active" style="flex: 1; justify-content: center;">S1: Chair</button>
               <button id="btn-s2" class="rail-btn" style="flex: 1; justify-content: center;">S2: Person</button>
             </div>
           `
-              : ""
+                : ""
           }
 
           <div class="rail-group-title">Camera Perspectives</div>
@@ -390,11 +408,11 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         <div class="pipeline-strip">
           <div class="pipeline-node active">
             <span class="node-label">1. Sensors</span>
-            <span class="node-metric">16-Dim</span>
+            <span class="node-metric">${scenarioId === "indra" ? "24-Dim" : "16-Dim"}</span>
           </div>
           <div class="pipeline-node active">
             <span class="node-label">2. Imagine</span>
-            <span class="node-metric" id="metric-plan-samples">300x14</span>
+            <span class="node-metric" id="metric-plan-samples">${scenarioId === "indra" ? "35x12" : "300x14"}</span>
           </div>
           <div class="pipeline-node active">
             <span class="node-label">3. Planner</span>
@@ -410,13 +428,13 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         <div class="cortex-container">
           <div class="cortex-header">
             <span>MODEL ARCHITECTURE</span>
-            <span id="card-param-count" style="font-size: 0.70rem; color: #93c5fd; font-family: var(--font-mono); font-weight: 600;">1,101,874 PARAMS</span>
+            <span id="card-param-count" style="font-size: 0.70rem; color: #93c5fd; font-family: var(--font-mono); font-weight: 600;">${scenarioId === "indra" ? "DGX-SPARK READY" : "1,101,874 PARAMS"}</span>
           </div>
           <div style="font-size: 0.70rem; line-height: 1.45; color: var(--text-muted); font-family: var(--font-mono);">
-            <div id="arch-model-name" style="color: var(--text-main); font-weight: 600;">Deep Residual Student (512h)</div>
-            <div id="arch-layers-line" style="color: var(--text-dim); font-size: 0.66rem;">State [10] &rarr; 3&times; ResBlocks [512] + LN &rarr; [128] &rarr; [4]</div>
-            <div id="arch-device-line" style="color: #34d399; margin-top: 2px;">GPU: NVIDIA GeForce RTX 5070 (CUDA 12.8)</div>
-            <div id="arch-plan-line" style="color: var(--text-dim); font-size: 0.66rem; margin-top: 1px;">Vectorized PyTorch MPC &middot; 300 rollouts / tick</div>
+            <div id="arch-model-name" style="color: var(--text-main); font-weight: 600;">${scenarioId === "indra" ? "INDRA Kinematic Baseline (Pre-DGX)" : "Deep Residual Student (512h)"}</div>
+            <div id="arch-layers-line" style="color: var(--text-dim); font-size: 0.66rem;">${scenarioId === "indra" ? "State [24] &rarr; Receding Horizon MPC (H=12, N=35)" : "State [10] &rarr; 3&times; ResBlocks [512] + LN &rarr; [128] &rarr; [4]"}</div>
+            <div id="arch-device-line" style="color: #34d399; margin-top: 2px;">${scenarioId === "indra" ? "Hardware: ASUS TUF A16 (RTX 5070) | DGX Cluster" : "GPU: NVIDIA GeForce RTX 5070 (CUDA 12.8)"}</div>
+            <div id="arch-plan-line" style="color: var(--text-dim); font-size: 0.66rem; margin-top: 1px;">${scenarioId === "indra" ? "Vectorized Primitives &middot; 35 rollouts / tick" : "Vectorized PyTorch MPC &middot; 300 rollouts / tick"}</div>
           </div>
         </div>
 
@@ -729,11 +747,14 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     compareWrapper = null;
     secondaryScene = null;
 
-    if (scenarioId === "driving") {
+    if (scenarioId === "indra") {
+      primaryScene = new IndraScene(canvasRoot);
+    } else if (scenarioId === "driving") {
       primaryScene = new DrivingScene(canvasRoot);
     } else {
       primaryScene = new ThreeSimulationScene(canvasRoot);
     }
+    (window as any).primaryScene = primaryScene;
 
     if (!primaryScene.isAvailable()) {
       primaryScene = null;
@@ -791,7 +812,10 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     rightTelemetryEl = document.getElementById("right-telemetry") as HTMLDivElement;
     winnerBadgeEl = document.getElementById("winner-badge") as HTMLDivElement;
 
-    if (scenarioId === "driving") {
+    if (scenarioId === "indra") {
+      secondaryScene = new IndraScene(leftContainer);
+      primaryScene = new IndraScene(rightContainer);
+    } else if (scenarioId === "driving") {
       secondaryScene = new DrivingScene(leftContainer);
       primaryScene = new DrivingScene(rightContainer);
     } else {
@@ -881,6 +905,7 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
   };
 
   const handleFrame = (data: any) => {
+    (window as any).__lastFrame = data;
     if (data.is_compare || isCompareMode) {
       if (!secondaryScene) initCompareViewports();
 
@@ -1248,8 +1273,13 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       metricLatency.style.color = planMs <= 6.0 ? "var(--accent-green)" : (planMs <= 12.0 ? "var(--accent-cyan)" : "#fbbf24");
       metricPlanSamples.textContent = `${frame.plan.samples || 300}x${frame.plan.horizon || 14}`;
 
-      const actionNames = ["NORTH", "SOUTH", "WEST", "EAST", "STAY"];
-      const actionGlyphs = ["▲ NORTH", "▼ SOUTH", "◀ WEST", "▶ EAST", "■ STAY"];
+      const isIndra = scenarioId === "indra";
+      const actionNames = isIndra
+        ? ["FORWARD", "BRAKE", "LEFT", "RIGHT", "STAY"]
+        : ["NORTH", "SOUTH", "WEST", "EAST", "STAY"];
+      const actionGlyphs = isIndra
+        ? ["▲ FORWARD", "▼ BRAKE", "◀ LEFT", "▶ RIGHT", "■ STAY"]
+        : ["▲ NORTH", "▼ SOUTH", "◀ WEST", "▶ EAST", "■ STAY"];
       const chosenIdx = frame.plan.chosen_action !== undefined ? frame.plan.chosen_action : 4;
       const chosenAct = actionNames[chosenIdx] || "STAY";
       const chosenGlyph = actionGlyphs[chosenIdx] || chosenAct;
@@ -1317,13 +1347,18 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
           }
         });
 
-        whyExplanation.textContent = `Evaluated 300 candidate rollouts over a 14-step receding horizon. Selected [${chosenAct}] as the highest expected reward trajectory toward the goal.`;
+        if (isIndra) {
+          whyExplanation.innerHTML = `Evaluated <strong>${frame.plan.alts.length} candidate motion rollouts</strong> over a 12-step horizon with dynamic traffic and animal clearance gradients. Selected <strong>[${chosenAct}]</strong> with highest safety score.`;
+        } else {
+          whyExplanation.textContent = `Evaluated 300 candidate rollouts over a 14-step receding horizon. Selected [${chosenAct}] as the highest expected reward trajectory toward the goal.`;
+        }
       }
     }
   };
 
   // Honest Model Diagnostics polling from /api/diagnostics
   const fetchDiagnostics = async () => {
+    if (scenarioId === "indra") return; // Preserve INDRA's honest pre-DGX architecture card
     try {
       const res = await fetch("/api/diagnostics");
       if (res.ok) {
@@ -1356,7 +1391,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
       badgeConnection.textContent = "● LIVE FEED";
       badgeConnection.className = "badge badge-live";
       replayLoader.stop(); // CRITICAL: Stop offline replay when live server stream is connected!
-      if (primaryScene) primaryScene.setDockStatus(isDocked ? "docked" : "released");
+      if (primaryScene && typeof primaryScene.setDockStatus === "function") {
+        primaryScene.setDockStatus(isDocked ? "docked" : "released");
+      }
     } else if (status === "fallback_replay") {
       badgeConnection.textContent = "○ REPLAY FALLBACK";
       badgeConnection.className = "badge badge-replay";
@@ -1545,11 +1582,30 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
     }
 
     // Clear All & Randomize
-    document.getElementById("btn-clear-obs")!.onclick = () => {
-      wsClient.sendCommand({ cmd: "clear_obstacles" });
-      sound.playBonk();
-      sound.speak("Arena cleared.");
-    };
+    const btnClearObs = document.getElementById("btn-clear-obs");
+    if (btnClearObs) {
+      btnClearObs.onclick = () => {
+        wsClient.sendCommand({ cmd: "clear_obstacles" });
+        sound.playBonk();
+        sound.speak("Arena cleared.");
+      };
+    }
+
+    // INDRA Urban Scenarios (1-10)
+    for (let i = 1; i <= 10; i++) {
+      const btn = document.getElementById(`btn-indra-s${i}`);
+      if (btn) {
+        btn.onclick = () => {
+          currentVariant = i;
+          for (let j = 1; j <= 10; j++) {
+            document.getElementById(`btn-indra-s${j}`)?.classList.remove("active");
+          }
+          btn.classList.add("active");
+          wsClient.sendCommand({ cmd: "reset", scenario_variant: i, seed: 1001 });
+          sound.playToolSelect();
+        };
+      }
+    }
 
     document.getElementById("btn-random-obs")!.onclick = () => {
       currentSeed = Math.floor(Math.random() * 9000) + 1000;
@@ -1573,7 +1629,9 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
 
     setDockingState = (docked: boolean, sendCmd: boolean = true) => {
       isDocked = docked;
-      if (primaryScene) primaryScene.setDockStatus(docked ? "docked" : "released");
+      if (primaryScene && typeof primaryScene.setDockStatus === "function") {
+        primaryScene.setDockStatus(docked ? "docked" : "released");
+      }
       if (docked) {
         if (sendCmd) wsClient.sendCommand({ cmd: "pause" });
         btnDockLaunch.className = "rail-btn dock-launch-btn docked";
@@ -1778,6 +1836,16 @@ export function renderSim(container: HTMLElement, scenarioId: string) {
         document.getElementById("btn-help")!.click();
       } else if (e.key === "n" || e.key === "N") {
         btnMute.click();
+      } else if (["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"].includes(e.key)) {
+        const v = e.key === "0" ? 10 : parseInt(e.key);
+        const indraBtn = document.getElementById(`btn-indra-s${v}`);
+        if (indraBtn) {
+          indraBtn.click();
+        } else if (v === 1) {
+          document.getElementById("btn-s1")?.click();
+        } else if (v === 2) {
+          document.getElementById("btn-s2")?.click();
+        }
       } else if (e.key === "]" || e.key === "+" || e.key === "=") {
         const speedLevels = ["0.5", "1.0", "1.5", "2.0", "3.0", "4.0"];
         const currIdx = speedLevels.indexOf(selectSpeed.value);

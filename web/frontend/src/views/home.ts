@@ -61,14 +61,35 @@ export function renderHome(container: HTMLElement) {
         </div>
       </section>
 
-      <!-- 3 Simulation Choices Grid -->
+      <!-- 4 Simulation Choices Grid -->
       <section>
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px;">
           <h2 style="font-size: 1.4rem; font-weight: 700;">Interactive Simulation Environments</h2>
-          <span style="font-size: 0.85rem; color: var(--text-muted); font-family: var(--font-mono);">3 Domains Available</span>
+          <span style="font-size: 0.85rem; color: #38bdf8; font-family: var(--font-mono); font-weight: 600;">4 Domains Available &middot; Flagship: Project INDRA</span>
         </div>
 
         <div class="cards-grid">
+          <!-- Card 0: Project INDRA (Flagship) -->
+          <div class="glass-panel sim-card" style="border: 1px solid rgba(56, 189, 248, 0.4); box-shadow: 0 0 25px rgba(56, 189, 248, 0.1);">
+            <div class="sim-card-thumb">
+              <img src="./results/web_screenshots/sim_robotics_upgraded.png" alt="Project INDRA Indian Urban Robotics" onerror="this.src='./results/screenshots/hero_menu.png'" />
+              <div class="sim-card-badge">
+                <span class="badge badge-live" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; border: 1px solid #38bdf8;">● PROJECT INDRA &middot; LIVE</span>
+              </div>
+            </div>
+            <div class="sim-card-body">
+              <h3 class="sim-card-title" style="color: #38bdf8;">PROJECT INDRA: Indian Urban Robotics</h3>
+              <div class="sim-card-tagline">"Anticipating unstructured traffic, cattle & monsoon hazards"</div>
+              <p class="sim-card-desc">
+                India-adapted autonomous UGV simulation. Navigates complex Delhi urban corridors with auto-rickshaws, filtering two-wheelers, sacred cattle, vendor carts, and monsoon waterlogging.
+              </p>
+              <a href="#/sim/indra" class="btn-launch" style="background: linear-gradient(135deg, #0284c7, #2563eb); color: #ffffff;">
+                <span>Launch Project INDRA Sim</span>
+                <span style="font-size: 1.1rem;">&rarr;</span>
+              </a>
+            </div>
+          </div>
+
           <!-- Card 1: Robotics -->
           <div class="glass-panel sim-card">
             <div class="sim-card-thumb">

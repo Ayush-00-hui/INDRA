@@ -8,6 +8,32 @@ from typing import Dict, Any, List
 
 
 SCENARIOS = {
+    "indra": {
+        "id": "indra",
+        "title": "PROJECT INDRA: Indian Urban Robotics",
+        "tagline": "Predicting unstructured traffic dynamics, cattle hazards & monsoon waterlogging.",
+        "description": "An India-adapted simulation platform for autonomous urban navigation in realistic, unstructured environments. Features auto-rickshaws, filtering two-wheelers, sacred cattle, dynamic weather, and multi-sector LiDAR MPC planning.",
+        "thumbnail": "results/web_screenshots/sim_robotics_upgraded.png",
+        "variants": [
+            {"id": 1, "name": "Scenario 1: Arterial Urban Corridor", "type": "traffic"},
+            {"id": 2, "name": "Scenario 2: Narrow Chandni Chowk Alley", "type": "constrained"},
+            {"id": 3, "name": "Scenario 3: Dense Market Chaos", "type": "stochastic"},
+            {"id": 4, "name": "Scenario 4: Sacred Cattle & Stray Animal Hazard", "type": "animal_hazard"},
+            {"id": 5, "name": "Scenario 5: Delhi Monsoon Waterlogging", "type": "weather_hazard"},
+            {"id": 6, "name": "Scenario 6: Pedestrian Crossing & Jaywalking", "type": "pedestrian_hazard"},
+            {"id": 7, "name": "Scenario 7: Moving Motorcycle Cut-in", "type": "dynamic_cutin"},
+            {"id": 8, "name": "Scenario 8: Road Construction & Barricades", "type": "construction"},
+            {"id": 9, "name": "Scenario 9: Dead-End Recovery Maneuver", "type": "recovery"},
+            {"id": 10, "name": "Scenario 10: Dense Traffic Gridlock", "type": "gridlock"}
+        ],
+        "default_variant": 1,
+        "model_paths": ["models/indra_model.pt", "models/robot_student.pt"],
+        "capabilities": ["live", "replay", "compare", "mind_view", "hitboxes", "first_person_pov", "weather_control", "animal_avoidance"],
+        "env_module": "indra.env",
+        "env_class": "IndraEnv",
+        "adapter_module": "web.adapters.indra_adapter",
+        "adapter_class": "IndraAdapter"
+    },
     "robotics": {
         "id": "robotics",
         "title": "Autonomous Warehouse Robotics",

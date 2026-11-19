@@ -122,16 +122,56 @@ sequenceDiagram
 
 | Domain | Description | Action Space | State Dimension | Performance |
 | :--- | :--- | :---: | :---: | :---: |
-| **🤖 Autonomous Robotics** | TurtleBot3 navigating cluttered indoor rooms with static furniture & walking humans | 5 (Up, Down, Left, Right, Stay) | 16-D (Pose, Goal Vector, 3x Obstacles) | **94.0% – 97.0%** Success Rate |
+| **🇮🇳 PROJECT INDRA (Flagship)** | India-Adapted Autonomous Urban Robotics navigating unstructured Delhi corridors, auto-rickshaws, cows, filtering two-wheelers, and monsoon puddles | 5 (Forward, Brake, Left, Right, Stay) | 24-D (Unicycle Pose, Goal, Friction, 16-Beam LiDAR) | **Mode A (3D WebGL PBR) & Mode B (800+ trans/s DGX Ready)** |
+| **🤖 Autonomous Robotics** | Warehouse UGV navigating cluttered indoor rooms with static furniture & walking humans | 5 (Up, Down, Left, Right, Stay) | 16-D (Pose, Goal Vector, 3x Obstacles) | **94.0% – 97.0%** Success Rate |
 | **🚗 Autonomous Driving** | Curved clothoid highway with multi-agent IDM traffic, emergency lead braking & overtaking | 5 (Accelerate, Brake, Steer L, Steer R, Cruise) | 16-D (Pose, Kinematics, Curvatures, Traffic Gaps, TTC) | **98% Collision Reduction** (0.02 / 100 steps) |
 | **🏭 Factory Digital Twin** | Predictive plant monitoring, machine health, and preventative breakdown mitigation | 3 (Normal, Maintenance, Throttle) | Multi-sensor telemetry | Anticipatory Intervention |
 
 <div align="center">
-  <img src="results/screenshots/hero_split_screen.png" alt="Split-Screen Comparison" width="48%"/>
-  <img src="results/web_screenshots/sim_robotics_1080p.png" alt="Web 3D Simulation" width="48%"/>
+  <img src="results/web_screenshots/indra_s1_urban_architecture.png" alt="Project INDRA 3D Indian Urban Robotics" width="48%"/>
+  <img src="results/web_screenshots/sim_robotics_1080p.png" alt="Warehouse Robotics Web 3D" width="48%"/>
   <br/>
-  <em>Left: Desktop Split-Screen (Reactive Greedy vs. World Model MPC). Right: Web 3D Digital Twin with real-time HUD and mind view.</em>
+  <em>Left: Project INDRA 3D Delhi Urban Corridor Simulation with roadside dukans, utility wiring, and MPC trajectory rollouts. Right: Warehouse Robotics arena.</em>
 </div>
+
+---
+
+## 🇮🇳 PROJECT INDRA: Indian Neural Dynamics, Reasoning & Autonomy
+
+**Project INDRA** is a research-oriented simulation platform specifically engineered to simulate, understand, predict, and navigate complex, unpredictable Indian urban environments.
+
+Unlike conventional simulations that operate in clean warehouses or lane-disciplined Western highways, Project INDRA models the full entropy of Indian streets:
+
+### 10 Benchmark Evaluation Scenarios
+1. **Scenario 1: Arterial Urban Corridor** &mdash; Multi-lane corridor with oncoming auto-rickshaws, filtering two-wheelers, and road surface degradation.
+2. **Scenario 2: Narrow Chandni Chowk Alley** &mdash; Constrained alleys with parked scooters, vendor carts (*thelas*), and sleeping stray dogs.
+3. **Scenario 3: Dense Market Chaos** &mdash; Unstructured pedestrian flows, food carts, and sudden lateral obstacles.
+4. **Scenario 4: Sacred Cattle & Animal Hazard** &mdash; Unpredictable Zebu cattle blocking lanes with sudden stops and wandering stray dogs.
+5. **Scenario 5: Delhi Monsoon Waterlogging** &mdash; Submerged roadway, friction decay ($\mu: 0.92 \to 0.28$), and LiDAR attenuation through heavy rainfall.
+6. **Scenario 6: Pedestrian Crossing & Jaywalking** &mdash; Crosswalk state machines with pedestrians jaywalking outside zebra markings.
+7. **Scenario 7: Moving Motorcycle Cut-in** &mdash; High-speed two-wheelers performing agile lane filtering and sudden lane cut-ins.
+8. **Scenario 8: Road Construction & Barricades** &mdash; Red-and-white barricades, broken asphalt, and narrow detours.
+9. **Scenario 9: Dead-End Recovery Maneuver** &mdash; Reversing out of heavily blocked dead-end gullies.
+10. **Scenario 10: Dense Traffic Gridlock** &mdash; Full DTC city buses, compact cars, auto-rickshaws, and stop-and-go congestion.
+
+### Dual Operating Modes & Hardware Architecture
+- **Mode A &mdash; Interactive Visual Simulation (ASUS TUF A16 Laptop GPU):**
+  - High-performance Three.js WebGL2/PBR renderer with PBR asphalt, yellow lane markings, zebra crossings, black/yellow curbs, streetlamps, utility poles with sagging overhead wires, and roadside shops with awnings and rooftop Sintex water tanks.
+  - Live HUD displaying honest model telemetry: analytical kinematic unicycle baseline when pre-training, and neural world model status once checkpoints are loaded.
+- **Mode B &mdash; Fast Headless Benchmark & Dataset Collector (College DGX Spark Transfer):**
+  - High-throughput headless simulation executing **790+ transitions/sec** in pure Python/NumPy.
+  - Standardized `.npz` archive export with JSON metadata sidecars (`data/indra_transitions_sample.npz`), ready for seamless transfer to college NVIDIA DGX Spark cluster (128GB unified memory) for neural world model training via `indra/model/train_world_model.py`.
+
+```bash
+# 1. Run headless batch dataset collection across all 10 scenarios
+python scripts/collect_indra_dataset.py --scenarios all --episodes 5 --output data/indra_transitions.npz
+
+# 2. Train Deep Residual Neural World Model (Laptop or DGX Spark)
+python indra/model/train_world_model.py --data data/indra_transitions.npz --output-dir models/
+
+# 3. Launch Web Mission Control & 3D Visualizer
+python -m web.server --port 8000
+```
 
 ---
 
