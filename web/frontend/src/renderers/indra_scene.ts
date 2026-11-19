@@ -135,6 +135,7 @@ export class IndraScene {
     this.buildUrbanEnvironment();
     this.buildHeroRobot();
     this.buildGoalBeacon();
+    this.initRainSystem();
     this.setupInteractivity();
     this.animate();
   }
@@ -619,9 +620,52 @@ export class IndraScene {
     this.robotGroup.add(headlight);
     this.robotGroup.add(headlight.target);
 
+    // Forward Optic Camera Sensor Visor (Cyan Tinted Glass Strip)
+    const visorGeo = new THREE.BoxGeometry(0.04, 0.08, 0.36);
+    const visorMat = new THREE.MeshStandardMaterial({
+      color: 0x06b6d4,
+      roughness: 0.1,
+      metalness: 0.9,
+      emissive: 0x0891b2,
+      emissiveIntensity: 0.6
+    });
+    const visor = new THREE.Mesh(visorGeo, visorMat);
+    visor.position.set(0.43, 0.22, 0);
+    this.robotGroup.add(visor);
+
+    // Forward Heading Direction Pointer (Chevron Arrow projected forward on ground)
+    const arrowGeo = new THREE.ConeGeometry(0.12, 0.40, 3);
+    const arrowMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.8 });
+    const arrow = new THREE.Mesh(arrowGeo, arrowMat);
+    arrow.rotation.z = -Math.PI / 2;
+    arrow.position.set(0.85, -0.34, 0);
+    this.robotGroup.add(arrow);
+
     // Forward Sensor POV Camera Anchor
     this.povCamera.position.set(0.40, 0.55, 0);
     this.robotGroup.add(this.povCamera);
+  }
+
+  /** Initialize dynamic monsoon rain particle system. */
+  private initRainSystem() {
+    const rainCount = 1000;
+    const positions = new Float32Array(rainCount * 3);
+    for (let i = 0; i < rainCount; i++) {
+      positions[i * 3 + 0] = Math.random() * 80 - 20;
+      positions[i * 3 + 1] = Math.random() * 18 + 0.5;
+      positions[i * 3 + 2] = Math.random() * 24 - 12;
+    }
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    const rainMat = new THREE.PointsMaterial({
+      color: 0x93c5fd,
+      size: 0.14,
+      transparent: true,
+      opacity: 0.65
+    });
+    this.rainParticles = new THREE.Points(rainGeo, rainMat);
+    this.rainParticles.visible = false;
+    this.scene.add(this.rainParticles);
   }
 
   /** Build Goal Delivery Hub Beacon with concentric glowing rings and pillar. */
@@ -1134,6 +1178,23 @@ export class IndraScene {
           }
         }
       }
+
+      // Weather & Monsoon Rain synchronization
+      const weather = robotEntity.extra?.weather || "clear";
+      const waterlogDepth = robotEntity.extra?.waterlog_depth_cm || 0;
+      const isMonsoon = weather === "monsoon" || waterlogDepth > 1.0;
+      if (isMonsoon !== (this.currentWeather === "monsoon")) {
+        this.currentWeather = isMonsoon ? "monsoon" : "clear";
+        if (this.rainParticles) {
+          this.rainParticles.visible = isMonsoon && (this.graphicsTier !== "low");
+        }
+        if (this.graphicsTier !== "low") {
+          this.scene.fog = isMonsoon
+            ? new THREE.FogExp2(0x1e293b, 0.025)
+            : new THREE.FogExp2(0x0c1017, 0.015);
+        }
+        this.sunLight.intensity = isMonsoon ? 0.75 : 1.4;
+      }
     }
 
     // 2. Update Goal Beacon
@@ -1262,12 +1323,24 @@ export class IndraScene {
       this.lidarTurret.rotation.y += dt * 8.0 * this.playbackSpeed;
     }
 
-    // Animate wheels
+    // Animate wheels rolling forward
     if (this.wheels.length > 0) {
       const wheelRot = dt * 6.0 * this.playbackSpeed;
       this.wheels.forEach((w) => {
-        w.rotation.y += wheelRot;
+        w.rotation.z -= wheelRot;
       });
+    }
+
+    // Animate monsoon rain drops falling
+    if (this.rainParticles && this.rainParticles.visible) {
+      const posAttr = (this.rainParticles.geometry as THREE.BufferGeometry).attributes.position;
+      const count = posAttr.count;
+      for (let i = 0; i < count; i++) {
+        let py = posAttr.getY(i) - dt * 24.0 * this.playbackSpeed;
+        if (py < 0.1) py = 18.0;
+        posAttr.setY(i, py);
+      }
+      posAttr.needsUpdate = true;
     }
 
     // Pulse safety footprint ring
