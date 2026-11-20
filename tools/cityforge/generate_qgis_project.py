@@ -16,27 +16,31 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, logger
 
 
 def create_qgis_project(config_path: str = None) -> str:
     """Generate self-contained QGIS project XML and .qgz archive."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     proc_dir = os.path.join(out_dir, "processed")
 
     boundary_file = os.path.join(out_dir, "boundary.geojson")
     roads_file = os.path.join(proc_dir, "roads.geojson")
     buildings_file = os.path.join(proc_dir, "buildings.geojson")
-    walkways_file = os.path.join(proc_dir, "walkways.geojson")
+    walkways_file = os.path.join(proc_dir, "footpaths.geojson")
+    if not os.path.exists(walkways_file):
+        walkways_file = os.path.join(proc_dir, "walkways.geojson")
     street_objects_file = os.path.join(proc_dir, "street_objects.geojson")
+    landuse_file = os.path.join(proc_dir, "landuse.geojson")
 
     # Relative paths from project file located in out_dir
     rel_boundary = "./boundary.geojson"
     rel_roads = "./processed/roads.geojson"
     rel_buildings = "./processed/buildings.geojson"
-    rel_walkways = "./processed/walkways.geojson"
+    rel_walkways = "./processed/footpaths.geojson" if os.path.exists(os.path.join(proc_dir, "footpaths.geojson")) else "./processed/walkways.geojson"
     rel_street_objects = "./processed/street_objects.geojson"
+    rel_landuse = "./processed/landuse.geojson"
 
     qgs_root = ET.Element("qgis", projectname="INDRA_CityForge_Delhi_CP_v1", version="3.34.0-LTR")
 
@@ -68,10 +72,11 @@ def create_qgis_project(config_path: str = None) -> str:
     layer_tree = ET.SubElement(qgs_root, "layer-tree-group")
 
     layers_def = [
-        {"id": "indra_street_objects", "name": "INDRA 04 - Street Objects & Trees", "path": rel_street_objects, "geom": "Point", "color": "34,197,94"},
+        {"id": "indra_street_objects", "name": "INDRA 04 - Street Objects & Trees", "path": rel_street_objects, "geom": "Point", "color": "168,85,247"},
         {"id": "indra_walkways", "name": "INDRA 03 - Walkways & Stairs", "path": rel_walkways, "geom": "LineString", "color": "56,189,248"},
-        {"id": "indra_roads", "name": "INDRA 01 - Road Network Corridors", "path": rel_roads, "geom": "LineString", "color": "15,23,42"},
-        {"id": "indra_buildings", "name": "INDRA 02 - Building Footprints & Colonnades", "path": rel_buildings, "geom": "Polygon", "color": "248,250,252"},
+        {"id": "indra_roads", "name": "INDRA 01 - Road Network Corridors", "path": rel_roads, "geom": "LineString", "color": "245,158,11"},
+        {"id": "indra_buildings", "name": "INDRA 02 - Building Footprints & Colonnades", "path": rel_buildings, "geom": "Polygon", "color": "220,150,110"},
+        {"id": "indra_landuse", "name": "INDRA 04b - Land Use & Green Areas", "path": rel_landuse, "geom": "Polygon", "color": "74,222,128"},
         {"id": "indra_boundary", "name": "INDRA 00 - Pilot Boundary (250m x 250m)", "path": rel_boundary, "geom": "Polygon", "color": "239,68,68"}
     ]
 
@@ -98,6 +103,16 @@ def create_qgis_project(config_path: str = None) -> str:
     qgz_path = os.path.join(out_dir, f"{dataset_id}.qgz")
     with zipfile.ZipFile(qgz_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         zf.writestr(f"{dataset_id}.qgs", pretty_xml.encode("utf-8"))
+
+    # Also mirror into D:\INDRA_PROJECT\qgis_projects if available
+    ext_qgis_dir = r"D:\INDRA_PROJECT\qgis_projects"
+    if os.path.exists(ext_qgis_dir):
+        try:
+            import shutil
+            shutil.copy2(qgs_path, os.path.join(ext_qgis_dir, f"{dataset_id}.qgs"))
+            shutil.copy2(qgz_path, os.path.join(ext_qgis_dir, f"{dataset_id}.qgz"))
+        except Exception:
+            pass
 
     logger.info(f"Generated QGIS Project files: {qgs_path} and {qgz_path}")
     return qgz_path

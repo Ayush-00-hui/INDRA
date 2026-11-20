@@ -96,6 +96,12 @@ def run_pipeline(
         mod_04 = import_module_from_file("objects_mod", "04_street_objects.py")
         results["street_objects"] = mod_04.collect_street_objects(config_path, use_cache=use_cache)
 
+    # 5b. Stage Land Use & Green Areas
+    if stage_lower in ("landuse", "greenery", "parks", "all", "vector", "phase_b", "phaseb"):
+        logger.info("Executing Stage: LAND USE & GREEN AREAS (04b_landuse.py)...")
+        mod_04b = import_module_from_file("landuse_mod", "04b_landuse.py")
+        results["landuse"] = mod_04b.collect_landuse(config_path, use_cache=use_cache)
+
     # 6. Stage Aerial Imagery
     if stage_lower in ("imagery", "aerial", "all"):
         logger.info("Executing Stage: AERIAL IMAGERY (05_aerial_imagery.py)...")
@@ -138,6 +144,18 @@ def run_pipeline(
         mod_val = import_module_from_file("validate_mod", "validate_data.py")
         results["validate"] = mod_val.validate_dataset(config_path)
 
+    # 13. Stage Import External Assets
+    if stage_lower in ("import", "ingest", "assets"):
+        logger.info("Executing Stage: IMPORT EXTERNAL ASSETS (import_external_assets.py)...")
+        mod_imp = import_module_from_file("import_mod", "import_external_assets.py")
+        results["import"] = mod_imp.import_assets(config_path)
+
+    # 14. Stage Transitions Smoke Dataset
+    if stage_lower in ("transitions", "smoke_data", "datagen"):
+        logger.info("Executing Stage: SIMULATION VALIDATION & TRANSITIONS (generate_transitions.py)...")
+        mod_trans = import_module_from_file("trans_mod", "generate_transitions.py")
+        results["transitions"] = mod_trans.generate_smoke_transitions(config_path)
+
     print("\n" + "=" * 70)
     print(" [pipeline] PIPELINE EXECUTION COMPLETED")
     print("=" * 70)
@@ -173,7 +191,7 @@ Examples:
     )
     parser.add_argument(
         "--stage",
-        choices=["boundary", "roads", "buildings", "footpaths", "street-objects", "imagery", "elevation", "photos", "textures", "city3d", "qgis", "validate", "vector", "phase_b", "all"],
+        choices=["boundary", "roads", "buildings", "footpaths", "street-objects", "landuse", "imagery", "elevation", "photos", "textures", "city3d", "qgis", "import", "transitions", "validate", "vector", "phase_b", "all"],
         default="all",
         help="Pipeline stage to execute (default: all)"
     )

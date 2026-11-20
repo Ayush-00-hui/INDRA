@@ -21,7 +21,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, get_transformers
+from tools.cityforge.osm_client import load_config, get_transformers, resolve_output_dir
 
 
 def define_area(config_path: str = None) -> Dict[str, Any]:
@@ -34,7 +34,7 @@ def define_area(config_path: str = None) -> Dict[str, Any]:
     height_m = float(cfg["height_m"])
     geo_crs = cfg.get("geographic_crs", "EPSG:4326")
     proj_crs = cfg.get("projected_crs", "EPSG:32643")
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
 
     to_proj, to_wgs84 = get_transformers(geo_crs, proj_crs)
 
@@ -121,7 +121,12 @@ def define_area(config_path: str = None) -> Dict[str, Any]:
     with open(boundary_geojson_path, "w", encoding="utf-8") as f:
         json.dump(geojson_doc, f, indent=2)
 
-    # Also save in metadata/ for strict hierarchical schema compliance
+    # Also save in boundary/ and metadata/ for full layout compliance
+    bnd_dir = os.path.join(out_dir, "boundary")
+    os.makedirs(bnd_dir, exist_ok=True)
+    with open(os.path.join(bnd_dir, "boundary.geojson"), "w", encoding="utf-8") as f:
+        json.dump(geojson_doc, f, indent=2)
+
     meta_boundary_path = os.path.join(meta_dir, "boundary.geojson")
     with open(meta_boundary_path, "w", encoding="utf-8") as f:
         json.dump(geojson_doc, f, indent=2)
