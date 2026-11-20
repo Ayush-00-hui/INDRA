@@ -1,0 +1,10 @@
+# INDRA CityForge Minimal Geospatial Requirements
+# Compatible with Python 3.10+ up to Python 3.14 (Windows cp314 binary wheels verified)
+
+pyproj>=3.7.0        # Exact geodetic & metric UTM projection conversions (EPSG:4326 <-> EPSG:32643)
+shapely>=2.0.0       # High-performance planar geometry, polygon clipping, and GeoJSON serialization
+rasterio>=1.4.0      # Georeferenced GeoTIFF creation, CRS embedding & DEM raster manipulation
+requests>=2.30.0     # HTTP client for Overpass & imagery APIs with timeouts & retry backoff
+pyyaml>=6.0.0        # Structured YAML configuration parsing
+pillow>=10.0.0       # Procedural PBR texture generation and image synthesis
+pytest>=8.0.0        # Offline automated test suite for validation and geometric regression

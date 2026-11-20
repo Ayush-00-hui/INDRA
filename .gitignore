@@ -5,6 +5,7 @@ __pycache__/
 /data/
 venv/
 .venv/
+.venv_cityforge/
 logs/*.log
 results/demo_frames/
 results/trailer_frames/

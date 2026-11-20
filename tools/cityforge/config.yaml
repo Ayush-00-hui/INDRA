@@ -1,0 +1,37 @@
+# Project INDRA — CityForge Pipeline Configuration
+# Real-World Geographic Data Pipeline for Autonomous Ground Robotics
+
+project: "INDRA_CityForge"
+city: "New Delhi"
+area_name: "Connaught_Place_Pilot"
+dataset_id: "delhi_cp_v1"
+description: "Pilot area covering a 250m x 250m portion of Connaught Place, New Delhi"
+
+# Bounding Center Coordinate (WGS84)
+# Located at Rajiv Chowk / Central Park Inner Circle hub, New Delhi
+center_lat: 28.63152
+center_lon: 77.21672
+
+# Bounding Dimensions in Exact Metric Meters
+width_m: 250.0
+height_m: 250.0
+
+# Geographic Coordinate Reference Systems
+geographic_crs: "EPSG:4326"        # WGS84 Geographic Coordinate System (degrees)
+projected_crs: "EPSG:32643"         # WGS 84 / UTM Zone 43N (Metric Cartesian for Delhi)
+
+# Output Directory Structure
+output_directory: "data/cityforge/delhi_cp_v1"
+
+# Network & Overpass API Settings
+overpass_endpoints:
+  - "https://overpass-api.de/api/interpreter"
+  - "https://lz4.overpass-api.de/api/interpreter"
+  - "https://overpass.kumi.systems/api/interpreter"
+  - "https://overpass.private.coffee/api/interpreter"
+
+user_agent: "ProjectINDRA-CityForge/1.0 (Robotics Research; contact: indra-research@domain.org)"
+timeout_seconds: 60
+max_retries: 3
+retry_backoff_seconds: 3.0
+rate_limit_delay_seconds: 2.0
