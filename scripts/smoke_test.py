@@ -227,6 +227,16 @@ def test_web_app_subsystem():
     return "web/dist bundled, replays intact, FastAPI operational"
 
 
+def test_cityforge_scenario_11():
+    from indra.scenarios.scenario_manager import ScenarioRegistry
+    sc = ScenarioRegistry.create_scenario(11, seed=2026)
+    assert sc.scenario_id == 11
+    assert sc.bounds == (-125.0, -125.0, 125.0, 125.0)
+    stair_hazards = [h for h in sc.hazards if h.kind == "impassable_stairs"]
+    assert len(stair_hazards) == 5
+    return f"Scenario 11 (Connaught Place 250m) active with {len(sc.actors)} actors and {len(stair_hazards)} stair hazards"
+
+
 def main():
     print("=" * 72)
     print("        NBA ACCREDITATION SYSTEM HEALTH & SMOKE TEST SUITE        ")
@@ -242,6 +252,7 @@ def main():
         ("Headless Application Execution", test_headless_main),
         ("Project INDRA Environment Guard", test_indra_env_guard),
         ("Web Application Subsystem & Health", test_web_app_subsystem),
+        ("INDRA CityForge Scenario 11 Pilot", test_cityforge_scenario_11),
     ]
 
     all_passed = True
