@@ -120,7 +120,13 @@ def run_pipeline(
         mod_08 = import_module_from_file("textures_mod", "08_textures.py")
         results["textures"] = mod_08.collect_textures(config_path)
 
-    # 10. Stage Validate
+    # 10. Stage 3D City Scene Generation
+    if stage_lower in ("city3d", "3d", "scene", "generate_3d", "all"):
+        logger.info("Executing Stage: 3D CITY SCENE GENERATION (generate_3d_city.py)...")
+        mod_city = import_module_from_file("city3d_mod", "generate_3d_city.py")
+        results["city3d"] = mod_city.generate_3d_city_scene(config_path)
+
+    # 11. Stage Validate
     if stage_lower in ("validate", "all"):
         logger.info("Executing Stage: VALIDATE (validate_data.py)...")
         mod_val = import_module_from_file("validate_mod", "validate_data.py")

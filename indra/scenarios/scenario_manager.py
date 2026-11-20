@@ -31,6 +31,7 @@ class ScenarioDefinition:
     actors: List[UrbanActor] = field(default_factory=list)
     hazards: List[RoadHazard] = field(default_factory=list)
     bounds: Tuple[float, float, float, float] = (-15.0, -10.0, 45.0, 10.0) # 60m x 20m urban stretch
+    extra: Dict[str, Any] = field(default_factory=dict)
 
 
 class ScenarioRegistry:
@@ -49,7 +50,8 @@ class ScenarioRegistry:
             {"id": 7, "name": "Scenario 7: Moving Motorcycle Cut-in", "code": "motorcycle_cutin", "difficulty": "Dynamic"},
             {"id": 8, "name": "Scenario 8: Road Construction & Barricades", "code": "road_construction", "difficulty": "Constrained"},
             {"id": 9, "name": "Scenario 9: Dead-End Recovery Maneuver", "code": "dead_end_recovery", "difficulty": "Recovery"},
-            {"id": 10, "name": "Scenario 10: Dense Traffic Gridlock", "code": "dense_gridlock", "difficulty": "Maximum"}
+            {"id": 10, "name": "Scenario 10: Dense Traffic Gridlock", "code": "dense_gridlock", "difficulty": "Maximum"},
+            {"id": 11, "name": "Scenario 11: Connaught Place Real-World Pilot (CityForge)", "code": "connaught_place_pilot", "difficulty": "Full District"}
         ]
 
     @staticmethod
@@ -317,6 +319,85 @@ class ScenarioRegistry:
                 time_of_day=TimeOfDay.EVENING,
                 actors=actors,
                 hazards=hazards
+            )
+
+        elif variant == 11:
+            # Scenario 11: Connaught Place Real-World Pilot (CityForge)
+            import json
+            import os
+
+            scene_file = os.path.abspath(os.path.join(
+                os.path.dirname(__file__), "..", "..", "data", "cityforge", "delhi_cp_v1", "city_3d_scene.json"
+            ))
+            scene_data = {}
+            if os.path.exists(scene_file):
+                try:
+                    with open(scene_file, "r", encoding="utf-8") as f:
+                        scene_data = json.load(f)
+                except Exception:
+                    scene_data = {}
+
+            actors = [
+                AutoRickshaw("cp_auto_1", x=20.0, y=10.0, heading=2.8, base_speed=2.8),
+                AutoRickshaw("cp_auto_2", x=-15.0, y=-25.0, heading=0.5, base_speed=2.5),
+                Motorcycle("cp_bike_1", x=5.0, y=-15.0, heading=1.57, base_speed=4.2),
+                Motorcycle("cp_scooter_parked", x=28.0, y=14.0, heading=0.0, base_speed=0.0),
+                Cattle("cp_cow_park", x=-5.0, y=5.0, heading=0.0),
+                StrayDog("cp_dog_curb", x=12.0, y=2.0),
+                Pedestrian("cp_ped_crossing", x=18.0, y=-5.0, init_state=PedestrianState.CROSSING),
+                VendorCart("cp_thela_chai", x=-20.0, y=12.0, is_pushcart=False),
+            ]
+
+            hazards = [
+                RoadHazard("cp_pothole_1", "pothole", x=15.0, y=4.0, radius=0.8),
+                RoadHazard("cp_waterlog_1", "waterlogging", x=-10.0, y=-8.0, radius=1.8),
+            ]
+
+            # Add the 5 impassable stair segments as high-priority safety hazards
+            for st in scene_data.get("impassable_stairs", []):
+                hazards.append(RoadHazard(
+                    st.get("hazard_id", "stair_hazard"),
+                    "impassable_stairs",
+                    x=float(st.get("x", 0.0)),
+                    y=float(st.get("y", 0.0)),
+                    radius=float(st.get("radius", 1.4))
+                ))
+
+            # Add street furniture objects as static actors with collision radii
+            for obj in scene_data.get("street_objects", []):
+                subclass = obj.get("subclass", "object")
+                actors.append(UrbanActor(
+                    actor_id=obj.get("object_id", "street_obj"),
+                    kind=f"street_obj_{subclass}",
+                    x=float(obj.get("x", 0.0)),
+                    y=float(obj.get("y", 0.0)),
+                    radius=float(obj.get("collision_radius", 0.45)),
+                    is_dynamic=False
+                ))
+
+            nav_defs = scene_data.get("navigation_defaults", {})
+            b_list = nav_defs.get("bounds", [-125.0, -125.0, 125.0, 125.0])
+            bounds = (float(b_list[0]), float(b_list[1]), float(b_list[2]), float(b_list[3]))
+            r_start = nav_defs.get("robot_start", [35.0, 7.5, 3.14])
+            robot_start = (float(r_start[0]), float(r_start[1]), float(r_start[2]))
+            g_pos = nav_defs.get("goal_pos", [-30.0, 35.0])
+            goal_pos = (float(g_pos[0]), float(g_pos[1]))
+
+            return ScenarioDefinition(
+                scenario_id=11,
+                name="Scenario 11: Connaught Place Real-World Pilot (CityForge)",
+                code="connaught_place_pilot",
+                difficulty="Full District",
+                description="Empirical 250m x 250m Connaught Place urban district derived from CityForge geographic survey. Real building footprints, colonnade arcades, road network, 5 impassable stair segments, and active Delhi traffic.",
+                robot_start=robot_start,
+                goal_pos=goal_pos,
+                weather=WeatherType.CLEAR,
+                road=RoadCondition.DRY,
+                time_of_day=TimeOfDay.AFTERNOON,
+                actors=actors,
+                hazards=hazards,
+                bounds=bounds,
+                extra={"city_3d_scene": scene_data}
             )
 
         else:

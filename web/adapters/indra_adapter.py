@@ -291,6 +291,9 @@ class IndraAdapter:
             "environment_state": self.env.env_state.to_dict(),
             "model_metadata": self.world_model.get_model_metadata()
         }
+        if self.env.scenario and getattr(self.env.scenario, "extra", None):
+            if "city_3d_scene" in self.env.scenario.extra:
+                layout_dict["city_3d_scene"] = self.env.scenario.extra["city_3d_scene"]
         world = WorldLayout(
             bounds=list(self.env.bounds),
             units="m",

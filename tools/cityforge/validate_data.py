@@ -216,6 +216,22 @@ def validate_dataset(config_path: str = None) -> Dict[str, Any]:
                 "status": "VALID"
             }
 
+    # 3D Procedural City Scene Specification
+    city_3d_file = os.path.join(out_dir, "city_3d_scene.json")
+    if os.path.exists(city_3d_file):
+        with open(city_3d_file, "r", encoding="utf-8") as f:
+            cdata = json.load(f)
+            raster_audits["city_3d_scene"] = {
+                "file_present": True,
+                "file_size_kb": round(os.path.getsize(city_3d_file) / 1024.0, 2),
+                "buildings_count": len(cdata.get("buildings", [])),
+                "roads_count": len(cdata.get("roads", [])),
+                "walkways_count": len(cdata.get("walkways", [])),
+                "street_objects_count": len(cdata.get("street_objects", [])),
+                "impassable_stairs_count": len(cdata.get("impassable_stairs", [])),
+                "status": "VALID"
+            }
+
     # 4. Overall Validation Report
     report = {
         "dataset_id": cfg.get("dataset_id", "delhi_cp_v1"),
@@ -317,6 +333,11 @@ def generate_markdown_report(report: Dict[str, Any], cfg: Dict[str, Any]) -> str
             elif asset_k == "textures":
                 cats = len(asset_v.get("categories", []))
                 md.append(f"| **PBR Textures** | `textures/texture_manifest.json` | {asset_v['materials_count']} materials ({cats} categories) | ✅ Valid PBR Set |")
+            elif asset_k == "city_3d_scene":
+                bldgs = asset_v["buildings_count"]
+                rds = asset_v["roads_count"]
+                stairs = asset_v["impassable_stairs_count"]
+                md.append(f"| **3D City Scene** | `city_3d_scene.json` ({asset_v['file_size_kb']} KB) | {bldgs} bldgs, {rds} roads, {stairs} stairs | ✅ Valid 3D Scene |")
         md.append("")
 
     md.append("## 🗺️ How to View This Data in QGIS\n")
