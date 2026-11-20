@@ -20,6 +20,7 @@ if PROJECT_ROOT not in sys.path:
 
 from tools.cityforge.osm_client import (
     load_config,
+    resolve_output_dir,
     get_transformers,
     execute_overpass_query,
     build_node_dict,
@@ -30,7 +31,7 @@ from tools.cityforge.osm_client import (
 def collect_buildings(config_path: Optional[str] = None, use_cache: bool = True) -> Dict[str, Any]:
     """Collect building footprints and export GeoJSON + report."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     raw_dir = os.path.join(out_dir, "raw")
     proc_dir = os.path.join(out_dir, "processed")
     rep_dir = os.path.join(out_dir, "reports")
@@ -40,7 +41,15 @@ def collect_buildings(config_path: Optional[str] = None, use_cache: bool = True)
     # 1. Load target boundary
     boundary_file = os.path.join(out_dir, "boundary.geojson")
     if not os.path.exists(boundary_file):
-        raise FileNotFoundError(f"Boundary file not found: {boundary_file}. Run 00_define_area.py first.")
+        boundary_file = os.path.join(out_dir, "boundary", "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        boundary_file = os.path.join(out_dir, "metadata", "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        fallback_bnd = os.path.join(PROJECT_ROOT, "data", "cityforge", cfg.get("dataset_id", "delhi_cp_v1"), "boundary.geojson")
+        if os.path.exists(fallback_bnd):
+            boundary_file = fallback_bnd
+        else:
+            raise FileNotFoundError(f"Boundary file not found in {out_dir}. Run 00_define_area.py first.")
 
     with open(boundary_file, "r", encoding="utf-8") as f:
         boundary_geojson = json.load(f)
@@ -61,6 +70,8 @@ def collect_buildings(config_path: Optional[str] = None, use_cache: bool = True)
     """
 
     cache_file = os.path.join(raw_dir, "buildings_overpass.json")
+    if not os.path.exists(cache_file) and os.path.exists(os.path.join(out_dir, "osm", "buildings_overpass.json")):
+        cache_file = os.path.join(out_dir, "osm", "buildings_overpass.json")
     data = execute_overpass_query(query, cache_path=cache_file, config=cfg, use_cache=use_cache)
     elements = data.get("elements", [])
 

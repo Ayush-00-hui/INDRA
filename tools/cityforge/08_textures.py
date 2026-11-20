@@ -22,7 +22,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, logger
 
 
 def create_normal_map(height_array: np.ndarray, strength: float = 2.0) -> Image.Image:
@@ -120,7 +120,7 @@ def generate_pbr_material(
 def collect_textures(config_path: str = None) -> Dict[str, Any]:
     """Generate and catalogue the 8 material category PBR library."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     tex_dir = os.path.join(out_dir, "textures")
     os.makedirs(tex_dir, exist_ok=True)
 

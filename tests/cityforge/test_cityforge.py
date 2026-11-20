@@ -450,3 +450,167 @@ def test_textures_pbr_manifest():
         assert os.path.exists(first_mat["normal_file"])
         assert os.path.exists(first_mat["roughness_file"])
 
+
+def test_qgis_project_generation():
+    """Verify that generate_qgis_project.py creates valid .qgs XML and .qgz archive."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        proc_dir = os.path.join(tmpdir, "processed")
+        os.makedirs(proc_dir, exist_ok=True)
+
+        # Create dummy geojson files
+        dummy_feat = {"type": "FeatureCollection", "features": []}
+        for name in ["roads.geojson", "buildings.geojson", "walkways.geojson", "street_objects.geojson"]:
+            with open(os.path.join(proc_dir, name), "w") as f:
+                json.dump(dummy_feat, f)
+        with open(os.path.join(tmpdir, "boundary.geojson"), "w") as f:
+            json.dump(dummy_feat, f)
+
+        cfg = {
+            "dataset_id": "test_qgis",
+            "output_directory": os.path.relpath(tmpdir, PROJECT_ROOT).replace("\\", "/")
+        }
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        import yaml
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg, f)
+
+        mod_qgis = import_module_from_file("mod_qgis_test", "generate_qgis_project.py")
+        qgz_path = mod_qgis.create_qgis_project(cfg_path)
+
+        assert os.path.exists(qgz_path)
+        assert qgz_path.endswith(".qgz")
+        assert os.path.exists(os.path.join(tmpdir, "test_qgis.qgs"))
+
+
+def test_landuse_extraction_and_categorization():
+    """Verify that 04b_landuse.py categorizes and clips green area and commercial polygons."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        proc_dir = os.path.join(tmpdir, "processed")
+        raw_dir = os.path.join(tmpdir, "raw")
+        os.makedirs(proc_dir, exist_ok=True)
+        os.makedirs(raw_dir, exist_ok=True)
+
+        b_feat = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[[77.215, 28.630], [77.218, 28.630], [77.218, 28.633], [77.215, 28.633], [77.215, 28.630]]]
+                },
+                "properties": {
+                    "wgs84_bbox": [28.630, 77.215, 28.633, 77.218],
+                    "utm_bounds": [716574.0, 3169046.0, 716824.0, 3169296.0]
+                }
+            }]
+        }
+        with open(os.path.join(tmpdir, "boundary.geojson"), "w") as f:
+            json.dump(b_feat, f)
+
+        mock_osm = {
+            "elements": [
+                {"type": "node", "id": 1, "lat": 28.631, "lon": 77.216},
+                {"type": "node", "id": 2, "lat": 28.632, "lon": 77.216},
+                {"type": "node", "id": 3, "lat": 28.632, "lon": 77.217},
+                {"type": "node", "id": 4, "lat": 28.631, "lon": 77.217},
+                {
+                    "type": "way",
+                    "id": 101,
+                    "nodes": [1, 2, 3, 4, 1],
+                    "tags": {"leisure": "park", "name": "Central Park Test"}
+                }
+            ]
+        }
+        with open(os.path.join(raw_dir, "landuse_overpass.json"), "w") as f:
+            json.dump(mock_osm, f)
+
+        cfg = {
+            "dataset_id": "test_lu",
+            "output_directory": os.path.relpath(tmpdir, PROJECT_ROOT).replace("\\", "/"),
+            "geographic_crs": "EPSG:4326",
+            "projected_crs": "EPSG:32643"
+        }
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        import yaml
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg, f)
+
+        mod_lu = import_module_from_file("mod_lu_test", "04b_landuse.py")
+        summary = mod_lu.collect_landuse(cfg_path, use_cache=True)
+
+        assert summary["total_landuse_features"] == 1
+        assert summary["total_landuse_area_m2"] > 0.0
+        assert "park" in summary["categories"]
+
+
+def test_import_external_assets_pipeline():
+    """Verify that import_external_assets.py validates GeoTIFFs and rejects non-georeferenced images."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        sat_dir = os.path.join(tmpdir, "satellite")
+        os.makedirs(sat_dir, exist_ok=True)
+
+        # Create dummy non-georeferenced plain image
+        plain_img_path = os.path.join(sat_dir, "unreferenced_photo.jpg")
+        with open(plain_img_path, "wb") as f:
+            f.write(b"\xFF\xD8\xFF\xE0\x00\x10JFIF" + b"\x00" * 50)
+
+        cfg = {
+            "dataset_id": "test_import",
+            "output_directory": os.path.relpath(tmpdir, PROJECT_ROOT).replace("\\", "/"),
+            "projected_crs": "EPSG:32643"
+        }
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        import yaml
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg, f)
+
+        mod_imp = import_module_from_file("mod_imp_test", "import_external_assets.py")
+        manifest = mod_imp.import_assets(cfg_path)
+
+        assert len(manifest["rejected_files"]) >= 1
+        assert "georeferencing" in manifest["rejected_files"][0]["reason"].lower()
+
+
+def test_transitions_smoke_dataset_schema():
+    """Verify that generated transitions conform strictly to INDRA World Model schema."""
+    try:
+        import pygame
+    except ImportError:
+        pytest.skip("pygame is not installed in current environment; required for IndraEnv transition simulation.")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        meas_dir = os.path.join(tmpdir, "measurements")
+        os.makedirs(meas_dir, exist_ok=True)
+
+        cfg = {
+            "dataset_id": "test_trans",
+            "output_directory": os.path.relpath(tmpdir, PROJECT_ROOT).replace("\\", "/")
+        }
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        import yaml
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg, f)
+
+        mod_trans = import_module_from_file("mod_trans_test", "generate_transitions.py")
+        result = mod_trans.generate_smoke_transitions(
+            config_path=cfg_path,
+            target_transitions=10,
+            max_steps_per_episode=15,
+            policy="random"
+        )
+
+        sidecar = result["dataset_summary"]
+        assert sidecar["total_transitions"] >= 10
+        assert os.path.exists(sidecar["output_npz"])
+
+        required_keys = [
+            "episode_id", "step_index", "timestamp_s", "map_id", "scenario_id", "seed",
+            "state_t", "observation_t", "action_t", "state_t1", "observation_t1", "dt_s",
+            "collision", "terminated", "truncated"
+        ]
+        with np.load(sidecar["output_npz"]) as data:
+            for k in required_keys:
+                assert k in data, f"Missing required transition key: {k}"
+
+
+

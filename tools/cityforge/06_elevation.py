@@ -24,7 +24,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, get_transformers, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, get_transformers, logger
 
 
 def collect_elevation(
@@ -34,15 +34,25 @@ def collect_elevation(
 ) -> Dict[str, Any]:
     """Generate or retrieve terrain DEM GeoTIFF."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     elev_dir = os.path.join(out_dir, "elevation")
+    terr_dir = os.path.join(out_dir, "terrain")
     meta_dir = os.path.join(out_dir, "metadata")
     os.makedirs(elev_dir, exist_ok=True)
+    os.makedirs(terr_dir, exist_ok=True)
     os.makedirs(meta_dir, exist_ok=True)
 
     boundary_file = os.path.join(out_dir, "boundary.geojson")
     if not os.path.exists(boundary_file):
-        raise FileNotFoundError(f"Boundary file not found: {boundary_file}. Run 00_define_area.py first.")
+        boundary_file = os.path.join(out_dir, "boundary", "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        boundary_file = os.path.join(out_dir, "metadata", "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        fallback_bnd = os.path.join(PROJECT_ROOT, "data", "cityforge", cfg.get("dataset_id", "delhi_cp_v1"), "boundary.geojson")
+        if os.path.exists(fallback_bnd):
+            boundary_file = fallback_bnd
+        else:
+            raise FileNotFoundError(f"Boundary file not found in {out_dir}. Run 00_define_area.py first.")
 
     with open(boundary_file, "r", encoding="utf-8") as f:
         boundary_geojson = json.load(f)
@@ -106,6 +116,13 @@ def collect_elevation(
     ) as dst:
         dst.write(elevation_matrix, 1)
         dst.set_band_description(1, "Elevation (Meters above MSL / EGM96)")
+
+    # Copy to terrain/ for standard external dataset layout
+    try:
+        import shutil
+        shutil.copy2(dem_tif_path, os.path.join(terr_dir, "terrain_dem.tif"))
+    except Exception:
+        pass
 
     # Export grid JSON summary
     grid_data = {

@@ -12,8 +12,16 @@ import logging
 from typing import Dict, Any, List, Optional, Tuple
 import yaml
 import requests
-import pyproj
-from shapely.geometry import shape, mapping, Polygon, LineString, Point
+
+try:
+    import pyproj
+except ImportError:
+    pyproj = None
+
+try:
+    from shapely.geometry import shape, mapping, Polygon, LineString, Point
+except ImportError:
+    shape = mapping = Polygon = LineString = Point = None
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("cityforge")
@@ -31,6 +39,51 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     with open(config_path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
     return cfg
+
+
+def resolve_output_dir(cfg: Optional[Dict[str, Any]] = None, project_root: Optional[str] = None) -> str:
+    r"""
+    Resolve dataset directory with multi-tier priority:
+      1. INDRA_DATASET_ROOT environment variable (e.g. D:\INDRA_PROJECT\datasets\<dataset_id>)
+      2. config.yaml 'dataset_root' parameter (if specified and drive/path accessible)
+      3. config.yaml 'output_directory' parameter (default: data/cityforge/<dataset_id>)
+    Ensures safe, non-destructive resolution and creates standard subdirectories.
+    """
+    cfg = cfg or load_config()
+    dataset_id = cfg.get("dataset_id", "delhi_cp_v1")
+    root_env = os.environ.get("INDRA_DATASET_ROOT")
+
+    if root_env:
+        if os.path.basename(os.path.normpath(root_env)) == dataset_id:
+            out_dir = os.path.abspath(root_env)
+        else:
+            out_dir = os.path.join(os.path.abspath(root_env), dataset_id)
+    elif cfg.get("dataset_root"):
+        cand_root = cfg["dataset_root"]
+        if len(cand_root) > 1 and cand_root[1] == ":":
+            drive_prefix = cand_root[:3]
+            if os.path.exists(drive_prefix):
+                out_dir = os.path.join(cand_root, dataset_id)
+            else:
+                base = project_root or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+                out_dir = os.path.join(base, cfg.get("output_directory", f"data/cityforge/{dataset_id}"))
+        else:
+            base = project_root or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+            out_dir = os.path.join(base, cand_root, dataset_id)
+    else:
+        base = project_root or os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        out_dir = os.path.join(base, cfg.get("output_directory", f"data/cityforge/{dataset_id}"))
+
+    out_dir = os.path.normpath(out_dir)
+    subdirs = [
+        "boundary", "osm", "raw", "satellite", "imagery", "terrain", "elevation",
+        "street_photos", "photos", "textures", "measurements", "metadata",
+        "processed", "reports"
+    ]
+    for s in subdirs:
+        os.makedirs(os.path.join(out_dir, s), exist_ok=True)
+
+    return out_dir
 
 
 def get_transformers(geographic_crs: str = "EPSG:4326", projected_crs: str = "EPSG:32643"):

@@ -20,7 +20,9 @@ height_m: 250.0
 geographic_crs: "EPSG:4326"        # WGS84 Geographic Coordinate System (degrees)
 projected_crs: "EPSG:32643"         # WGS 84 / UTM Zone 43N (Metric Cartesian for Delhi)
 
-# Output Directory Structure
+# Output Directory & Dataset Storage
+# Priority: 1. INDRA_DATASET_ROOT env var, 2. dataset_root (if drive D: exists), 3. output_directory
+dataset_root: "D:/INDRA_PROJECT/datasets"
 output_directory: "data/cityforge/delhi_cp_v1"
 
 # Network & Overpass API Settings

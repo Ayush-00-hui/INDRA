@@ -19,7 +19,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config
+from tools.cityforge.osm_client import load_config, resolve_output_dir
 
 
 def compute_sha256(filepath: str) -> str:
@@ -34,17 +34,28 @@ def compute_sha256(filepath: str) -> str:
 def validate_dataset(config_path: str = None) -> Dict[str, Any]:
     """Execute rigorous data quality and geometric validation across all collected layers."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     proc_dir = os.path.join(out_dir, "processed")
     rep_dir = os.path.join(out_dir, "reports")
     os.makedirs(rep_dir, exist_ok=True)
 
+    boundary_path = os.path.join(out_dir, "boundary.geojson")
+    if not os.path.exists(boundary_path):
+        boundary_path = os.path.join(out_dir, "boundary", "boundary.geojson")
+    if not os.path.exists(boundary_path):
+        boundary_path = os.path.join(out_dir, "metadata", "boundary.geojson")
+
+    walkways_path = os.path.join(proc_dir, "footpaths.geojson")
+    if not os.path.exists(walkways_path):
+        walkways_path = os.path.join(proc_dir, "walkways.geojson")
+
     expected_files = {
-        "boundary": os.path.join(out_dir, "boundary.geojson"),
+        "boundary": boundary_path,
         "roads": os.path.join(proc_dir, "roads.geojson"),
         "buildings": os.path.join(proc_dir, "buildings.geojson"),
-        "walkways": os.path.join(proc_dir, "walkways.geojson"),
-        "street_objects": os.path.join(proc_dir, "street_objects.geojson")
+        "footpaths": walkways_path,
+        "street_objects": os.path.join(proc_dir, "street_objects.geojson"),
+        "landuse": os.path.join(proc_dir, "landuse.geojson")
     }
 
     layer_audits: Dict[str, Any] = {}

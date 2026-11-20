@@ -67,34 +67,40 @@ def run_pipeline(
     stage_lower = stage.lower().replace("-", "_")
 
     # 1. Stage Boundary
-    if stage_lower in ("boundary", "all"):
+    if stage_lower in ("boundary", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: BOUNDARY (00_define_area.py)...")
         mod_00 = import_module_from_file("define_area_mod", "00_define_area.py")
         results["boundary"] = mod_00.define_area(config_path)
 
     # 2. Stage Roads
-    if stage_lower in ("roads", "all"):
+    if stage_lower in ("roads", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: ROADS (01_roads.py)...")
         mod_01 = import_module_from_file("roads_mod", "01_roads.py")
         results["roads"] = mod_01.collect_roads(config_path, use_cache=use_cache)
 
     # 3. Stage Buildings
-    if stage_lower in ("buildings", "all"):
+    if stage_lower in ("buildings", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: BUILDINGS (02_buildings.py)...")
         mod_02 = import_module_from_file("buildings_mod", "02_buildings.py")
         results["buildings"] = mod_02.collect_buildings(config_path, use_cache=use_cache)
 
     # 4. Stage Footpaths
-    if stage_lower in ("footpaths", "walkways", "all"):
+    if stage_lower in ("footpaths", "walkways", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: FOOTPATHS (03_footpaths.py)...")
         mod_03 = import_module_from_file("footpaths_mod", "03_footpaths.py")
         results["footpaths"] = mod_03.collect_footpaths(config_path, use_cache=use_cache)
 
     # 5. Stage Street Objects
-    if stage_lower in ("street_objects", "streetobjects", "all"):
+    if stage_lower in ("street_objects", "streetobjects", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: STREET OBJECTS (04_street_objects.py)...")
         mod_04 = import_module_from_file("objects_mod", "04_street_objects.py")
         results["street_objects"] = mod_04.collect_street_objects(config_path, use_cache=use_cache)
+
+    # 5b. Stage Land Use & Green Areas
+    if stage_lower in ("landuse", "greenery", "parks", "all", "vector", "phase_b", "phaseb"):
+        logger.info("Executing Stage: LAND USE & GREEN AREAS (04b_landuse.py)...")
+        mod_04b = import_module_from_file("landuse_mod", "04b_landuse.py")
+        results["landuse"] = mod_04b.collect_landuse(config_path, use_cache=use_cache)
 
     # 6. Stage Aerial Imagery
     if stage_lower in ("imagery", "aerial", "all"):
@@ -126,11 +132,29 @@ def run_pipeline(
         mod_city = import_module_from_file("city3d_mod", "generate_3d_city.py")
         results["city3d"] = mod_city.generate_3d_city_scene(config_path)
 
-    # 11. Stage Validate
-    if stage_lower in ("validate", "all"):
+    # 11. Stage QGIS Project Generation
+    if stage_lower in ("qgis", "all", "vector", "phase_b", "phaseb"):
+        logger.info("Executing Stage: QGIS PROJECT GENERATION (generate_qgis_project.py)...")
+        mod_qgis = import_module_from_file("qgis_mod", "generate_qgis_project.py")
+        results["qgis"] = mod_qgis.create_qgis_project(config_path)
+
+    # 12. Stage Validate
+    if stage_lower in ("validate", "all", "vector", "phase_b", "phaseb"):
         logger.info("Executing Stage: VALIDATE (validate_data.py)...")
         mod_val = import_module_from_file("validate_mod", "validate_data.py")
         results["validate"] = mod_val.validate_dataset(config_path)
+
+    # 13. Stage Import External Assets
+    if stage_lower in ("import", "ingest", "assets"):
+        logger.info("Executing Stage: IMPORT EXTERNAL ASSETS (import_external_assets.py)...")
+        mod_imp = import_module_from_file("import_mod", "import_external_assets.py")
+        results["import"] = mod_imp.import_assets(config_path)
+
+    # 14. Stage Transitions Smoke Dataset
+    if stage_lower in ("transitions", "smoke_data", "datagen"):
+        logger.info("Executing Stage: SIMULATION VALIDATION & TRANSITIONS (generate_transitions.py)...")
+        mod_trans = import_module_from_file("trans_mod", "generate_transitions.py")
+        results["transitions"] = mod_trans.generate_smoke_transitions(config_path)
 
     print("\n" + "=" * 70)
     print(" [pipeline] PIPELINE EXECUTION COMPLETED")
@@ -167,7 +191,7 @@ Examples:
     )
     parser.add_argument(
         "--stage",
-        choices=["boundary", "roads", "buildings", "footpaths", "street-objects", "imagery", "elevation", "photos", "textures", "validate", "all"],
+        choices=["boundary", "roads", "buildings", "footpaths", "street-objects", "landuse", "imagery", "elevation", "photos", "textures", "city3d", "qgis", "import", "transitions", "validate", "vector", "phase_b", "all"],
         default="all",
         help="Pipeline stage to execute (default: all)"
     )

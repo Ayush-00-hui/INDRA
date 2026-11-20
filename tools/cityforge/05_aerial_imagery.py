@@ -27,7 +27,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, get_transformers, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, get_transformers, logger
 
 
 def collect_aerial_imagery(
@@ -37,10 +37,12 @@ def collect_aerial_imagery(
 ) -> Dict[str, Any]:
     """Generate or retrieve georeferenced aerial orthoimagery GeoTIFF."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     img_dir = os.path.join(out_dir, "imagery")
+    sat_dir = os.path.join(out_dir, "satellite")
     meta_dir = os.path.join(out_dir, "metadata")
     os.makedirs(img_dir, exist_ok=True)
+    os.makedirs(sat_dir, exist_ok=True)
     os.makedirs(meta_dir, exist_ok=True)
 
     boundary_file = os.path.join(out_dir, "boundary.geojson")
@@ -135,6 +137,13 @@ def collect_aerial_imagery(
         dst.set_band_description(1, "Red")
         dst.set_band_description(2, "Green")
         dst.set_band_description(3, "Blue")
+
+    # Copy to satellite/ for standard external dataset layout
+    try:
+        import shutil
+        shutil.copy2(geotiff_path, os.path.join(sat_dir, "city_aerial.tif"))
+    except Exception:
+        pass
 
     metadata = {
         "dataset_id": cfg.get("dataset_id", "delhi_cp_v1"),

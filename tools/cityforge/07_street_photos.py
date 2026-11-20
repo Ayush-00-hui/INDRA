@@ -19,7 +19,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, logger
 
 
 def discover_street_photos(
@@ -30,10 +30,12 @@ def discover_street_photos(
 ) -> Dict[str, Any]:
     """Discover georeferenced public street and landmark photos in the pilot extent."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     photo_dir = os.path.join(out_dir, "photos")
+    street_photo_dir = os.path.join(out_dir, "street_photos")
     raw_dir = os.path.join(out_dir, "raw")
     os.makedirs(photo_dir, exist_ok=True)
+    os.makedirs(street_photo_dir, exist_ok=True)
     os.makedirs(raw_dir, exist_ok=True)
 
     center_lat = float(cfg["center_lat"])
@@ -199,6 +201,14 @@ def discover_street_photos(
 
     with open(meta_path, "w", encoding="utf-8") as f:
         json.dump(summary_meta, f, indent=2)
+
+    # Copy index and metadata to street_photos/ for external layout
+    try:
+        import shutil
+        shutil.copy2(csv_path, os.path.join(street_photo_dir, "photo_index.csv"))
+        shutil.copy2(meta_path, os.path.join(street_photo_dir, "photo_metadata.json"))
+    except Exception:
+        pass
 
     print("\n" + "=" * 65)
     print(" [07_street_photos] STREET PHOTO INVENTORY COMPILED")

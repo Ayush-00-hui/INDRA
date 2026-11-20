@@ -28,7 +28,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, "..", ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from tools.cityforge.osm_client import load_config, get_transformers, logger
+from tools.cityforge.osm_client import load_config, resolve_output_dir, get_transformers, logger
 
 
 def utm_to_sim_coords(easting: float, northing: float, center_east: float, center_north: float) -> Tuple[float, float]:
@@ -66,7 +66,7 @@ def get_road_width(highway_type: str, lane_count: Optional[int] = None, width_m:
 def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
     """Compile geographic datasets and DEM elevation into a complete 3D procedural city scene."""
     cfg = load_config(config_path)
-    out_dir = os.path.join(PROJECT_ROOT, cfg.get("output_directory", "data/cityforge/delhi_cp_v1"))
+    out_dir = resolve_output_dir(cfg, PROJECT_ROOT)
     proc_dir = os.path.join(out_dir, "processed")
     elev_dir = os.path.join(out_dir, "elevation")
     rep_dir = os.path.join(out_dir, "reports")
@@ -74,11 +74,21 @@ def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
     os.makedirs(rep_dir, exist_ok=True)
 
     boundary_file = os.path.join(out_dir, "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        boundary_file = os.path.join(out_dir, "boundary", "boundary.geojson")
+    if not os.path.exists(boundary_file):
+        boundary_file = os.path.join(out_dir, "metadata", "boundary.geojson")
+
     roads_file = os.path.join(proc_dir, "roads.geojson")
     buildings_file = os.path.join(proc_dir, "buildings.geojson")
-    walkways_file = os.path.join(proc_dir, "walkways.geojson")
+    walkways_file = os.path.join(proc_dir, "footpaths.geojson")
+    if not os.path.exists(walkways_file):
+        walkways_file = os.path.join(proc_dir, "walkways.geojson")
     street_objects_file = os.path.join(proc_dir, "street_objects.geojson")
     dem_file = os.path.join(elev_dir, "terrain_dem.tif")
+    if not os.path.exists(dem_file):
+        dem_file = os.path.join(out_dir, "terrain", "terrain_dem.tif")
+    landuse_file = os.path.join(proc_dir, "landuse.geojson")
 
     for req_f in (boundary_file, roads_file, buildings_file, walkways_file, street_objects_file):
         if not os.path.exists(req_f):
@@ -224,6 +234,7 @@ def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
             bldg_d = round(maxy - miny, 2)
             bounding_radius = round(math.hypot(bldg_w / 2.0, bldg_d / 2.0), 2)
 
+            has_measured_height = (props.get("height_m") is not None)
             levels = props.get("levels") or 4
             bldg_height_m = props.get("height_m") or round(float(levels) * 3.4, 1)
 
@@ -238,6 +249,9 @@ def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
                 "name": props.get("name") or shop_name or f"Block {chr(65 + (idx % 12))}",
                 "levels": levels,
                 "height_m": bldg_height_m,
+                "measured_height_m": props.get("height_m"),
+                "is_synthetic_height": not has_measured_height,
+                "height_provenance": "measured_osm" if has_measured_height else "synthetic_assumption_3.4m_per_level",
                 "center": [cx, cy],
                 "dimensions": [bldg_w, bldg_d],
                 "bounding_radius": bounding_radius,
@@ -364,6 +378,34 @@ def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
                 "collision_radius": col_radius
             })
 
+    # 6b. Process Land-use / Green Areas
+    landuse_3d = []
+    if os.path.exists(landuse_file):
+        with open(landuse_file, "r", encoding="utf-8") as f:
+            lu_data = json.load(f)
+        for lu_feat in lu_data.get("features", []):
+            lu_props = lu_feat.get("properties", {})
+            lu_geom = lu_feat.get("geometry", {})
+            lu_type = lu_geom.get("type", "")
+            lu_coords = lu_geom.get("coordinates", [])
+
+            l_polys = [lu_coords] if lu_type == "Polygon" else (lu_coords if lu_type == "MultiPolygon" else [])
+            for p_c in l_polys:
+                ext = p_c[0]
+                s_ring = []
+                for lon, lat in ext:
+                    ue, un = wgs84_to_utm.transform(lon, lat)
+                    sx, sy = utm_to_sim_coords(ue, un, center_e, center_n)
+                    s_ring.append([sx, sy])
+                if len(s_ring) >= 3:
+                    landuse_3d.append({
+                        "landuse_id": lu_props.get("landuse_id"),
+                        "category": lu_props.get("category"),
+                        "name": lu_props.get("name"),
+                        "area_m2": lu_props.get("area_m2"),
+                        "polygon": s_ring
+                    })
+
     # 7. Identify Safe Robot Start and Goal Locations on Real Roads
     # Find a long drivable road segment near periphery for start, and another near center for goal
     robot_start = (-30.0, -15.0, 0.0)
@@ -419,6 +461,7 @@ def generate_3d_city_scene(config_path: str = None) -> Dict[str, Any]:
         "zebra_crossings": zebra_crossings_3d,
         "street_objects": street_objects_3d,
         "impassable_stairs": stair_hazards_3d,
+        "landuse_areas": landuse_3d,
         "collision_obstacles": collision_polygons
     }
 
