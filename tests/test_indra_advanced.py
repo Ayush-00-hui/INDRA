@@ -24,9 +24,9 @@ from indra.model.train_world_model import IndraNeuralWorldModel
 
 
 def test_scenario_registry_all_10():
-    """Verify that all 10 scenarios instantiate properly with valid definitions."""
+    """Verify that all scenarios instantiate properly with valid definitions."""
     scenarios = ScenarioRegistry.list_all_scenarios()
-    assert len(scenarios) == 10
+    assert len(scenarios) >= 10
 
     for sc_meta in scenarios:
         sc_id = sc_meta["id"]

@@ -24,7 +24,8 @@ SCENARIOS = {
             {"id": 7, "name": "Scenario 7: Moving Motorcycle Cut-in", "type": "dynamic_cutin"},
             {"id": 8, "name": "Scenario 8: Road Construction & Barricades", "type": "construction"},
             {"id": 9, "name": "Scenario 9: Dead-End Recovery Maneuver", "type": "recovery"},
-            {"id": 10, "name": "Scenario 10: Dense Traffic Gridlock", "type": "gridlock"}
+            {"id": 10, "name": "Scenario 10: Dense Traffic Gridlock", "type": "gridlock"},
+            {"id": 11, "name": "Scenario 11: Connaught Place Real-World Pilot (CityForge)", "type": "real_world_district"}
         ],
         "default_variant": 1,
         "model_paths": ["models/indra_model.pt", "models/robot_student.pt"],

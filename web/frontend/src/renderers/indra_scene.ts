@@ -36,6 +36,9 @@ export class IndraScene {
 
   // Environment Meshes
   private roadGroup: THREE.Group;
+  private city3dGroup: THREE.Group | null = null;
+  private isCity3dMode: boolean = false;
+  private currentScenarioCode: string = "";
   private actorsGroup: THREE.Group;
   private hazardsGroup: THREE.Group;
   private actorMeshes: Map<string, THREE.Object3D> = new Map();
@@ -93,7 +96,7 @@ export class IndraScene {
     this.scene.fog = new THREE.FogExp2(0x0c1017, 0.015);
 
     const aspect = container.clientWidth / (container.clientHeight || 1);
-    this.camera = new THREE.PerspectiveCamera(48, aspect, 0.1, 300);
+    this.camera = new THREE.PerspectiveCamera(48, aspect, 0.1, 600);
     this.camera.position.set(-16, 9.5, 3.2);
     this.camera.lookAt(14, 0.8, 0);
 
@@ -1096,6 +1099,340 @@ export class IndraScene {
     }
   }
 
+  private createStairsHazardMesh(radius: number = 1.4): THREE.Object3D {
+    const group = new THREE.Group();
+    const numSteps = 5;
+    const stepW = radius * 1.8;
+    const stepD = 0.35;
+    const stepH = 0.16;
+    const concreteMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+    for (let i = 0; i < numSteps; i++) {
+      const step = new THREE.Mesh(new THREE.BoxGeometry(stepW, stepH, stepD), concreteMat);
+      step.position.set(0, (i + 0.5) * stepH, (i - numSteps / 2) * stepD);
+      step.castShadow = true;
+      step.receiveShadow = true;
+      group.add(step);
+
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(stepW, 0.02, 0.05), stripeMat);
+      strip.position.set(0, (i + 1) * stepH + 0.01, (i - numSteps / 2) * stepD + stepD / 2 - 0.025);
+      group.add(strip);
+    }
+
+    const post = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 1.1, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b })
+    );
+    post.position.set(stepW / 2 + 0.15, 0.55, 0);
+    group.add(post);
+
+    const beacon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 10, 10),
+      new THREE.MeshBasicMaterial({ color: 0xef4444 })
+    );
+    beacon.position.set(stepW / 2 + 0.15, 1.15, 0);
+    group.add(beacon);
+
+    return group;
+  }
+
+  private createTreeMesh(): THREE.Object3D {
+    const tree = new THREE.Group();
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.32, 2.8, 8),
+      new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 })
+    );
+    trunk.position.y = 1.4;
+    trunk.castShadow = true;
+    tree.add(trunk);
+
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.85 });
+    const leaf1 = new THREE.Mesh(new THREE.SphereGeometry(1.5, 8, 8), leafMat);
+    leaf1.position.set(0, 3.4, 0);
+    leaf1.castShadow = true;
+    tree.add(leaf1);
+
+    const leaf2 = new THREE.Mesh(new THREE.SphereGeometry(1.1, 8, 8), leafMat);
+    leaf2.position.set(0.7, 3.8, 0.5);
+    tree.add(leaf2);
+
+    const leaf3 = new THREE.Mesh(new THREE.SphereGeometry(1.0, 8, 8), leafMat);
+    leaf3.position.set(-0.6, 3.6, -0.4);
+    tree.add(leaf3);
+
+    return tree;
+  }
+
+  private createTrafficSignalMesh(): THREE.Object3D {
+    const signal = new THREE.Group();
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.10, 4.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5, metalness: 0.7 })
+    );
+    pole.position.y = 2.1;
+    signal.add(pole);
+
+    const box = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 0.95, 0.30),
+      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.6 })
+    );
+    box.position.set(0, 3.7, 0.1);
+    signal.add(box);
+
+    const redLens = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
+    redLens.position.set(0, 4.0, 0.25);
+    signal.add(redLens);
+
+    const amberLens = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0xf59e0b }));
+    amberLens.position.set(0, 3.7, 0.25);
+    signal.add(amberLens);
+
+    const greenLens = new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+    greenLens.position.set(0, 3.4, 0.25);
+    signal.add(greenLens);
+
+    return signal;
+  }
+
+  private createStreetLampMesh(): THREE.Object3D {
+    const lamp = new THREE.Group();
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.09, 4.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.4 })
+    );
+    pole.position.y = 2.25;
+    lamp.add(pole);
+
+    const lantern = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.20, 0.12, 0.4, 6),
+      new THREE.MeshBasicMaterial({ color: 0xffedd5 })
+    );
+    lantern.position.set(0, 4.5, 0);
+    lamp.add(lantern);
+
+    return lamp;
+  }
+
+  private createBenchMesh(): THREE.Object3D {
+    const bench = new THREE.Group();
+    const seat = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.08, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 })
+    );
+    seat.position.y = 0.45;
+    bench.add(seat);
+
+    const back = new THREE.Mesh(
+      new THREE.BoxGeometry(1.6, 0.45, 0.08),
+      new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.7 })
+    );
+    back.position.set(0, 0.75, -0.22);
+    bench.add(back);
+
+    const legGeo = new THREE.BoxGeometry(0.08, 0.45, 0.50);
+    const legMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9 });
+    const legL = new THREE.Mesh(legGeo, legMat);
+    legL.position.set(0.65, 0.22, 0);
+    bench.add(legL);
+
+    const legR = new THREE.Mesh(legGeo, legMat);
+    legR.position.set(-0.65, 0.22, 0);
+    bench.add(legR);
+
+    return bench;
+  }
+
+  private buildCity3dEnvironment(sceneData: any) {
+    if (this.city3dGroup) {
+      this.scene.remove(this.city3dGroup);
+      this.city3dGroup = null;
+    }
+
+    const cityGroup = new THREE.Group();
+    cityGroup.name = "CityForge_ConnaughtPlace";
+
+    const width = sceneData?.metadata?.metric_dimensions_m?.[0] || 250;
+    const height = sceneData?.metadata?.metric_dimensions_m?.[1] || 250;
+
+    // 1. Terrain Ground Plane
+    const groundGeo = new THREE.PlaneGeometry(width + 20, height + 20, 16, 16);
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x1c232d, roughness: 0.9, metalness: 0.05 });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set(0, -0.05, 0);
+    ground.receiveShadow = true;
+    cityGroup.add(ground);
+
+    // Central Park Greenery Lawn Circle at center (r = 45m)
+    const parkCircle = new THREE.Mesh(
+      new THREE.CircleGeometry(46, 36),
+      new THREE.MeshStandardMaterial({ color: 0x1e3a1e, roughness: 0.92 })
+    );
+    parkCircle.rotation.x = -Math.PI / 2;
+    parkCircle.position.set(0, -0.03, 0);
+    parkCircle.receiveShadow = true;
+    cityGroup.add(parkCircle);
+
+    // Central Indian Flagmast in Rajiv Chowk Central Park
+    const flagPole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.15, 0.25, 24.0, 12),
+      new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.9, roughness: 0.2 })
+    );
+    flagPole.position.set(0, 12.0, 0);
+    cityGroup.add(flagPole);
+
+    // 2. Extruded 3D Building Blocks (Connaught Place Colonnades)
+    const buildings = sceneData?.buildings || [];
+    for (const bldg of buildings) {
+      const poly = bldg.polygon;
+      if (!poly || poly.length < 3) continue;
+
+      try {
+        const shape = new THREE.Shape();
+        shape.moveTo(poly[0][0], poly[0][1]);
+        for (let i = 1; i < poly.length; i++) {
+          shape.lineTo(poly[i][0], poly[i][1]);
+        }
+        shape.closePath();
+
+        const bldgH = bldg.height_m || 12.0;
+        const extrudeSettings = {
+          depth: bldgH,
+          bevelEnabled: true,
+          bevelSegments: 1,
+          bevelSize: 0.10,
+          bevelThickness: 0.15
+        };
+        const geom = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+        const wallColor = bldg.wall_color || 0xf8fafc;
+        const bldgMat = new THREE.MeshStandardMaterial({ color: wallColor, roughness: 0.75, metalness: 0.1 });
+        const mesh = new THREE.Mesh(geom, bldgMat);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.y = 0;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        cityGroup.add(mesh);
+
+        // Add CP Colonnade Veranda Pillars along building edges if CP block
+        if (bldg.has_colonnade && bldg.center) {
+          const pillarGeo = new THREE.CylinderGeometry(0.25, 0.28, 3.8, 10);
+          const pillarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 });
+          for (let pIdx = 0; pIdx < Math.min(6, poly.length - 1); pIdx++) {
+            const p1 = poly[pIdx];
+            const p2 = poly[pIdx + 1];
+            const px = (p1[0] + p2[0]) / 2;
+            const pz = (p1[1] + p2[1]) / 2;
+            const pillar = new THREE.Mesh(pillarGeo, pillarMat);
+            pillar.position.set(px, 1.9, pz);
+            pillar.castShadow = true;
+            cityGroup.add(pillar);
+          }
+        }
+
+        // Sintex water tanks on flat roofs
+        const numTanks = bldg.num_water_tanks || 1;
+        const tankGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.9, 10);
+        const tankMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.2 });
+        for (let t = 0; t < numTanks; t++) {
+          const tank = new THREE.Mesh(tankGeo, tankMat);
+          const offset = (t - (numTanks - 1) / 2) * 1.5;
+          tank.position.set(bldg.center[0] + offset, bldgH + 0.45, bldg.center[1]);
+          tank.castShadow = true;
+          cityGroup.add(tank);
+        }
+      } catch (err) {
+        // Fallback for complex self-intersecting polygon
+        const boxGeo = new THREE.BoxGeometry(
+          bldg.dimensions?.[0] || 10,
+          bldg.height_m || 12,
+          bldg.dimensions?.[1] || 10
+        );
+        const boxMat = new THREE.MeshStandardMaterial({ color: bldg.wall_color || 0xf8fafc, roughness: 0.8 });
+        const boxMesh = new THREE.Mesh(boxGeo, boxMat);
+        boxMesh.position.set(bldg.center[0], (bldg.height_m || 12) / 2, bldg.center[1]);
+        boxMesh.castShadow = true;
+        boxMesh.receiveShadow = true;
+        cityGroup.add(boxMesh);
+      }
+    }
+
+    // 3. Road Corridors and Circular Roadways
+    const roads = sceneData?.roads || [];
+    const roadMat = new THREE.MeshStandardMaterial({ color: 0x181c22, roughness: 0.85, metalness: 0.1 });
+    const yellowMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+
+    for (const rd of roads) {
+      const pts = rd.points;
+      if (!pts || pts.length < 2) continue;
+
+      const widthM = rd.width_m || 6.5;
+
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const dx = p2[0] - p1[0];
+        const dz = p2[1] - p1[1];
+        const segLen = Math.hypot(dx, dz);
+        if (segLen < 0.2) continue;
+
+        const mx = (p1[0] + p2[0]) / 2;
+        const mz = (p1[1] + p2[1]) / 2;
+        const angle = Math.atan2(dz, dx);
+
+        const stripGeo = new THREE.PlaneGeometry(segLen, widthM);
+        const strip = new THREE.Mesh(stripGeo, roadMat);
+        strip.rotation.x = -Math.PI / 2;
+        strip.rotation.z = -angle;
+        strip.position.set(mx, 0.005, mz);
+        strip.receiveShadow = true;
+        cityGroup.add(strip);
+
+        if (rd.has_divider) {
+          const divGeo = new THREE.PlaneGeometry(segLen, 0.14);
+          const div = new THREE.Mesh(divGeo, yellowMat);
+          div.rotation.x = -Math.PI / 2;
+          div.rotation.z = -angle;
+          div.position.set(mx, 0.01, mz);
+          cityGroup.add(div);
+        }
+      }
+    }
+
+    // 4. Zebra Crossings
+    const crossings = sceneData?.zebra_crossings || [];
+    const whiteMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+    for (const zc of crossings) {
+      const zMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 1.8), whiteMat);
+      zMesh.rotation.x = -Math.PI / 2;
+      zMesh.position.set(zc.x, 0.012, zc.y);
+      cityGroup.add(zMesh);
+    }
+
+    // 5. Street Objects from Survey
+    const streetObjs = sceneData?.street_objects || [];
+    for (const sobj of streetObjs) {
+      let oMesh: THREE.Object3D;
+      if (sobj.category === "vegetation") {
+        oMesh = this.createTreeMesh();
+      } else if (sobj.category === "traffic_control") {
+        oMesh = this.createTrafficSignalMesh();
+      } else if (sobj.subclass === "street_lamp") {
+        oMesh = this.createStreetLampMesh();
+      } else if (sobj.subclass === "bench") {
+        oMesh = this.createBenchMesh();
+      } else {
+        oMesh = this.createTreeMesh();
+      }
+      oMesh.position.set(sobj.x, 0, sobj.y);
+      cityGroup.add(oMesh);
+    }
+
+    this.scene.add(cityGroup);
+    this.city3dGroup = cityGroup;
+    this.isCity3dMode = true;
+  }
+
   private setupInteractivity() {
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
@@ -1121,6 +1458,24 @@ export class IndraScene {
   /** Update Scene from Universal RenderState frame. */
   public update(state: any) {
     if (!state) return;
+
+    // Synchronize scenario environment layout
+    const scenarioCode = state.layout?.scenario_code || state.layout?.layout?.scenario_code;
+    const city3dData = state.layout?.city_3d_scene || state.layout?.layout?.city_3d_scene;
+
+    if (scenarioCode && scenarioCode !== this.currentScenarioCode) {
+      this.currentScenarioCode = scenarioCode;
+      if (scenarioCode === "connaught_place_pilot" || city3dData !== undefined) {
+        this.roadGroup.visible = false;
+        this.buildCity3dEnvironment(city3dData);
+      } else {
+        this.roadGroup.visible = true;
+        if (this.city3dGroup) {
+          this.city3dGroup.visible = false;
+        }
+        this.isCity3dMode = false;
+      }
+    }
 
     // 1. Update Autonomous Robot Position & Orientation
     const robotEntity = state.entities?.find((e: any) => e.kind === "robot");
@@ -1226,6 +1581,18 @@ export class IndraScene {
           mesh = this.createStrayDogMesh();
         } else if (ent.kind === "vendor_cart") {
           mesh = this.createVendorCartMesh();
+        } else if (ent.kind === "impassable_stairs") {
+          mesh = this.createStairsHazardMesh(ent.r || 1.4);
+        } else if (ent.kind === "street_obj_tree") {
+          mesh = this.createTreeMesh();
+        } else if (ent.kind === "street_obj_traffic_signal") {
+          mesh = this.createTrafficSignalMesh();
+        } else if (ent.kind === "street_obj_street_lamp") {
+          mesh = this.createStreetLampMesh();
+        } else if (ent.kind === "street_obj_bench") {
+          mesh = this.createBenchMesh();
+        } else if (ent.kind.startsWith("street_obj_")) {
+          mesh = this.createTreeMesh();
         } else if (ent.kind === "pothole" || ent.kind === "waterlogging" || ent.kind === "barricade" || ent.kind === "barrier") {
           mesh = this.createHazardMesh(ent.kind, ent.r || 0.8);
         } else {
@@ -1270,6 +1637,9 @@ export class IndraScene {
       } else if (this.cameraMode === "topdown") {
         this.camera.position.set(robotEntity.x, 32, robotEntity.y);
         this.camera.lookAt(robotEntity.x, 0, robotEntity.y);
+      } else if (this.cameraMode === "overview" && this.isCity3dMode) {
+        this.camera.position.lerp(new THREE.Vector3(0, 135, 145), 0.05);
+        this.camera.lookAt(0, 0, 0);
       }
     }
   }
