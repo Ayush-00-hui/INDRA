@@ -121,6 +121,11 @@ def define_area(config_path: str = None) -> Dict[str, Any]:
     with open(boundary_geojson_path, "w", encoding="utf-8") as f:
         json.dump(geojson_doc, f, indent=2)
 
+    # Also save in metadata/ for strict hierarchical schema compliance
+    meta_boundary_path = os.path.join(meta_dir, "boundary.geojson")
+    with open(meta_boundary_path, "w", encoding="utf-8") as f:
+        json.dump(geojson_doc, f, indent=2)
+
     metadata_path = os.path.join(meta_dir, "boundary_metadata.json")
     metadata_doc = {
         "dataset_id": cfg.get("dataset_id", "delhi_cp_v1"),

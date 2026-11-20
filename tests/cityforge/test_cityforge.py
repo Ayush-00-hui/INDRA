@@ -450,3 +450,35 @@ def test_textures_pbr_manifest():
         assert os.path.exists(first_mat["normal_file"])
         assert os.path.exists(first_mat["roughness_file"])
 
+
+def test_qgis_project_generation():
+    """Verify that generate_qgis_project.py creates valid .qgs XML and .qgz archive."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        proc_dir = os.path.join(tmpdir, "processed")
+        os.makedirs(proc_dir, exist_ok=True)
+
+        # Create dummy geojson files
+        dummy_feat = {"type": "FeatureCollection", "features": []}
+        for name in ["roads.geojson", "buildings.geojson", "walkways.geojson", "street_objects.geojson"]:
+            with open(os.path.join(proc_dir, name), "w") as f:
+                json.dump(dummy_feat, f)
+        with open(os.path.join(tmpdir, "boundary.geojson"), "w") as f:
+            json.dump(dummy_feat, f)
+
+        cfg = {
+            "dataset_id": "test_qgis",
+            "output_directory": os.path.relpath(tmpdir, PROJECT_ROOT).replace("\\", "/")
+        }
+        cfg_path = os.path.join(tmpdir, "config.yaml")
+        import yaml
+        with open(cfg_path, "w") as f:
+            yaml.dump(cfg, f)
+
+        mod_qgis = import_module_from_file("mod_qgis_test", "generate_qgis_project.py")
+        qgz_path = mod_qgis.create_qgis_project(cfg_path)
+
+        assert os.path.exists(qgz_path)
+        assert qgz_path.endswith(".qgz")
+        assert os.path.exists(os.path.join(tmpdir, "test_qgis.qgs"))
+
+

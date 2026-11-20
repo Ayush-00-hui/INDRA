@@ -39,8 +39,12 @@ def validate_dataset(config_path: str = None) -> Dict[str, Any]:
     rep_dir = os.path.join(out_dir, "reports")
     os.makedirs(rep_dir, exist_ok=True)
 
+    boundary_path = os.path.join(out_dir, "boundary.geojson")
+    if not os.path.exists(boundary_path):
+        boundary_path = os.path.join(out_dir, "metadata", "boundary.geojson")
+
     expected_files = {
-        "boundary": os.path.join(out_dir, "boundary.geojson"),
+        "boundary": boundary_path,
         "roads": os.path.join(proc_dir, "roads.geojson"),
         "buildings": os.path.join(proc_dir, "buildings.geojson"),
         "walkways": os.path.join(proc_dir, "walkways.geojson"),

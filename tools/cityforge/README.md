@@ -32,6 +32,7 @@ tools/cityforge/
 ├── 07_street_photos.py       <- Discovers georeferenced public street photos (Wikimedia Commons CC)
 ├── 08_textures.py            <- Synthesizes 17 PBR materials (51 diffuse/normal/roughness maps)
 ├── generate_3d_city.py       <- Compiles 250m x 250m vector, DEM & PBR data into city_3d_scene.json
+├── generate_qgis_project.py  <- Generates self-contained QGIS project (.qgs / .qgz) for desktop GIS inspection
 ├── validate_data.py          <- Audits geometry validity, CRS consistency, raster & texture assets
 ├── pipeline.py               <- Unified CLI runner (--stage, --dry-run, caching)
 ├── requirements.txt          <- Minimal dependencies (pyproj, shapely, rasterio, pillow, requests, pyyaml)
@@ -98,14 +99,22 @@ python tools/cityforge/08_textures.py
 # Stage 9: Generate 3D procedural city scene (buildings, roads, colonnades, stairs)
 python tools/cityforge/generate_3d_city.py
 
-# Stage 10: Run data quality and geometry validation
+# Stage 10: Generate QGIS project file (instant GIS visualization in EPSG:32643)
+python tools/cityforge/generate_qgis_project.py
+
+# Stage 11: Run data quality and geometry validation
 python tools/cityforge/validate_data.py
 ```
 
 ### 3. All-in-One Execution via Pipeline CLI
 ```powershell
 python tools/cityforge/pipeline.py --stage all
+# Or specifically execute vector stages + validation:
+python tools/cityforge/pipeline.py --stage vector
 ```
+
+### 4. Direct Visualization in QGIS Desktop
+The pipeline automatically generates `delhi_cp_v1.qgz` (and `.qgs`). Double-click `data/cityforge/delhi_cp_v1/delhi_cp_v1.qgz` to instantly open all vector layers in QGIS 3.34+ LTR with pre-configured color schemes and EPSG:32643 metric projection!
 
 ---
 
